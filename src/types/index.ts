@@ -125,4 +125,30 @@ export interface Hotel {
   organizationId: string;
   name: string;
   createdAt: string;
+  connectionStatus?: 'connected' | 'disconnected'; // UI property for hotel management status
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  roleId?: string;     // Primary role ID
+  roleName?: string;   // Primary role name
+  hotelIds?: string[];  // List of hotel IDs the user has access to
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface IntegrationSetting {
+  id: string; // 'google_business' | 'whatsapp' | 'n8n' | 'supabase'
+  name: string;
+  status: 'connected' | 'disconnected' | 'error';
+  updatedAt: string;
 }

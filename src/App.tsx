@@ -9,6 +9,7 @@ import WhatsApp from '@/pages/WhatsApp';
 import Settings from '@/pages/Settings';
 import Tasks from '@/pages/Tasks';
 import Login from '@/pages/Login';
+import Admin from '@/pages/Admin';
 import { AuthProvider, AuthGuard } from '@/components/AuthGuard';
 
 // Environment flag (VITE_AUTH_ENABLED) controls authentication flow
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/admin" element={<Admin />} />
           </Route>
         </Routes>
       </BrowserRouter>
@@ -94,6 +96,14 @@ export default function App() {
               element={
                 <AuthGuard requiredPermission="view:settings">
                   <Settings />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AuthGuard requiredPermission="view:settings">
+                  <Admin />
                 </AuthGuard>
               }
             />

@@ -13,6 +13,7 @@ const resources = {
         analytics: 'Analytics',
         whatsapp: 'WhatsApp',
         settings: 'Settings',
+        admin: 'Admin Panel',
         logout: 'Sign Out'
       },
       dashboard: {
@@ -68,6 +69,7 @@ const resources = {
         analytics: 'Analitik',
         whatsapp: 'WhatsApp',
         settings: 'Ayarlar',
+        admin: 'Yönetici Paneli',
         logout: 'Çıkış Yap'
       },
       dashboard: {
@@ -123,6 +125,7 @@ const resources = {
         analytics: 'Аналитика',
         whatsapp: 'WhatsApp',
         settings: 'Настройки',
+        admin: 'Панель администратора',
         logout: 'Выйти'
       },
       dashboard: {

@@ -26,5 +26,21 @@ export const organizationRepository = {
       name: item.name,
       createdAt: item.created_at || item.createdAt
     }));
+  },
+
+  async editOrganizationName(id: string, name: string): Promise<Organization> {
+    const { data, error } = await supabase
+      .from('organizations')
+      .update({ name })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.name,
+      createdAt: data.created_at
+    };
   }
 };

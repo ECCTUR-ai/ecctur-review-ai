@@ -18,19 +18,22 @@ export const hotelRepository = {
             id: '00c00000-0000-0000-0000-000000000001',
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
             name: 'ECCTUR Demo Hotel',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            connectionStatus: 'connected'
           },
           {
             id: '00c00000-0000-0000-0000-000000000002',
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
             name: 'Montana 2543',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            connectionStatus: 'connected'
           },
           {
             id: '00c00000-0000-0000-0000-000000000003',
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
             name: 'Fahri Heritage Hotel',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            connectionStatus: 'connected'
           }
         ];
       }
@@ -43,19 +46,22 @@ export const hotelRepository = {
           id: '00c00000-0000-0000-0000-000000000001',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'ECCTUR Demo Hotel',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          connectionStatus: 'connected'
         },
         {
           id: '00c00000-0000-0000-0000-000000000002',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'Montana 2543',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          connectionStatus: 'connected'
         },
         {
           id: '00c00000-0000-0000-0000-000000000003',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'Fahri Heritage Hotel',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          connectionStatus: 'connected'
         }
       ];
     }
@@ -64,7 +70,49 @@ export const hotelRepository = {
       id: item.id,
       organizationId: item.organization_id || item.organizationId,
       name: item.name,
-      createdAt: item.created_at || item.createdAt
+      createdAt: item.created_at || item.createdAt,
+      connectionStatus: 'connected' // Hardcoded connection status for live Supabase hotels
     }));
+  },
+
+  async addHotel(hotel: { name: string; organizationId: string }): Promise<Hotel> {
+    const { data, error } = await supabase
+      .from('hotels')
+      .insert({
+        name: hotel.name,
+        organization_id: hotel.organizationId
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      name: data.name,
+      createdAt: data.created_at,
+      connectionStatus: 'connected'
+    };
+  },
+
+  async editHotel(id: string, hotel: { name: string; organizationId: string }): Promise<Hotel> {
+    const { data, error } = await supabase
+      .from('hotels')
+      .update({
+        name: hotel.name,
+        organization_id: hotel.organizationId
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      name: data.name,
+      createdAt: data.created_at,
+      connectionStatus: 'connected'
+    };
   }
 };
