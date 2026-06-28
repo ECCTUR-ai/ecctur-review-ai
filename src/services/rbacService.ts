@@ -1,3 +1,4 @@
+// src/services/rbacService.ts
 import { supabase } from '@/lib/supabase';
 
 export interface UserRoleInfo {
@@ -7,10 +8,11 @@ export interface UserRoleInfo {
 
 export const rbacService = {
   async getUserRoleAndPermissions(userId: string): Promise<UserRoleInfo> {
+    // query by profile_id instead of user_id to match db schema
     const { data: userRolesData, error: rError } = await supabase
       .from('user_roles')
       .select('roles(name)')
-      .eq('user_id', userId);
+      .eq('profile_id', userId);
 
     if (rError) {
       console.warn('Could not load user roles from database, falling back to staff:', rError.message);
@@ -21,9 +23,10 @@ export const rbacService = {
     }
 
     const roleName = (userRolesData as any)?.[0]?.roles?.name || 'staff';
+    const roleNameLower = roleName.toLowerCase();
 
     let permissions: string[] = [];
-    if (roleName === 'admin') {
+    if (roleNameLower === 'admin' || roleNameLower === 'super admin') {
       permissions = [
         'view:dashboard',
         'view:reviews',
@@ -35,7 +38,7 @@ export const rbacService = {
         'manage:tasks',
         'manage:reviews'
       ];
-    } else if (roleName === 'manager') {
+    } else if (roleNameLower === 'manager' || roleNameLower === 'hotel manager') {
       permissions = [
         'view:dashboard',
         'view:reviews',
@@ -45,7 +48,7 @@ export const rbacService = {
         'manage:reviews'
       ];
     } else {
-      // staff
+      // staff / department manager / read only / others
       permissions = [
         'view:dashboard',
         'view:tasks',

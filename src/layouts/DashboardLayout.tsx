@@ -210,7 +210,11 @@ export default function DashboardLayout() {
 
   const getPageTitle = () => {
     const current = sidebarItems.find(item => item.path === location.pathname);
-    return current ? current.name : 'Platform';
+    if (current) {
+      if (current.path === '/admin') return 'Admin Panel';
+      return current.name;
+    }
+    return 'Platform';
   };
 
   return (
