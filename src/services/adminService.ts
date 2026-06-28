@@ -26,7 +26,10 @@ export const adminService = {
 
   // Roles
   async getRoles(): Promise<Role[]> {
-    return await roleRepository.getAllRoles();
+    console.log('[Admin Service] getRoles: Calling roleRepository.getAllRoles...');
+    const roles = await roleRepository.getAllRoles();
+    console.log('[Admin Service] getRoles returned:', roles);
+    return roles;
   },
 
   // Integration Settings

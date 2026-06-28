@@ -35,6 +35,8 @@ export default function Admin() {
   const { data: orgs, refetch: refetchOrgs } = useFetch(() => hotelService.getOrganizations());
   const { data: integrations, refetch: refetchIntegrations } = useFetch(() => adminService.getSettings());
 
+  console.log('[Admin Page] Loaded roles data:', roles);
+
   // Current Organization
   const currentOrg = orgs?.[0] || { id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'ECCTUR', createdAt: '' };
 

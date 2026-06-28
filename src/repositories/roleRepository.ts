@@ -9,7 +9,9 @@ export interface Role {
 
 export const roleRepository = {
   async getAllRoles(): Promise<Role[]> {
+    console.log('[Role Repository] getAllRoles: Fetching from Supabase...');
     const { data, error } = await supabase.from('roles').select('*');
+    console.log('[Role Repository] getAllRoles response:', { data, error });
     if (error) throw error;
     return (data as Role[]) ?? [];
   },
