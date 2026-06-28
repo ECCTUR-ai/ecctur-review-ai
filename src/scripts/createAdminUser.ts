@@ -1,25 +1,28 @@
 // src/scripts/createAdminUser.ts
 /**
  * Script to ensure a default admin user exists in Supabase Auth.
- * Runs using the Supabase service role key via supabaseAdmin client.
+ * Runs using the Supabase service role key.
  *
  * Usage: `node src/scripts/createAdminUser.ts`
  */
-import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { createClient } from '@supabase/supabase-js';
 
-const ADMIN_EMAIL = 'admin@ecctur.ai';
-const ADMIN_PASSWORD = 'Ecctur@2026!';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-const adminClient = supabaseAdmin;
-if (!adminClient) {
-  console.error('Supabase admin client is not initialized. Please check VITE_SUPABASE_SERVICE_ROLE_KEY.');
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('Supabase service role key or URL not defined. Please verify environment.');
   process.exit(1);
 }
+
+const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+const ADMIN_EMAIL = 'admin@ecctur.ai';
+const ADMIN_PASSWORD = 'Ecctur@2026!';
 
 async function upsertAdmin() {
   try {
     // Check if user already exists by listing users
-    const { data: listData, error: findError } = await adminClient!
+    const { data: listData, error: findError } = await adminClient
       .auth.admin.listUsers();
 
     if (findError) {
@@ -36,7 +39,7 @@ async function upsertAdmin() {
     }
 
     // Create new admin user
-    const { data, error } = await adminClient!.auth.admin.createUser({
+    const { data, error } = await adminClient.auth.admin.createUser({
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
       email_confirm: true,

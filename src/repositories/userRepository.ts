@@ -1,6 +1,5 @@
 // src/repositories/userRepository.ts
 import { supabase } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { UserProfile } from '@/types';
 
 export const userRepository = {
@@ -80,28 +79,24 @@ export const userRepository = {
   async addUser(user: Omit<UserProfile, 'id' | 'createdAt'>): Promise<UserProfile> {
     let authUserId: string | undefined = undefined;
 
-    // Try to invite user via Supabase Auth Admin API if service role is set
-    if (supabaseAdmin) {
-      try {
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(user.email, {
+    // Use standard public signUp (creates auth user via client anon key)
+    try {
+      const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+      const { data: authData } = await supabase.auth.signUp({
+        email: user.email,
+        password: tempPassword,
+        options: {
           data: {
             first_name: user.firstName || '',
             last_name: user.lastName || ''
           }
-        });
-        if (authError) {
-          // If already created, try to find their ID
-          const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
-          const existing = listData?.users?.find(u => u.email === user.email);
-          if (existing) {
-            authUserId = existing.id;
-          }
-        } else if (authData?.user) {
-          authUserId = authData.user.id;
         }
-      } catch (e) {
-        console.warn('Supabase Auth invite API failed:', e);
+      });
+      if (authData?.user) {
+        authUserId = authData.user.id;
       }
+    } catch (e) {
+      console.warn('Standard signUp during user creation failed:', e);
     }
 
     // 1. Insert Profile
@@ -165,15 +160,8 @@ export const userRepository = {
 
     if (profileError) throw profileError;
 
-    // Sync Auth status (Disable / Enable via ban_duration)
-    if (supabaseAdmin) {
-      try {
-        const banDuration = user.status === 'inactive' ? '876000h' : 'none'; // Ban for 100 years if inactive
-        await supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: banDuration });
-      } catch (e) {
-        console.warn('Failed to update ban_duration on Auth user:', e);
-      }
-    }
+    // Stubbed: Disabling user logins at Auth level requires service role keys, handled via backend triggers
+    console.info('User status updated in profiles. Auth level status sync requires backend logic.');
 
     // 2. Update Role mapping (delete and insert)
     await supabase.from('user_roles').delete().eq('profile_id', id);
@@ -206,14 +194,8 @@ export const userRepository = {
 
     if (profileError) throw profileError;
 
-    // Delete Auth User
-    if (supabaseAdmin) {
-      try {
-        await supabaseAdmin.auth.admin.deleteUser(id);
-      } catch (e) {
-        console.warn('Failed to delete Auth user:', e);
-      }
-    }
+    // Stubbed: Auth deletion requires service role key, which is managed via backend triggers or Edge Functions
+    console.info('User removed from profiles table. Auth user deletion requires backend placeholder.');
   },
 
   async getUserById(id: string): Promise<UserProfile> {
