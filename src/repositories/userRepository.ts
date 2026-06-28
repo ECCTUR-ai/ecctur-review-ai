@@ -77,28 +77,34 @@ export const userRepository = {
   },
 
   async addUser(user: Omit<UserProfile, 'id' | 'createdAt'> & { password?: string }): Promise<UserProfile> {
-    let authUserId: string | undefined = undefined;
-
-    // Use standard public signUp (creates auth user via client anon key)
     if (user.password) {
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: user.email,
-        password: user.password,
-        options: {
-          data: {
-            first_name: user.firstName || '',
-            last_name: user.lastName || ''
-          }
-        }
+      // Invoke secure database procedure to create the user and bypass SMTP triggers
+      const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
+        user_email: user.email,
+        user_password: user.password,
+        user_first_name: user.firstName || '',
+        user_last_name: user.lastName || '',
+        user_role_id: user.roleId || null,
+        user_hotel_ids: user.hotelIds || [],
+        user_org_id: user.organizationId || null
       });
-      if (signUpError) throw signUpError;
-      if (authData?.user) {
-        authUserId = authData.user.id;
+
+      if (rpcError) {
+        console.error('[User Repository] RPC admin_create_user failed:', rpcError);
+        throw new Error(rpcError.message || 'Failed to create user via secure database procedure');
       }
+
+      if (!newUserId) {
+        throw new Error('Database procedure completed but did not return a user ID');
+      }
+
+      return this.getUserById(newUserId);
     } else {
+      // Fallback: If no password is specified, create using standard signUp with a temporary password
+      let authUserId: string | undefined = undefined;
       try {
         const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
-        const { data: authData } = await supabase.auth.signUp({
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: user.email,
           password: tempPassword,
           options: {
@@ -108,58 +114,60 @@ export const userRepository = {
             }
           }
         });
+        if (signUpError) throw signUpError;
         if (authData?.user) {
           authUserId = authData.user.id;
         }
-      } catch (e) {
-        console.warn('Standard signUp during user creation failed:', e);
+      } catch (e: any) {
+        console.warn('Standard signUp fallback failed:', e);
+        throw new Error(e.message || 'Failed to sign up user');
       }
-    }
 
-    // 1. Insert Profile
-    const profilePayload: any = {
-      email: user.email,
-      first_name: user.firstName,
-      last_name: user.lastName,
-      status: user.status,
-      organization_id: user.organizationId
-    };
-    if (authUserId) {
-      profilePayload.id = authUserId;
-    }
+      // 1. Insert Profile
+      const profilePayload: any = {
+        email: user.email,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        status: user.status,
+        organization_id: user.organizationId
+      };
+      if (authUserId) {
+        profilePayload.id = authUserId;
+      }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .insert(profilePayload)
-      .select()
-      .single();
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .insert(profilePayload)
+        .select()
+        .single();
 
-    if (profileError) throw profileError;
+      if (profileError) throw profileError;
 
-    // 2. Insert Role mapping
-    if (user.roleId) {
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
+      // 2. Insert Role mapping
+      if (user.roleId) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            profile_id: profile.id,
+            role_id: user.roleId
+          });
+        if (roleError) console.error('Failed to assign user role:', roleError);
+      }
+
+      // 3. Insert Hotel mappings
+      if (user.hotelIds && user.hotelIds.length > 0) {
+        const hotelAccess = user.hotelIds.map(hId => ({
           profile_id: profile.id,
-          role_id: user.roleId
-        });
-      if (roleError) console.error('Failed to assign user role:', roleError);
-    }
+          hotel_id: hId
+        }));
+        const { error: hotelError } = await supabase
+          .from('user_hotels')
+          .insert(hotelAccess);
+        if (hotelError) console.error('Failed to assign user hotels:', hotelError);
+      }
 
-    // 3. Insert Hotel mappings
-    if (user.hotelIds && user.hotelIds.length > 0) {
-      const hotelAccess = user.hotelIds.map(hId => ({
-        profile_id: profile.id,
-        hotel_id: hId
-      }));
-      const { error: hotelError } = await supabase
-        .from('user_hotels')
-        .insert(hotelAccess);
-      if (hotelError) console.error('Failed to assign user hotels:', hotelError);
+      return this.getUserById(profile.id);
     }
-
-    return this.getUserById(profile.id);
   },
 
   async editUser(id: string, user: Omit<UserProfile, 'id' | 'createdAt'>): Promise<UserProfile> {
