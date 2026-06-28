@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+// src/services/insightService.ts
+import { insightRepository } from '@/repositories/insightRepository';
 
 export interface AIInsight {
   ratingTrend: 'improving' | 'declining' | 'stable';
@@ -12,15 +13,19 @@ export interface AIInsight {
 
 export const insightService = {
   async generateInsights(hotelId?: string): Promise<AIInsight> {
-    let query = supabase.from('reviews').select('rating, comment, sentiment, departments, date');
-    if (hotelId) {
-      query = query.eq('hotel_id', hotelId);
-    }
+    const rawData = await insightRepository.getInsightData(hotelId);
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    const reviews = (rawData || []).map(r => {
+      const dateVal = r.review_date || r.created_at || '';
+      return {
+        rating: r.rating || 0,
+        comment: r.review_text || '',
+        sentiment: r.sentiment || 'neutral',
+        departments: r.departments || [],
+        date: dateVal ? dateVal.split('T')[0] : ''
+      };
+    });
 
-    const reviews = data || [];
     if (reviews.length === 0) {
       return {
         ratingTrend: 'stable',
@@ -57,7 +62,7 @@ export const insightService = {
     const complimentCounts: Record<string, number> = {};
 
     reviews.forEach(r => {
-      const comment = (r.comment || '').toLowerCase();
+      const comment = r.comment.toLowerCase();
       if (r.rating <= 3) {
         complaints.forEach(c => {
           if (comment.includes(c)) {

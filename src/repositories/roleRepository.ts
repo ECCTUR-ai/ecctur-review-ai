@@ -9,13 +9,13 @@ export interface Role {
 
 export const roleRepository = {
   async getAllRoles(): Promise<Role[]> {
-    const { data, error } = await supabase.from<Role>('roles').select('*');
+    const { data, error } = await supabase.from('roles').select('*');
     if (error) throw error;
-    return data ?? [];
+    return (data as Role[]) ?? [];
   },
   async getRoleById(id: string): Promise<Role | null> {
     const { data, error } = await supabase
-      .from<Role>('roles')
+      .from('roles')
       .select('*')
       .eq('id', id)
       .single();
@@ -23,10 +23,10 @@ export const roleRepository = {
       if (error.code === 'PGRST116') return null; // not found
       throw error;
     }
-    return data;
+    return data as Role;
   },
   async createRole(role: Omit<Role, 'id'>): Promise<Role> {
-    const { data, error } = await supabase.from('roles').insert(role).single();
+    const { data, error } = await supabase.from('roles').insert(role).select().single();
     if (error) throw error;
     return data as Role;
   },

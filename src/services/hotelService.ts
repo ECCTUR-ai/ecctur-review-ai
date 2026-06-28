@@ -1,35 +1,14 @@
-import { supabase } from '@/lib/supabase';
+// src/services/hotelService.ts
 import { Hotel, Organization } from '@/types';
+import { organizationRepository } from '@/repositories/organizationRepository';
+import { hotelRepository } from '@/repositories/hotelRepository';
 
 export const hotelService = {
   async getOrganizations(): Promise<Organization[]> {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('name');
-
-    if (error) throw new Error(error.message);
-    return (data || []).map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      createdAt: item.created_at
-    }));
+    return await organizationRepository.getAll();
   },
 
   async getHotels(organizationId?: string): Promise<Hotel[]> {
-    let query = supabase.from('hotels').select('*').order('name');
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-
-    return (data || []).map((item: any) => ({
-      id: item.id,
-      organizationId: item.organization_id,
-      name: item.name,
-      createdAt: item.created_at
-    }));
+    return await hotelRepository.getHotels(organizationId);
   }
 };

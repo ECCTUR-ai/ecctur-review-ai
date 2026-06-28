@@ -7,11 +7,11 @@ import { reviewService } from '@/services/reviewService';
 import { taskService } from '@/services/taskService';
 import { insightService } from '@/services/insightService';
 import { supabase } from '@/lib/supabase';
-import { 
-  TrendingUp, 
-  Star, 
-  MessageSquare, 
-  Clock, 
+import {
+  TrendingUp,
+  Star,
+  MessageSquare,
+  Clock,
   AlertCircle,
   Database,
   ArrowUpRight,
@@ -30,7 +30,7 @@ import { useAuth } from '@/components/AuthGuard';
 export default function Dashboard() {
   const { t } = useTranslation();
   const { permissions } = useAuth();
-  const { setIsApiOnline, currentHotelId } = useOutletContext<{ 
+  const { setIsApiOnline, currentHotelId } = useOutletContext<{
     setIsApiOnline: (val: boolean) => void;
     currentHotelId: string;
   }>();
@@ -47,18 +47,18 @@ export default function Dashboard() {
     }
   };
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
+
   // Call service layers
-  const { 
-    data: metrics, 
-    loading: metricsLoading, 
+  const {
+    data: metrics,
+    loading: metricsLoading,
     error: metricsError,
     refetch: refetchMetrics
   } = useFetch(() => analyticsService.getMetrics(currentHotelId || undefined), [currentHotelId]);
 
-  const { 
-    data: recentReviewsData, 
-    loading: reviewsLoading, 
+  const {
+    data: recentReviewsData,
+    loading: reviewsLoading,
     error: reviewsError,
     refetch: refetchReviews
   } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: currentHotelId || undefined }), [currentHotelId]);
@@ -132,7 +132,7 @@ export default function Dashboard() {
               This dashboard is structured to consume live endpoints via clean service layers. To connect your production database, update the <code className="text-blue-300 font-mono text-xs">VITE_SUPABASE_URL</code> environment variable inside your configuration.
             </p>
           </div>
-          <a 
+          <a
             href="/settings"
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-sm rounded-xl shrink-0"
           >
@@ -288,7 +288,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3 flex-1">
                 {recentReviewsData.reviews.map((review) => (
-                  <div 
+                  <div
                     key={review.id}
                     className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.02] transition-colors flex justify-between items-start gap-4"
                   >
@@ -319,7 +319,7 @@ export default function Dashboard() {
                 <CheckSquare size={16} className="text-blue-400" />
                 <span>{t('dashboard.operationalTasks')}</span>
               </h2>
-              
+
               {tasksLoading ? (
                 <div className="h-24 rounded-xl bg-white/[0.02] border border-white/[0.04] animate-pulse" />
               ) : tasksError || !taskDashboardData ? (
@@ -347,7 +347,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-              
+
               {!tasksLoading && taskDashboardData && taskDashboardData.openTasks.length > 0 && (
                 <div className="space-y-2 max-h-48 overflow-y-auto pt-2 border-t border-white/[0.03] scrollbar-thin">
                   {taskDashboardData.openTasks.slice(0, 3).map((task) => (
@@ -368,7 +368,7 @@ export default function Dashboard() {
           <div className="glass-panel rounded-2xl p-6 flex flex-col justify-between min-h-[300px]">
             <div className="space-y-6">
               <h2 className="text-base font-semibold m-0 text-slate-200">{t('dashboard.integrationChannels')}</h2>
-              
+
               <div className="space-y-4">
                 <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -421,7 +421,7 @@ export default function Dashboard() {
             <h4 className="text-xs font-semibold text-slate-200">Alert Notification</h4>
             <p className="text-[10px] text-slate-400 mt-0.5">{toastMessage}</p>
           </div>
-          <button 
+          <button
             onClick={() => setToastMessage(null)}
             className="text-xs text-slate-500 hover:text-slate-300 font-medium ml-4"
           >

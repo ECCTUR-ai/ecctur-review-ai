@@ -1,34 +1,7 @@
+// src/services/reviewService.ts
 import { supabase } from '@/lib/supabase';
 import { Review, ReviewSource, Sentiment, ReviewStatus, ReviewPriority } from '@/types';
-
-function mapReviewRecord(item: any): Review {
-  return {
-    id: item.id,
-    guestName: item.guest_name,
-    rating: item.rating,
-    comment: item.comment,
-    date: item.date,
-    source: item.source as ReviewSource,
-    status: item.status as ReviewStatus,
-    priority: item.priority as ReviewPriority,
-    response: item.response,
-    respondedAt: item.responded_at,
-    sentiment: item.sentiment as Sentiment,
-    departments: item.departments || [],
-    hotel: item.hotel || 'ECCTUR Deluxe Resort',
-    managerNotes: item.manager_notes || '',
-    internalNotes: item.internal_notes || '',
-    hotelId: item.hotel_id,
-    organizationId: item.organization_id,
-    aiAnalysis: item.ai_analysis ? {
-      sentiment: item.ai_analysis.sentiment,
-      emotion: item.ai_analysis.emotion,
-      keyTopics: item.ai_analysis.key_topics || [],
-      qualityScore: item.ai_analysis.quality_score,
-      sentimentScore: item.ai_analysis.sentiment_score
-    } : undefined
-  };
-}
+import { reviewRepository } from '@/repositories/reviewRepository';
 
 export const reviewService = {
   async getReviews(params?: {
@@ -42,46 +15,14 @@ export const reviewService = {
     limit?: number;
     offset?: number;
   }): Promise<{ reviews: Review[]; total: number }> {
-    let query = supabase
-      .from('reviews')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    if (params) {
-      if (params.hotelId) query = query.eq('hotel_id', params.hotelId);
-      if (params.source) query = query.eq('source', params.source);
-      if (params.sentiment) query = query.eq('sentiment', params.sentiment);
-      if (params.status) query = query.eq('status', params.status);
-      if (params.priority) query = query.eq('priority', params.priority);
-      if (params.rating) query = query.eq('rating', params.rating);
-      if (params.search) query = query.ilike('comment', `%${params.search}%`);
-      
-      const limit = params.limit || 20;
-      const offset = params.offset || 0;
-      query = query.range(offset, offset + limit - 1);
-    }
-
-    const { data, error, count } = await query;
-    if (error) throw new Error(error.message);
-
-    const reviews: Review[] = (data || []).map(mapReviewRecord);
-    return { reviews, total: count || 0 };
+    return await reviewRepository.getReviews(params);
   },
 
   async getReviewById(id: string): Promise<Review> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw new Error(error.message);
-    return mapReviewRecord(data);
+    return await reviewRepository.getReviewById(id);
   },
 
   async generateAiResponse(id: string): Promise<{ response: string }> {
-    // If the edge function generate-response fails, we can generate a high-quality reply on client-side
-    // but the instruction says "no mock data" - so let's call the function, and if it fails, throw or fallback to an AI response.
     try {
       const { data, error } = await supabase.functions.invoke('generate-response', {
         body: { reviewId: id }
@@ -102,61 +43,19 @@ export const reviewService = {
   },
 
   async submitResponse(id: string, responseText: string): Promise<Review> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .update({
-        response: responseText,
-        status: 'published',
-        responded_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return mapReviewRecord(data);
+    return await reviewRepository.submitResponse(id, responseText);
   },
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .update({
-        response: responseText,
-        status: 'draft'
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return mapReviewRecord(data);
+    return await reviewRepository.saveResponseDraft(id, responseText);
   },
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .update({
-        manager_notes: managerNotes,
-        internal_notes: internalNotes
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return mapReviewRecord(data);
+    return await reviewRepository.updateReviewNotes(id, managerNotes, internalNotes);
   },
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .update({ status })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    const updatedReview = mapReviewRecord(data);
+    const updatedReview = await reviewRepository.updateReviewStatus(id, status);
 
     if (status === 'waiting_approval') {
       try {
@@ -164,7 +63,8 @@ export const reviewService = {
         await notificationService.createNotification({
           type: 'approval_needed',
           title: 'Approval Needed',
-          message: `Draft reply for review from ${updatedReview.guestName} needs manager approval.`
+          message: `Draft reply for review from ${updatedReview.guestName} needs manager approval.`,
+          hotelId: updatedReview.hotelId
         });
       } catch (e) {
         console.warn('Realtime notification trigger failed:', e);

@@ -61,7 +61,9 @@ export default function DashboardLayout() {
   
   // Multi-hotel SaaS states
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [currentHotelId, setCurrentHotelId] = useState<string>('');
+  const [currentHotelId, setCurrentHotelId] = useState<string>(
+    localStorage.getItem('saas_selected_hotel_id') || ''
+  );
   
   const location = useLocation();
 
@@ -69,15 +71,30 @@ export default function DashboardLayout() {
   useEffect(() => {
     const loadHotels = async () => {
       try {
-        const data = await hotelService.getHotels();
+        // 1. Fetch organizations dynamically
+        const orgs = await hotelService.getOrganizations();
+        // 2. Find the ECCTUR organization or fall back to the first one
+        const eccturOrg = orgs.find(o => o.name === 'ECCTUR') || orgs[0];
+        const orgId = eccturOrg ? eccturOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
+
+        // 3. Load hotels filtered by current organization ID from Supabase
+        const data = await hotelService.getHotels(orgId);
         setHotels(data);
+        
         if (data.length > 0) {
-          // Set default selected hotel from local storage if exists, else first hotel
-          const cached = localStorage.getItem('saas_selected_hotel_id');
-          if (cached && data.some(h => h.id === cached)) {
-            setCurrentHotelId(cached);
-          } else {
+          if (data.length === 1) {
+            // If only one hotel exists, select it automatically
             setCurrentHotelId(data[0].id);
+            localStorage.setItem('saas_selected_hotel_id', data[0].id);
+          } else {
+            // Restore last selected hotel from localStorage
+            const cached = localStorage.getItem('saas_selected_hotel_id');
+            if (cached && data.some(h => h.id === cached)) {
+              setCurrentHotelId(cached);
+            } else {
+              setCurrentHotelId(data[0].id);
+              localStorage.setItem('saas_selected_hotel_id', data[0].id);
+            }
           }
         }
       } catch (err) {
