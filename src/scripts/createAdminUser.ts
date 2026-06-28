@@ -10,10 +10,16 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 const ADMIN_EMAIL = 'admin@ecctur.ai';
 const ADMIN_PASSWORD = 'Ecctur@2026!';
 
+const adminClient = supabaseAdmin;
+if (!adminClient) {
+  console.error('Supabase admin client is not initialized. Please check VITE_SUPABASE_SERVICE_ROLE_KEY.');
+  process.exit(1);
+}
+
 async function upsertAdmin() {
   try {
     // Check if user already exists by listing users
-    const { data: listData, error: findError } = await supabaseAdmin
+    const { data: listData, error: findError } = await adminClient!
       .auth.admin.listUsers();
 
     if (findError) {
@@ -30,7 +36,7 @@ async function upsertAdmin() {
     }
 
     // Create new admin user
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    const { data, error } = await adminClient!.auth.admin.createUser({
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
       email_confirm: true,

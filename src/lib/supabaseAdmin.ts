@@ -8,4 +8,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   console.warn('Supabase service role key or URL not defined. Admin operations will fail.');
 }
 
-export const supabaseAdmin = createClient(supabaseUrl || '', supabaseServiceKey || '');
+// Only instantiate Supabase Client if both URL and Key are present to prevent throwing initialization errors in client bundle
+export const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;

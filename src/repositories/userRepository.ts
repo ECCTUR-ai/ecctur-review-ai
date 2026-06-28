@@ -81,7 +81,7 @@ export const userRepository = {
     let authUserId: string | undefined = undefined;
 
     // Try to invite user via Supabase Auth Admin API if service role is set
-    if (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+    if (supabaseAdmin) {
       try {
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(user.email, {
           data: {
@@ -166,7 +166,7 @@ export const userRepository = {
     if (profileError) throw profileError;
 
     // Sync Auth status (Disable / Enable via ban_duration)
-    if (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+    if (supabaseAdmin) {
       try {
         const banDuration = user.status === 'inactive' ? '876000h' : 'none'; // Ban for 100 years if inactive
         await supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: banDuration });
@@ -207,7 +207,7 @@ export const userRepository = {
     if (profileError) throw profileError;
 
     // Delete Auth User
-    if (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+    if (supabaseAdmin) {
       try {
         await supabaseAdmin.auth.admin.deleteUser(id);
       } catch (e) {
