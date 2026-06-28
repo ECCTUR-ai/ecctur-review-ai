@@ -19,6 +19,11 @@ const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
 function LoginRouteWrapper() {
   const { userId, loading } = useAuth();
 
+  // If auth is disabled, bypass loading and redirect to dashboard instantly
+  if (!AUTH_ENABLED) {
+    return <Navigate to="/" replace />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#060814] flex items-center justify-center">
@@ -27,8 +32,8 @@ function LoginRouteWrapper() {
     );
   }
 
-  // Redirect to dashboard if logged in or auth is disabled
-  if (!AUTH_ENABLED || userId) {
+  // Redirect to dashboard if user session is active
+  if (userId) {
     return <Navigate to="/" replace />;
   }
 
@@ -36,34 +41,12 @@ function LoginRouteWrapper() {
 }
 
 export default function App() {
-  if (!AUTH_ENABLED) {
-    // Authentication disabled – render routes without guards
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route element={<DashboardLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/reviews" element={<Reviews />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/departments" element={<Departments />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/whatsapp" element={<WhatsApp />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/admin" element={<Admin />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    );
-  }
-
-  // Authentication enabled – render protected routes with guards
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginRouteWrapper />} />
+          
           <Route element={<DashboardLayout />}>
             <Route
               path="/"
@@ -130,6 +113,8 @@ export default function App() {
               }
             />
           </Route>
+          
+          {/* Fallback wildcard route redirects unmatched paths back to root */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

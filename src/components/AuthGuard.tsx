@@ -100,6 +100,11 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
+  const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
+  if (!AUTH_ENABLED) {
+    return <>{children}</>;
+  }
+
   const { userId, permissions, loading } = useAuth();
 
   if (loading) {
