@@ -20,6 +20,10 @@ export const adminService = {
     return await userRepository.editUser(id, user);
   },
 
+  async deleteUser(id: string): Promise<void> {
+    return await userRepository.deleteUser(id);
+  },
+
   // Roles
   async getRoles(): Promise<Role[]> {
     return await roleRepository.getAllRoles();

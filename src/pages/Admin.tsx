@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   RefreshCw,
   UserCheck,
-  Power
+  Power,
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 
 export default function Admin() {
@@ -45,6 +47,7 @@ export default function Admin() {
   const [userStatus, setUserStatus] = useState<'active' | 'inactive'>('active');
   const [userRoleId, setUserRoleId] = useState('');
   const [userHotelIds, setUserHotelIds] = useState<string[]>([]);
+  const [userOrgId, setUserOrgId] = useState('');
 
   // Form States - Hotel
   const [isAddingHotel, setIsAddingHotel] = useState(false);
@@ -72,6 +75,7 @@ export default function Admin() {
     setUserStatus('active');
     setUserRoleId(roles?.[0]?.id || '');
     setUserHotelIds([]);
+    setUserOrgId(currentOrg.id);
   };
 
   const handleOpenEditUser = (user: UserProfile) => {
@@ -83,6 +87,7 @@ export default function Admin() {
     setUserStatus(user.status);
     setUserRoleId(user.roleId || '');
     setUserHotelIds(user.hotelIds || []);
+    setUserOrgId(user.organizationId || currentOrg.id);
   };
 
   const handleSaveUser = async (e: React.FormEvent) => {
@@ -94,12 +99,13 @@ export default function Admin() {
         lastName: userLastName,
         status: userStatus,
         roleId: userRoleId || undefined,
-        hotelIds: userHotelIds
+        hotelIds: userHotelIds,
+        organizationId: userOrgId || undefined
       };
 
       if (isAddingUser) {
         await adminService.addUser(payload);
-        triggerToast('User added successfully');
+        triggerToast('User added and invited via email successfully');
       } else if (editingUser) {
         await adminService.editUser(editingUser.id, payload);
         triggerToast('User updated successfully');
@@ -111,6 +117,18 @@ export default function Admin() {
     } catch (err: any) {
       console.error(err);
       triggerToast(`Error: ${err.message || 'Operation failed'}`);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this user profile and revoke their login?')) return;
+    try {
+      await adminService.deleteUser(id);
+      triggerToast('User profile deleted successfully');
+      refetchUsers();
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Error: ${err.message || 'Failed to delete user'}`);
     }
   };
 
@@ -292,7 +310,7 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Assigned Security Role</label>
                       <select
@@ -317,6 +335,21 @@ export default function Admin() {
                       >
                         <option value="active" className="bg-[#090b16] text-slate-300">Active (Grant platform access)</option>
                         <option value="inactive" className="bg-[#090b16] text-slate-300">Inactive (Revoke platform access)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Parent Organization</label>
+                      <select
+                        value={userOrgId}
+                        onChange={(e) => setUserOrgId(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      >
+                        {orgs?.map((o) => (
+                          <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
+                            {o.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -344,6 +377,18 @@ export default function Admin() {
                       })}
                     </div>
                   </div>
+
+                  {isAddingUser && (
+                    <div className="p-3.5 rounded-xl bg-blue-500/[0.02] border border-blue-500/10 text-[10px] text-blue-400 leading-relaxed">
+                      <div className="font-semibold flex items-center gap-1 mb-1">
+                        <Sparkles size={11} />
+                        <span>Corporate Email Invitation</span>
+                      </div>
+                      <span>
+                        Adding a user will automatically register them in Supabase Auth and issue a secure email invitation.
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.04]">
                     <button
@@ -444,13 +489,20 @@ export default function Admin() {
                               <span className="text-slate-500">No hotel clearances</span>
                             )}
                           </td>
-                          <td className="p-4 pr-6 text-right">
+                          <td className="p-4 pr-6 text-right flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleOpenEditUser(u)}
                               className="p-1 rounded hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors"
                               title="Edit User"
                             >
                               <Edit3 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u.id)}
+                              className="p-1 rounded hover:bg-white/[0.04] text-rose-400 hover:text-rose-300 transition-colors"
+                              title="Delete User"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </td>
                         </tr>

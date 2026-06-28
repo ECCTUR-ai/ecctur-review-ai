@@ -138,6 +138,7 @@ export interface UserProfile {
   roleId?: string;     // Primary role ID
   roleName?: string;   // Primary role name
   hotelIds?: string[];  // List of hotel IDs the user has access to
+  organizationId?: string; // Parent organization assignment
 }
 
 export interface Role {
