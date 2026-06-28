@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -53,7 +53,9 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 export default function DashboardLayout() {
-  const { permissions, role } = useAuth();
+  const { permissions, role, userId } = useAuth();
+  const navigate = useNavigate();
+  const [profileOpen, setProfileOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   const [isApiOnline, setIsApiOnline] = useState(false);
@@ -85,11 +87,31 @@ export default function DashboardLayout() {
         const orgId = eccturOrg ? eccturOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
         console.log('[Hotel Loader] Selected Organization ID:', orgId);
 
+        let userHotelsClearance: string[] = [];
+        if (userId) {
+          try {
+            const { userRepository } = await import('@/repositories/userRepository');
+            const profile = await userRepository.getUserById(userId);
+            userHotelsClearance = profile.hotelIds || [];
+            console.log('[Hotel Loader] User clearance hotel IDs:', userHotelsClearance);
+          } catch (e) {
+            console.warn('[Hotel Loader] Could not fetch profile clearances:', e);
+          }
+        }
+
         // 3. Load hotels filtered by current organization ID from Supabase
         console.log('[Hotel Loader] Querying hotels...');
-        const data = await hotelService.getHotels(orgId);
+        let data = await hotelService.getHotels(orgId);
         console.log('[Hotel Loader] Hotels result:', data);
         console.log('[Hotel Loader] Number of hotels returned:', data.length);
+
+        // Filter hotels list by user's clearance access list (unless Super Admin/Admin)
+        const roleLower = role?.toLowerCase();
+        const isSuper = roleLower === 'admin' || roleLower === 'super admin';
+        if (!isSuper && userHotelsClearance.length > 0) {
+          data = data.filter(h => userHotelsClearance.includes(h.id));
+          console.log('[Hotel Loader] Filtered hotels by user clearances:', data);
+        }
         
         setHotels(data);
         
@@ -458,13 +480,51 @@ export default function DashboardLayout() {
               </AnimatePresence>
             </div>
 
-            {/* Profile Menu Placeholder */}
+            {/* Profile Menu */}
             <div className="w-px h-6 bg-white/[0.08]" />
-            <button className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/[0.04] transition-colors">
-              <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-                <User size={16} />
-              </div>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+                title="Profile Menu"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-white/[0.06]">
+                  <User size={16} className="text-slate-300" />
+                </div>
+              </button>
+
+              <AnimatePresence>
+                {profileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-3 w-56 rounded-2xl border border-white/[0.06] bg-[#0c0f22]/95 backdrop-blur-md p-4 shadow-2xl z-30"
+                  >
+                    <div className="border-b border-white/[0.04] pb-3 mb-3">
+                      <span className="text-xs font-semibold text-slate-200 block truncate capitalize">
+                        {role || 'User'}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block truncate">
+                        Corporate Account
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        setProfileOpen(false);
+                        await supabase.auth.signOut();
+                        navigate('/login');
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors"
+                    >
+                      <LogOut size={14} />
+                      Sign Out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
