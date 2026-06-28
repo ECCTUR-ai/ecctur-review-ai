@@ -1,7 +1,7 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { rbacService, UserRoleInfo } from '@/services/rbacService';
+import { rbacService } from '@/services/rbacService';
 import { ShieldAlert } from 'lucide-react';
 
 interface AuthContextType {
@@ -31,32 +31,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const loadSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            setUserId(session.user.id);
-            const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
-            setRole(rbac.role);
-            setPermissions(rbac.permissions);
-          } else {
-            // No auth session. In development mode (AUTH_ENABLED=false) default to admin role.
-            if (import.meta.env.VITE_AUTH_ENABLED !== 'true') {
-              setRole('admin');
-              setPermissions([
-                'view:dashboard',
-                'view:reviews',
-                'view:tasks',
-                'view:departments',
-                'view:analytics',
-                'view:whatsapp',
-                'view:settings',
-                'manage:tasks',
-                'manage:reviews'
-              ]);
-            } else {
-              setUserId(null);
-              setRole(null);
-              setPermissions([]);
-            }
-          }
+        if (session?.user) {
+          setUserId(session.user.id);
+          const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
+          setRole(rbac.role);
+          setPermissions(rbac.permissions);
+        } else {
+          setUserId(null);
+          setRole(null);
+          setPermissions([]);
+        }
       } catch (err) {
         console.error('Error loading session:', err);
       } finally {
@@ -100,11 +84,6 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
-  const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
-  if (!AUTH_ENABLED) {
-    return <>{children}</>;
-  }
-
   const { userId, permissions, loading } = useAuth();
 
   if (loading) {

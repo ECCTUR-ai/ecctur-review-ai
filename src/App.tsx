@@ -12,17 +12,9 @@ import Login from '@/pages/Login';
 import Admin from '@/pages/Admin';
 import { AuthProvider, AuthGuard, useAuth } from '@/components/AuthGuard';
 
-// Environment flag (VITE_AUTH_ENABLED) controls authentication flow
-const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
-
 // Redirect authenticated users away from /login
 function LoginRouteWrapper() {
   const { userId, loading } = useAuth();
-
-  // If auth is disabled, bypass loading and redirect to dashboard instantly
-  if (!AUTH_ENABLED) {
-    return <Navigate to="/" replace />;
-  }
 
   if (loading) {
     return (
