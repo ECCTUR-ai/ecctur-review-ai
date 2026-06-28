@@ -15,11 +15,14 @@ export function useFetch<T>(fetchFn: () => Promise<T>, deps: any[] = []): UseFet
   const execute = useCallback(() => {
     setLoading(true);
     setError(null);
+    console.log('[useFetch] execute: Triggering fetch function...');
     fetchFn()
       .then((res) => {
+        console.log('[useFetch] execute: Fetch success. Response:', res);
         setData(res);
       })
       .catch((err: any) => {
+        console.error('[useFetch] execute: Fetch caught error:', err);
         setError(err.message || 'API is not connected or returned an error.');
       })
       .finally(() => {
