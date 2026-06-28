@@ -70,15 +70,25 @@ export default function DashboardLayout() {
   // Load Hotels list on mount
   useEffect(() => {
     const loadHotels = async () => {
+      console.log('[Hotel Loader] Initializing...');
+      console.log('[Hotel Loader] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
       try {
         // 1. Fetch organizations dynamically
+        console.log('[Hotel Loader] Querying organizations...');
         const orgs = await hotelService.getOrganizations();
+        console.log('[Hotel Loader] Organizations result:', orgs);
+        
         // 2. Find the ECCTUR organization or fall back to the first one
         const eccturOrg = orgs.find(o => o.name === 'ECCTUR') || orgs[0];
         const orgId = eccturOrg ? eccturOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
+        console.log('[Hotel Loader] Selected Organization ID:', orgId);
 
         // 3. Load hotels filtered by current organization ID from Supabase
+        console.log('[Hotel Loader] Querying hotels...');
         const data = await hotelService.getHotels(orgId);
+        console.log('[Hotel Loader] Hotels result:', data);
+        console.log('[Hotel Loader] Number of hotels returned:', data.length);
+        
         setHotels(data);
         
         if (data.length > 0) {
@@ -97,8 +107,10 @@ export default function DashboardLayout() {
             }
           }
         }
-      } catch (err) {
-        console.error('Failed to load hotels list:', err);
+      } catch (err: any) {
+        console.error('[Hotel Loader] Query failed with error:', err);
+        // Show the error in browser console explicitly
+        console.error('[Hotel Loader] Detailed Error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
       }
     };
     loadHotels();
@@ -321,9 +333,9 @@ export default function DashboardLayout() {
             </div>
 
             {/* Hotel Switcher Dropdown */}
-            {hotels.length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
-                <Building size={12} className="text-slate-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
+              <Building size={12} className="text-slate-400" />
+              {hotels.length > 0 ? (
                 <select
                   value={currentHotelId}
                   onChange={(e) => handleHotelChange(e.target.value)}
@@ -335,8 +347,10 @@ export default function DashboardLayout() {
                     </option>
                   ))}
                 </select>
-              </div>
-            )}
+              ) : (
+                <span className="text-xs text-slate-500 font-semibold">No hotels found</span>
+              )}
+            </div>
 
             {/* Language Switcher Dropdown */}
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
