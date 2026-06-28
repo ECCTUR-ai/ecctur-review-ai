@@ -12,7 +12,7 @@ export const adminService = {
     return await userRepository.getAllUsers();
   },
 
-  async addUser(user: Omit<UserProfile, 'id' | 'createdAt'>): Promise<UserProfile> {
+  async addUser(user: Omit<UserProfile, 'id' | 'createdAt'> & { password?: string }): Promise<UserProfile> {
     return await userRepository.addUser(user);
   },
 

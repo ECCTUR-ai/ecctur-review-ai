@@ -48,6 +48,9 @@ export default function Admin() {
   const [userRoleId, setUserRoleId] = useState('');
   const [userHotelIds, setUserHotelIds] = useState<string[]>([]);
   const [userOrgId, setUserOrgId] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [userConfirmPassword, setUserConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form States - Hotel
   const [isAddingHotel, setIsAddingHotel] = useState(false);
@@ -76,6 +79,9 @@ export default function Admin() {
     setUserRoleId(roles?.[0]?.id || '');
     setUserHotelIds([]);
     setUserOrgId(currentOrg.id);
+    setUserPassword('');
+    setUserConfirmPassword('');
+    setShowPassword(false);
   };
 
   const handleOpenEditUser = (user: UserProfile) => {
@@ -88,11 +94,29 @@ export default function Admin() {
     setUserRoleId(user.roleId || '');
     setUserHotelIds(user.hotelIds || []);
     setUserOrgId(user.organizationId || currentOrg.id);
+    setUserPassword('');
+    setUserConfirmPassword('');
+    setShowPassword(false);
   };
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (isAddingUser) {
+        if (!userPassword) {
+          triggerToast('Password is required');
+          return;
+        }
+        if (userPassword.length < 8) {
+          triggerToast('Password must be at least 8 characters long');
+          return;
+        }
+        if (userPassword !== userConfirmPassword) {
+          triggerToast('Passwords do not match');
+          return;
+        }
+      }
+
       const payload = {
         email: userEmail,
         firstName: userFirstName,
@@ -100,12 +124,13 @@ export default function Admin() {
         status: userStatus,
         roleId: userRoleId || undefined,
         hotelIds: userHotelIds,
-        organizationId: userOrgId || undefined
+        organizationId: userOrgId || undefined,
+        password: isAddingUser ? userPassword : undefined
       };
 
       if (isAddingUser) {
         await adminService.addUser(payload);
-        triggerToast('User added and invited via email successfully');
+        triggerToast('User created and registered successfully');
       } else if (editingUser) {
         await adminService.editUser(editingUser.id, payload);
         triggerToast('User updated successfully');
@@ -309,6 +334,43 @@ export default function Admin() {
                       />
                     </div>
                   </div>
+
+                  {isAddingUser && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Password</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold"
+                          >
+                            {showPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={userPassword}
+                          onChange={(e) => setUserPassword(e.target.value)}
+                          placeholder="At least 8 characters"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">Confirm Password</label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={userConfirmPassword}
+                          onChange={(e) => setUserConfirmPassword(e.target.value)}
+                          placeholder="Re-enter password"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">

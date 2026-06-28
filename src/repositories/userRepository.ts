@@ -76,15 +76,14 @@ export const userRepository = {
     });
   },
 
-  async addUser(user: Omit<UserProfile, 'id' | 'createdAt'>): Promise<UserProfile> {
+  async addUser(user: Omit<UserProfile, 'id' | 'createdAt'> & { password?: string }): Promise<UserProfile> {
     let authUserId: string | undefined = undefined;
 
     // Use standard public signUp (creates auth user via client anon key)
-    try {
-      const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
-      const { data: authData } = await supabase.auth.signUp({
+    if (user.password) {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: user.email,
-        password: tempPassword,
+        password: user.password,
         options: {
           data: {
             first_name: user.firstName || '',
@@ -92,11 +91,29 @@ export const userRepository = {
           }
         }
       });
+      if (signUpError) throw signUpError;
       if (authData?.user) {
         authUserId = authData.user.id;
       }
-    } catch (e) {
-      console.warn('Standard signUp during user creation failed:', e);
+    } else {
+      try {
+        const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+        const { data: authData } = await supabase.auth.signUp({
+          email: user.email,
+          password: tempPassword,
+          options: {
+            data: {
+              first_name: user.firstName || '',
+              last_name: user.lastName || ''
+            }
+          }
+        });
+        if (authData?.user) {
+          authUserId = authData.user.id;
+        }
+      } catch (e) {
+        console.warn('Standard signUp during user creation failed:', e);
+      }
     }
 
     // 1. Insert Profile
