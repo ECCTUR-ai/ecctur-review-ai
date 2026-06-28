@@ -10,10 +10,30 @@ import Settings from '@/pages/Settings';
 import Tasks from '@/pages/Tasks';
 import Login from '@/pages/Login';
 import Admin from '@/pages/Admin';
-import { AuthProvider, AuthGuard } from '@/components/AuthGuard';
+import { AuthProvider, AuthGuard, useAuth } from '@/components/AuthGuard';
 
 // Environment flag (VITE_AUTH_ENABLED) controls authentication flow
 const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
+
+// Redirect authenticated users away from /login
+function LoginRouteWrapper() {
+  const { userId, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#060814] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-t-blue-500 border-white/[0.04] animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect to dashboard if logged in or auth is disabled
+  if (!AUTH_ENABLED || userId) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Login />;
+}
 
 export default function App() {
   if (!AUTH_ENABLED) {
@@ -21,6 +41,7 @@ export default function App() {
     return (
       <BrowserRouter>
         <Routes>
+          <Route path="/login" element={<Navigate to="/" replace />} />
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/reviews" element={<Reviews />} />
@@ -36,12 +57,12 @@ export default function App() {
     );
   }
 
-  // Authentication enabled – keep existing protected routes
+  // Authentication enabled – render protected routes with guards
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<LoginRouteWrapper />} />
           <Route element={<DashboardLayout />}>
             <Route
               path="/"
@@ -113,4 +134,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
