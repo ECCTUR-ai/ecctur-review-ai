@@ -52,6 +52,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<Admin />} />
           </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     );
@@ -129,6 +130,7 @@ export default function App() {
               }
             />
           </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
