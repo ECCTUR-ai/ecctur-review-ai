@@ -56,6 +56,43 @@ const resources = {
       settings: {
         title: 'System Settings',
         subtitle: 'Configure hotel information, OAuth credentials, and AI automation engines.'
+      },
+      admin: {
+        title: 'Admin Settings',
+        tabs: {
+          users: 'User Management',
+          hotels: 'Hotel Management',
+          org: 'Organization',
+          integrations: 'Integrations & Roles'
+        },
+        users: {
+          profilesCount: 'Corporate User Profiles ({{count}})',
+          addUser: 'Add User',
+          assignedRole: 'Assigned Role',
+          clearanceStatus: 'Clearance status',
+          assignedHotels: 'Assigned Hotels',
+          actions: 'Actions',
+          empty: 'No corporate user accounts found. Add one to begin.',
+          toastCreated: 'User created successfully',
+          accessDenied: 'Access Denied',
+          missingPermission: 'You do not possess the required permission clearance ({{permission}}) to view this workspace.'
+        }
+      },
+      login: {
+        welcome: 'Welcome Back',
+        signIn: 'Sign In',
+        email: 'Email Address',
+        password: 'Password',
+        forgotPassword: 'Forgot Password?',
+        resetPassword: 'Reset Password',
+        backToSignIn: 'Back to Sign In',
+        resetSub: 'Enter your corporate email to receive password reset instructions.',
+        loginSub: "Sign in to access your hotel's command console.",
+        sendResetLink: 'Send Reset Link',
+        sendingRequest: 'Sending Request...',
+        authenticating: 'Authenticating...',
+        multiTenantAccess: 'Multi-Tenant Access Rule',
+        multiTenantSub: 'Sign in with your corporate email. Roles and department clearances are automatically assigned via your user profile.'
       }
     }
   },
@@ -112,6 +149,43 @@ const resources = {
       settings: {
         title: 'Sistem Ayarları',
         subtitle: 'Otel bilgilerini, OAuth kimlik bilgilerini ve AI otomasyon motorlarını yapılandırın.'
+      },
+      admin: {
+        title: 'Yönetici Ayarları',
+        tabs: {
+          users: 'Kullanıcı Yönetimi',
+          hotels: 'Otel Yönetimi',
+          org: 'Organizasyon',
+          integrations: 'Entegrasyonlar ve Roller'
+        },
+        users: {
+          profilesCount: 'Kurumsal Kullanıcı Profilleri ({{count}})',
+          addUser: 'Kullanıcı Ekle',
+          assignedRole: 'Atanan Rol',
+          clearanceStatus: 'Erişim Durumu',
+          assignedHotels: 'Atanan Oteller',
+          actions: 'İşlemler',
+          empty: 'Kurumsal kullanıcı hesabı bulunamadı. Başlamak için bir tane ekleyin.',
+          toastCreated: 'Kullanıcı başarıyla oluşturuldu',
+          accessDenied: 'Erişim Reddedildi',
+          missingPermission: 'Bu çalışma alanını görüntülemek için gerekli yetkiniz ({{permission}}) bulunmuyor.'
+        }
+      },
+      login: {
+        welcome: 'Tekrar Hoş Geldiniz',
+        signIn: 'Giriş Yap',
+        email: 'E-posta Adresi',
+        password: 'Şifre',
+        forgotPassword: 'Şifrenizi mi unuttunuz?',
+        resetPassword: 'Şifreyi Sıfırla',
+        backToSignIn: 'Giriş Yap Ekranına Dön',
+        resetSub: 'Şifre sıfırlama talimatlarını almak için kurumsal e-posta adresinizi girin.',
+        loginSub: 'Otelinize ait yönetim konsoluna erişmek için giriş yapın.',
+        sendResetLink: 'Sıfırlama Bağlantısı Gönder',
+        sendingRequest: 'İstek Gönderiliyor...',
+        authenticating: 'Doğrulanıyor...',
+        multiTenantAccess: 'Çoklu Otel Erişim Kuralı',
+        multiTenantSub: 'Kurumsal e-postanız ile giriş yapın. Roller ve departman yetkileri kullanıcı profiliniz üzerinden otomatik olarak atanır.'
       }
     }
   },
@@ -168,6 +242,41 @@ const resources = {
       settings: {
         title: 'Настройки системы',
         subtitle: 'Настройка информации об отеле, учетных данных OAuth и модулей автоматизации ИИ.'
+      },
+      admin: {
+        title: 'Настройки администратора',
+        tabs: {
+          users: 'Управление пользователями',
+          hotels: 'Управление отелями',
+          org: 'Организация',
+          integrations: 'Интеграции и роли'
+        },
+        users: {
+          profilesCount: 'Профили пользователей ({{count}})',
+          addUser: 'Добавить пользователя',
+          assignedRole: 'Назначенная роль',
+          clearanceStatus: 'Статус доступа',
+          assignedHotels: 'Назначенные отели',
+          actions: 'Действия',
+          empty: 'Пользователи не найдены. Добавьте первого.',
+          toastCreated: 'Пользователь успешно создан',
+          accessDenied: 'Доступ запрещен',
+          missingPermission: 'У вас нет необходимых прав ({{permission}}) для просмотра этой страницы.'
+        }
+      },
+      login: {
+        welcome: 'С возвращением',
+        signIn: 'Войти',
+        email: 'Электронная почта',
+        password: 'Пароль',
+        forgotPassword: 'Забыли пароль?',
+        resetPassword: 'Сбросить пароль',
+        backToSignIn: 'Вернуться к входу',
+        resetSub: 'Введите ваш корпоративный email для получения ссылки сброса пароля.',
+        loginSub: 'Войдите для доступа к панели управления отеля.',
+        sendResetLink: 'Отправить ссылку',
+        sendingRequest: 'Отправка запроса...',
+        authenticating: 'Авторизация...'
       }
     }
   }
@@ -178,7 +287,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: 'en',
+    fallbackLng: 'tr',
+    lng: 'tr', // Force default language to be Turkish
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage']

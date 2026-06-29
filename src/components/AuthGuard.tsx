@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { rbacService } from '@/services/rbacService';
 import { ShieldAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface AuthContextType {
   userId: string | null;
@@ -91,6 +92,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
+  const { t } = useTranslation();
   const { userId, hasPermission, loading } = useAuth();
 
   if (loading) {
@@ -112,9 +114,9 @@ export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
           <ShieldAlert size={22} />
         </div>
         <div className="space-y-1.5 max-w-sm">
-          <h3 className="text-sm font-bold text-slate-200">Access Denied</h3>
+          <h3 className="text-sm font-bold text-slate-200">{t('admin.users.accessDenied')}</h3>
           <p className="text-xs text-slate-400">
-            You do not possess the required permission clearance ({requiredPermission}) to view this workspace.
+            {t('admin.users.missingPermission', { permission: requiredPermission })}
           </p>
         </div>
       </div>

@@ -24,8 +24,10 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthGuard';
+import { useTranslation } from 'react-i18next';
 
 export default function Admin() {
+  const { t } = useTranslation();
   const { role } = useAuth();
   const roleNameLower = role?.toLowerCase() || 'staff';
   const isSuperOrAdmin = roleNameLower === 'super admin' || roleNameLower === 'admin';
@@ -137,7 +139,7 @@ export default function Admin() {
 
       if (isAddingUser) {
         await adminService.addUser(payload);
-        triggerToast('User created successfully');
+        triggerToast(t('admin.users.toastCreated'));
       } else if (editingUser) {
         await adminService.editUser(editingUser.id, payload);
         triggerToast('User updated successfully');
@@ -239,7 +241,7 @@ export default function Admin() {
       {/* Title Header */}
       <div className="border-b border-white/[0.04] pb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-slate-100 m-0">Admin Settings</h1>
+          <h1 className="text-xl font-bold text-slate-100 m-0">{t('admin.title')}</h1>
           <p className="text-xs text-slate-400 mt-1.5">
             Manage users, hotels, organization profiles, and connected external pipelines.
           </p>
@@ -255,7 +257,7 @@ export default function Admin() {
           }`}
         >
           <Users size={14} />
-          User Management
+          {t('admin.tabs.users')}
         </button>
         {isSuperOrAdmin && (
           <>
@@ -266,7 +268,7 @@ export default function Admin() {
               }`}
             >
               <Building size={14} />
-              Hotel Management
+              {t('admin.tabs.hotels')}
             </button>
             <button
               onClick={() => setActiveTab('org')}
@@ -275,7 +277,7 @@ export default function Admin() {
               }`}
             >
               <Building2 size={14} />
-              Organization
+              {t('admin.tabs.org')}
             </button>
             <button
               onClick={() => setActiveTab('integrations')}
@@ -284,7 +286,7 @@ export default function Admin() {
               }`}
             >
               <Sliders size={14} />
-              Integrations & Roles
+              {t('admin.tabs.integrations')}
             </button>
           </>
         )}
@@ -488,7 +490,7 @@ export default function Admin() {
               <div className="h-16 flex items-center justify-between px-6 border-b border-white/[0.04]">
                 <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
                   <Users size={16} className="text-blue-400" />
-                  Corporate User Profiles ({users?.length || 0})
+                  {t('admin.users.profilesCount', { count: users?.length || 0 })}
                 </h3>
                 {isSuperOrAdmin && (
                   <button
@@ -496,7 +498,7 @@ export default function Admin() {
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
                   >
                     <Plus size={14} />
-                    Add User
+                    {t('admin.users.addUser')}
                   </button>
                 )}
               </div>
@@ -507,10 +509,10 @@ export default function Admin() {
                     <tr className="border-b border-white/[0.04] text-slate-400 font-medium bg-white/[0.01]">
                       <th className="p-4 pl-6">Name</th>
                       <th className="p-4">Email</th>
-                      <th className="p-4">Assigned Role</th>
-                      <th className="p-4">Clearance status</th>
-                      <th className="p-4">Assigned Hotels</th>
-                      <th className="p-4 pr-6 text-right">Actions</th>
+                      <th className="p-4">{t('admin.users.assignedRole')}</th>
+                      <th className="p-4">{t('admin.users.clearanceStatus')}</th>
+                      <th className="p-4">{t('admin.users.assignedHotels')}</th>
+                      <th className="p-4 pr-6 text-right">{t('admin.users.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -524,7 +526,7 @@ export default function Admin() {
                     ) : users?.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-12 text-center text-slate-500">
-                          No corporate user accounts found. Add one to begin.
+                          {t('admin.users.empty')}
                         </td>
                       </tr>
                     ) : (

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Lock, Mail, AlertCircle, Sparkles, ArrowLeft, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function Login() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -110,12 +112,12 @@ export default function Login() {
         <div className="glass-panel p-8 rounded-3xl border border-white/[0.06] bg-[#090b16]/95 shadow-2xl space-y-6">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-slate-200">
-              {isResetMode ? 'Reset Password' : 'Welcome Back'}
+              {isResetMode ? t('login.resetPassword') : t('login.welcome')}
             </h3>
             <p className="text-[11px] text-slate-500">
               {isResetMode 
-                ? 'Enter your corporate email to receive password reset instructions.' 
-                : "Sign in to access your hotel's command console."}
+                ? t('login.resetSub') 
+                : t('login.loginSub')}
             </p>
           </div>
 
@@ -136,7 +138,7 @@ export default function Login() {
           {isResetMode ? (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium block">Email Address</label>
+                <label className="text-xs text-slate-400 font-medium block">{t('login.email')}</label>
                 <div className="relative">
                   <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -155,7 +157,7 @@ export default function Login() {
                 disabled={loading}
                 className="w-full py-3 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2"
               >
-                {loading ? 'Sending Request...' : 'Send Reset Link'}
+                {loading ? t('login.sendingRequest') : t('login.sendResetLink')}
               </button>
 
               <button
@@ -164,13 +166,13 @@ export default function Login() {
                 className="w-full text-center text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1.5 mt-2"
               >
                 <ArrowLeft size={12} />
-                Back to Sign In
+                {t('login.backToSignIn')}
               </button>
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium block">Email Address</label>
+                <label className="text-xs text-slate-400 font-medium block">{t('login.email')}</label>
                 <div className="relative">
                   <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -186,13 +188,13 @@ export default function Login() {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs text-slate-400 font-medium block">Password</label>
+                  <label className="text-xs text-slate-400 font-medium block">{t('login.password')}</label>
                   <button
                     type="button"
                     onClick={() => { setIsResetMode(true); setError(null); setSuccess(null); }}
                     className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold"
                   >
-                    Forgot Password?
+                    {t('login.forgotPassword')}
                   </button>
                 </div>
                 <div className="relative">
@@ -213,7 +215,7 @@ export default function Login() {
                 disabled={loading}
                 className="w-full py-3 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2"
               >
-                {loading ? 'Authenticating...' : 'Sign In'}
+                {loading ? t('login.authenticating') : t('login.signIn')}
               </button>
             </form>
           )}
@@ -221,10 +223,10 @@ export default function Login() {
           <div className="p-3.5 rounded-xl bg-blue-500/[0.02] border border-blue-500/10 text-[10px] text-blue-400 leading-relaxed">
             <div className="font-semibold flex items-center gap-1 mb-1">
               <Sparkles size={11} />
-              <span>Multi-Tenant Access Rule</span>
+              <span>{t('login.multiTenantAccess')}</span>
             </div>
             <span>
-              Sign in with your corporate email. Roles and department clearances are automatically assigned via your user profile.
+              {t('login.multiTenantSub')}
             </span>
           </div>
         </div>
