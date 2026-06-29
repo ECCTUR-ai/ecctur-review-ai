@@ -38,3 +38,7 @@ ADD COLUMN IF NOT EXISTS department TEXT,
 ADD COLUMN IF NOT EXISTS avatar_url TEXT,
 ADD COLUMN IF NOT EXISTS language TEXT,
 ADD COLUMN IF NOT EXISTS timezone TEXT;
+
+-- Alter reviews table to support duplicate checking and Google Business integrations
+ALTER TABLE public.reviews
+ADD COLUMN IF NOT EXISTS platform_review_id TEXT;
