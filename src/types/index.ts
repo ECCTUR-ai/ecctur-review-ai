@@ -30,6 +30,7 @@ export interface Review {
   internalNotes?: string;
   organizationId?: string;
   hotelId?: string;
+  platformReviewId?: string;
 }
 
 export interface Department {

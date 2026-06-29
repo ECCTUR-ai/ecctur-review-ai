@@ -45,7 +45,8 @@ const resources = {
         sync: 'Sync Channels',
         export: 'Export Data',
         loading: 'Loading reviews workspace...',
-        empty: 'No guest reviews matched the current filter conditions.'
+        empty: 'No guest reviews matched the current filter conditions.',
+        import30Days: 'Import last 30 days reviews'
       },
       tasks: {
         title: 'Task Workspace',
@@ -163,7 +164,8 @@ const resources = {
         sync: 'Kanalları Eşitle',
         export: 'Veriyi Dışa Aktar',
         loading: 'Yorum çalışma alanı yükleniyor...',
-        empty: 'Mevcut filtre koşullarına uygun misafir yorumu bulunamadı.'
+        empty: 'Mevcut filtre koşullarına uygun misafir yorumu bulunamadı.',
+        import30Days: 'Son 30 Gün Yorumlarını İçe Aktar'
       },
       tasks: {
         title: 'Görev Çalışma Alanı',
@@ -281,7 +283,8 @@ const resources = {
         sync: 'Синхронизировать',
         export: 'Экспорт данных',
         loading: 'Загрузка рабочего пространства отзывов...',
-        empty: 'Нет отзывов гостей, соответствующих текущим условиям фильтра.'
+        empty: 'Нет отзывов гостей, соответствующих текущим условиям фильтра.',
+        import30Days: 'Импортировать отзывы за 30 дней'
       },
       tasks: {
         title: 'Рабочее пространство задач',

@@ -72,5 +72,30 @@ export const reviewService = {
     }
 
     return updatedReview;
+  },
+
+  async importLast30DaysReviews(hotelId: string): Promise<{
+    importedCount: number;
+    duplicateCount: number;
+    failedCount: number;
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/admin-import-reviews', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ hotelId })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Import failed');
+    }
+    return result;
   }
 };

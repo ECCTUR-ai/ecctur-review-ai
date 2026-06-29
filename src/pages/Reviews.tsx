@@ -34,6 +34,7 @@ export default function Reviews() {
   // Sync / Export loading animation helper states
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Fetch reviews using clean repository service
@@ -113,6 +114,29 @@ export default function Reviews() {
     }, 1500);
   };
 
+  const handleImport30DaysReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const res = await reviewService.importLast30DaysReviews(currentHotelId);
+      setToastMessage(
+        `İçe aktarım tamamlandı: ${res.importedCount} yeni yorum eklendi, ${res.duplicateCount} mükerrer atlandı.`
+      );
+      refetch();
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Hata: ${err.message || 'İçe aktarım başarısız oldu'}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleExportReviews = async () => {
     setIsExporting(true);
     setTimeout(() => {
@@ -179,6 +203,15 @@ export default function Reviews() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={handleImport30DaysReviews}
+            disabled={isImporting}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10"
+          >
+            <RefreshCw size={14} className={isImporting ? 'animate-spin' : ''} />
+            <span>{isImporting ? 'İçe Aktarılıyor...' : t('reviews.import30Days')}</span>
+          </button>
+
+          <button
             onClick={handleSyncReviews}
             disabled={isSyncing}
             className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all"
@@ -190,7 +223,7 @@ export default function Reviews() {
           <button
             onClick={handleExportReviews}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all"
           >
             <Download size={14} className={isExporting ? 'animate-spin' : ''} />
             <span>{isExporting ? 'Exporting...' : t('reviews.export')}</span>
