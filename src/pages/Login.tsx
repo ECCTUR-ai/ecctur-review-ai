@@ -18,15 +18,51 @@ export default function Login() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      console.log('[Login Page] Attempting signInWithPassword for:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (signInError) throw signInError;
+      console.log('LOGIN_RESPONSE', data, error);
+
+      if (error) {
+        console.log('LOGIN_ERROR_FULL', error);
+
+        let message =
+          error?.message ||
+          (error as any)?.error_description ||
+          (error as any)?.details ||
+          (error as any)?.hint ||
+          String(error);
+
+        if (message === '{}' || message === '[object Object]') {
+          message = 'Internal Server Error (500). Supabase failed to authenticate. The password hash might be corrupted.';
+        }
+
+        setError(message);
+        setLoading(false);
+        return;
+      }
+
+      console.log('LOGIN_SUCCESS');
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please verify credentials.');
+      console.error('[Login Page] handleLogin caught exception:', err);
+      console.log('LOGIN_ERROR_FULL', err);
+      
+      let message =
+        err?.message ||
+        err?.error_description ||
+        err?.details ||
+        err?.hint ||
+        String(err);
+
+      if (message === '{}' || message === '[object Object]') {
+        message = 'Internal Server Error (500). Supabase failed to authenticate. The password hash might be corrupted.';
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
