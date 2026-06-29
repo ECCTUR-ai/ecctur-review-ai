@@ -861,7 +861,7 @@ export default function Admin() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full min-w-[900px] text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-white/[0.04] text-slate-400 font-medium bg-white/[0.01]">
                       <th className="p-4 pl-6">Name</th>
@@ -1053,7 +1053,7 @@ export default function Admin() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-white/[0.04] text-slate-400 font-medium bg-white/[0.01]">
                       <th className="p-4 pl-6">Hotel Name</th>
@@ -1303,7 +1303,7 @@ export default function Admin() {
                 </div>
 
                 {/* Info block IDs */}
-                <div className="grid grid-cols-2 gap-4 text-xs pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
                   <div className="p-4 rounded-xl bg-slate-900/30 border border-white/[0.04]">
                     <span className="text-slate-500 block">Organization ID</span>
                     <span className="font-mono text-[10px] text-slate-400 block mt-1 truncate">{currentOrg.id}</span>
@@ -1922,7 +1922,7 @@ export default function Admin() {
                   <div className="divide-y divide-white/[0.04] text-xs space-y-3.5">
                     <div className="pt-2">
                       <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">Şirket Profil Bilgileri</span>
-                      <div className="grid grid-cols-2 gap-2 text-slate-300">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300">
                         <div><span className="text-slate-500">Şirket Adı:</span> {onboardOrgName}</div>
                         <div><span className="text-slate-500">E-posta:</span> {onboardOrgEmail}</div>
                         <div><span className="text-slate-500">Telefon:</span> {onboardOrgPhone || 'N/A'}</div>
@@ -1932,7 +1932,7 @@ export default function Admin() {
 
                     <div className="pt-3">
                       <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">Otel Profil Bilgileri</span>
-                      <div className="grid grid-cols-2 gap-2 text-slate-300">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300">
                         <div><span className="text-slate-500">Otel Adı:</span> {onboardHotelName}</div>
                         <div><span className="text-slate-500">Şehir / Ülke:</span> {onboardHotelCity} / {onboardHotelCountry}</div>
                         <div><span className="text-slate-500">Saat Dilimi:</span> {onboardHotelTimezone}</div>
@@ -1953,7 +1953,7 @@ export default function Admin() {
 
                     <div className="pt-3">
                       <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">AI Otomasyonu</span>
-                      <div className="grid grid-cols-2 gap-2 text-slate-300">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300">
                         <div><span className="text-slate-500">Yanıt Dili:</span> {onboardAILang}</div>
                         <div><span className="text-slate-500">Cevap Tonu:</span> <span className="capitalize">{onboardAITone}</span></div>
                         <div><span className="text-slate-500">Otomatik Taslak:</span> {onboardAIAutoDraft ? 'Açık' : 'Kapalı'}</div>

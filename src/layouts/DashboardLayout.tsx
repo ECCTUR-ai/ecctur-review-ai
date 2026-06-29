@@ -30,7 +30,8 @@ import {
   Info,
   Building,
   Globe,
-  ShieldCheck
+  ShieldCheck,
+  Menu
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -58,6 +59,7 @@ export default function DashboardLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isApiOnline, setIsApiOnline] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -245,11 +247,109 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen flex text-slate-100 bg-[#060814] premium-grid-bg">
-      {/* Premium Sidebar */}
+      {/* Mobile Sidebar Backdrop */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Sidebar Drawer */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.aside
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 left-0 w-[260px] bg-[#0c0f22]/98 border-r border-white/[0.06] z-50 md:hidden flex flex-col"
+          >
+            {/* Logo Section */}
+            <div className="h-20 flex items-center justify-between px-6 border-b border-white/[0.04]">
+              <div className="flex items-center gap-2">
+                {currentOrg.logoUrl ? (
+                  <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5" />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
+                    E
+                  </div>
+                )}
+                <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent truncate max-w-[140px]">
+                  {currentOrg.name || 'ECCTUR AI'}
+                </span>
+              </div>
+              <button 
+                onClick={() => setMobileSidebarOpen(false)}
+                className="p-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-slate-300 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </div>
+
+            {/* Navigation Items */}
+            <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+              {sidebarItems.map((item) => {
+                if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
+                  return null;
+                }
+                const isActive = location.pathname === item.path;
+                const Icon = item.icon;
+
+                return (
+                  <Link key={item.path} to={item.path} onClick={() => setMobileSidebarOpen(false)}>
+                    <div className="relative group">
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                          isActive 
+                            ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-[inset_0_0_12px_rgba(59,130,246,0.06)]' 
+                            : 'border border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <Icon size={20} className={isActive ? 'text-blue-400' : 'text-slate-400'} />
+                        <span className="text-sm font-medium">{t(item.tKey)}</span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Profile / Footer Section */}
+            <div className="p-4 border-t border-white/[0.04]">
+              <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white/[0.02]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 font-semibold border border-white/[0.06] shrink-0 uppercase">
+                    {role ? role[0] : 'U'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate capitalize">{role || 'User'}</p>
+                    <p className="text-xs text-slate-500 truncate">ECCTUR Partner</p>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => { await supabase.auth.signOut(); }}
+                  className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition-colors shrink-0"
+                  title="Sign Out"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Premium Sidebar */}
       <motion.aside
         animate={{ width: collapsed ? 80 : 260 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="h-screen sticky top-0 sidebar-glass flex flex-col z-20"
+        className="h-screen sticky top-0 sidebar-glass hidden md:flex flex-col z-20"
       >
         {/* Logo Section */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-white/[0.04]">
@@ -358,28 +458,40 @@ export default function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Premium Header */}
-        <header className="h-20 glass-panel border-b border-white/[0.04] sticky top-0 z-10 flex items-center justify-between px-8">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold text-slate-200 m-0 leading-none">
-              {getPageTitle()}
-            </h1>
-            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        <header className="min-h-20 py-3 md:py-0 glass-panel border-b border-white/[0.04] sticky top-0 z-10 flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 gap-3">
+          <div className="flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+                className="md:hidden p-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-slate-300 transition-colors"
+              >
+                <Menu size={16} />
+              </button>
+              <h1 className="text-sm md:text-lg font-semibold text-slate-200 m-0 leading-none">
+                {getPageTitle()}
+              </h1>
+            </div>
+            
+            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-medium border ${
               isApiOnline 
                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
                 : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
             }`}>
               {isApiOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-              {isApiOnline ? 'API Connected' : 'Demo Offline Mode'}
+              <span className="hidden sm:inline">{isApiOnline ? 'API Connected' : 'Demo Offline Mode'}</span>
+              <span className="inline sm:hidden">{isApiOnline ? 'Online' : 'Demo'}</span>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2 md:gap-4 justify-between md:justify-end w-full md:w-auto flex-wrap">
             {/* Hotel Switcher Dropdown */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
-              <Building size={12} className="text-slate-400" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-white/[0.06] max-w-[160px] md:max-w-none truncate">
+              <Building size={12} className="text-slate-400 shrink-0" />
               {hotels.length > 0 ? (
                 <select
                   value={currentHotelId}
                   onChange={(e) => handleHotelChange(e.target.value)}
-                  className="bg-transparent border-none text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer"
+                  className="bg-transparent border-none text-[11px] md:text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer max-w-[110px] md:max-w-none truncate"
                 >
                   {hotels.map((h) => (
                     <option key={h.id} value={h.id} className="bg-[#090b16] text-slate-300">
@@ -388,26 +500,24 @@ export default function DashboardLayout() {
                   ))}
                 </select>
               ) : (
-                <span className="text-xs text-slate-500 font-semibold">No hotels found</span>
+                <span className="text-[11px] md:text-xs text-slate-500 font-semibold">No hotels</span>
               )}
             </div>
 
             {/* Language Switcher Dropdown */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
-              <Globe size={12} className="text-slate-400" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
+              <Globe size={12} className="text-slate-400 shrink-0" />
               <select
                 value={i18n.language}
                 onChange={(e) => i18n.changeLanguage(e.target.value)}
-                className="bg-transparent border-none text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer"
+                className="bg-transparent border-none text-[11px] md:text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer"
               >
-                <option value="en" className="bg-[#090b16] text-slate-300">English</option>
-                <option value="tr" className="bg-[#090b16] text-slate-300">Türkçe</option>
-                <option value="ru" className="bg-[#090b16] text-slate-300">Русский</option>
+                <option value="en" className="bg-[#090b16] text-slate-300">EN</option>
+                <option value="tr" className="bg-[#090b16] text-slate-300">TR</option>
+                <option value="ru" className="bg-[#090b16] text-slate-300">RU</option>
               </select>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4">
             {/* Notification Center */}
             <div className="relative">
               <button 
