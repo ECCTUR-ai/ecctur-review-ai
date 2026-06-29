@@ -5,29 +5,31 @@ import { UserProfile } from '@/types';
 export const userRepository = {
   async getAllUsers(): Promise<UserProfile[]> {
     const { data: { session } } = await supabase.auth.getSession();
-    const currentUserId = session?.user?.id;
-    if (!currentUserId) {
+    const token = session?.access_token;
+    if (!token) {
       console.log("GET_ALL_USERS_CURRENT_ROLE", "none (unauthenticated)");
       console.log("GET_ALL_USERS_COUNT", 0);
-      console.log("GET_ALL_USERS_RESULT", []);
+      console.log("GET_ALL_USERS_MAPPED_RESULT", []);
       return [];
     }
 
-    // Dynamic import to avoid potential dependency cycles if services expand
-    const { rbacService } = await import('@/services/rbacService');
-    const { role } = await rbacService.getUserRoleAndPermissions(currentUserId);
-    console.log("GET_ALL_USERS_CURRENT_ROLE", role);
+    const response = await fetch('/api/admin-list-users', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*, user_roles(role_id, roles(name)), user_hotels(hotel_id)')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw error;
+    if (!response.ok) {
+      const errorRes = await response.json();
+      throw new Error(errorRes.error || 'Failed to fetch users');
     }
 
-    const allUsers: UserProfile[] = (data || []).map((item: any) => {
+    const { profiles, callerRole, assignedHotelIds } = await response.json();
+
+    console.log("GET_ALL_USERS_RAW_PROFILES", profiles);
+    console.log("GET_ALL_USERS_CURRENT_ROLE", callerRole);
+
+    const allUsers: UserProfile[] = (profiles || []).map((item: any) => {
       const userRoles = item.user_roles || [];
       const primaryRole = userRoles[0];
       const roleId = primaryRole?.role_id;
@@ -48,24 +50,17 @@ export const userRepository = {
       };
     });
 
-    const roleNameLower = role?.toLowerCase() || 'staff';
+    const roleNameLower = callerRole?.toLowerCase() || 'staff';
     let filteredUsers = allUsers;
 
     if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
-      const { data: currentUserHotels } = await supabase
-        .from('user_hotels')
-        .select('hotel_id')
-        .eq('profile_id', currentUserId);
-      
-      const assignedHotelIds = (currentUserHotels || []).map((uh: any) => uh.hotel_id);
-
       filteredUsers = allUsers.filter(u => 
         u.hotelIds && u.hotelIds.some(hId => assignedHotelIds.includes(hId))
       );
     }
 
     console.log("GET_ALL_USERS_COUNT", filteredUsers.length);
-    console.log("GET_ALL_USERS_RESULT", filteredUsers);
+    console.log("GET_ALL_USERS_MAPPED_RESULT", filteredUsers);
 
     return filteredUsers;
   },
