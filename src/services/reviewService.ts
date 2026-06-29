@@ -74,10 +74,11 @@ export const reviewService = {
     return updatedReview;
   },
 
-  async importLast30DaysReviews(hotelId: string): Promise<{
+  async importLast30DaysReviews(hotelId: string, range: string = '365'): Promise<{
     importedCount: number;
     duplicateCount: number;
     failedCount: number;
+    totalFetched: number;
   }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -89,7 +90,7 @@ export const reviewService = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ hotelId })
+      body: JSON.stringify({ hotelId, range })
     });
 
     const result = await response.json();

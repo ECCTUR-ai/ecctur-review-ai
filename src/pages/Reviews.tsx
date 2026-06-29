@@ -35,6 +35,14 @@ export default function Reviews() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importRange, setImportRange] = useState('365');
+  const [importSummary, setImportSummary] = useState<{
+    totalFetched: number;
+    importedCount: number;
+    duplicateCount: number;
+    failedCount: number;
+    range: string;
+  } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Fetch reviews using clean repository service
@@ -120,11 +128,23 @@ export default function Reviews() {
       return;
     }
     setIsImporting(true);
+    setImportSummary(null);
     try {
-      const res = await reviewService.importLast30DaysReviews(currentHotelId);
-      setToastMessage(
-        `İçe aktarım tamamlandı: ${res.importedCount} yeni yorum eklendi, ${res.duplicateCount} mükerrer atlandı.`
-      );
+      const res = await reviewService.importLast30DaysReviews(currentHotelId, importRange);
+      if (res.importedCount === 0) {
+        setToastMessage('Bu tarih aralığında yeni yorum bulunamadı');
+      } else {
+        setToastMessage(
+          `İçe aktarım tamamlandı: ${res.importedCount} yeni yorum eklendi.`
+        );
+      }
+      setImportSummary({
+        totalFetched: res.totalFetched,
+        importedCount: res.importedCount,
+        duplicateCount: res.duplicateCount,
+        failedCount: res.failedCount,
+        range: importRange
+      });
       refetch();
       setTimeout(() => {
         setToastMessage(null);
@@ -201,11 +221,25 @@ export default function Reviews() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <select
+              value={importRange}
+              onChange={(e) => setImportRange(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none text-slate-300 min-h-[36px]"
+            >
+              <option value="30">Son 30 gün</option>
+              <option value="90">Son 90 gün</option>
+              <option value="180">Son 180 gün</option>
+              <option value="365">Son 365 gün</option>
+              <option value="all">Tüm zamanlar</option>
+            </select>
+          </div>
+
           <button
             onClick={handleImport30DaysReviews}
             disabled={isImporting}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 min-h-[36px]"
           >
             <RefreshCw size={14} className={isImporting ? 'animate-spin' : ''} />
             <span>{isImporting ? 'İçe Aktarılıyor...' : t('reviews.import30Days')}</span>
@@ -214,7 +248,7 @@ export default function Reviews() {
           <button
             onClick={handleSyncReviews}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
           >
             <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
             <span>{isSyncing ? 'Syncing...' : t('reviews.sync')}</span>
@@ -223,7 +257,7 @@ export default function Reviews() {
           <button
             onClick={handleExportReviews}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
           >
             <Download size={14} className={isExporting ? 'animate-spin' : ''} />
             <span>{isExporting ? 'Exporting...' : t('reviews.export')}</span>
@@ -310,6 +344,64 @@ export default function Reviews() {
           )}
         </div>
       </div>
+
+      {/* Import Debug Summary Modal */}
+      {importSummary && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-md p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
+            <div className="flex justify-between items-center pb-3 border-b border-white/[0.04]">
+              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
+                <Bell size={16} className="text-blue-400" />
+                <span>İçe Aktarım Sonuç Özeti</span>
+              </h3>
+              <button 
+                onClick={() => setImportSummary(null)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                Kapat
+              </button>
+            </div>
+            
+            <div className="space-y-3.5 text-xs">
+              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                <span className="text-slate-400">Tarih Aralığı:</span>
+                <span className="font-semibold text-slate-200">
+                  {importSummary.range === '30' && 'Son 30 gün'}
+                  {importSummary.range === '90' && 'Son 90 gün'}
+                  {importSummary.range === '180' && 'Son 180 gün'}
+                  {importSummary.range === '365' && 'Son 365 gün'}
+                  {importSummary.range === 'all' && 'Tüm zamanlar'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                <span className="text-slate-400">Google’dan çekilen toplam yorum:</span>
+                <span className="font-bold text-blue-400">{importSummary.totalFetched}</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                <span className="text-slate-400">Daha önce kayıtlı olduğu için atlanan yorum:</span>
+                <span className="font-semibold text-amber-500">{importSummary.duplicateCount}</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                <span className="text-slate-400">n8n’e gönderilen yeni yorum:</span>
+                <span className="font-bold text-emerald-400">{importSummary.importedCount}</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-slate-400">Hata alan yorum:</span>
+                <span className="font-semibold text-rose-500">{importSummary.failedCount}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setImportSummary(null)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-colors"
+              >
+                Tamam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Premium Toast Notification Overlay */}
       {toastMessage && (

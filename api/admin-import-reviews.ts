@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Invalid authentication token' });
   }
 
-  const { hotelId } = req.body;
+  const { hotelId, range = '365' } = req.body;
   if (!hotelId) {
     return res.status(400).json({ error: 'Missing hotelId parameter' });
   }
@@ -92,13 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const orgId = hotelData.organization_id;
 
-    // Define 30 days range
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    // Initial step: Check Google Token status or simulate manual import reviews from last 30 days
-    // In future versions, this is where we query:
-    // await googleBusinessService.fetchReviews(hotelId, thirtyDaysAgo)
+    // Google Business simulated review bank with distributed dates
     const rawImportedReviews = [
       {
         platform_review_id: `g-${hotelId}-101`,
@@ -108,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         platform: 'Google',
         sentiment: 'positive',
         status: 'draft',
-        review_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days ago
+        review_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days ago (Fits Son 30)
       },
       {
         platform_review_id: `g-${hotelId}-102`,
@@ -118,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         platform: 'Google',
         sentiment: 'neutral',
         status: 'draft',
-        review_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+        review_date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString() // 45 days ago (Fits Son 90)
       },
       {
         platform_review_id: `g-${hotelId}-103`,
@@ -128,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         platform: 'Google',
         sentiment: 'negative',
         status: 'draft',
-        review_date: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString() // 12 days ago
+        review_date: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString() // 120 days ago (Fits Son 180)
       },
       {
         platform_review_id: `g-${hotelId}-104`,
@@ -138,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         platform: 'Google',
         sentiment: 'positive',
         status: 'draft',
-        review_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() // 15 days ago
+        review_date: new Date(Date.now() - 250 * 24 * 60 * 60 * 1000).toISOString() // 250 days ago (Fits Son 365)
       },
       {
         platform_review_id: `g-${hotelId}-105`,
@@ -148,17 +142,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         platform: 'Google',
         sentiment: 'neutral',
         status: 'draft',
-        review_date: new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString() // 22 days ago
+        review_date: new Date(Date.now() - 500 * 24 * 60 * 60 * 1000).toISOString() // 500 days ago (Fits All Time)
       }
     ];
+
+    // Compute cutoff date
+    let cutoffDate: Date | null = null;
+    if (range !== 'all') {
+      const days = parseInt(range, 10) || 365;
+      cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+    }
+
+    const filteredReviews = rawImportedReviews.filter(r => {
+      if (!cutoffDate) return true;
+      return new Date(r.review_date) >= cutoffDate;
+    });
 
     let successCount = 0;
     let duplicateCount = 0;
     let failedCount = 0;
 
-    for (let r of rawImportedReviews) {
+    for (let r of filteredReviews) {
       try {
-        // 3. Duplicate kontrolü yap: platform_review_id aynıysa tekrar ekleme
         const { data: existingReview } = await supabaseAdmin
           .from('reviews')
           .select('id')
@@ -170,7 +176,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        // Insert Review to Supabase
         const reviewRecord = {
           platform_review_id: r.platform_review_id,
           guest_name: r.guest_name,
@@ -194,7 +199,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         successCount++;
 
-        // 2. Her yorumu n8n webhook URL’ye POST et
         await postToN8N({
           ...reviewRecord,
           id: newRev.id,
@@ -211,7 +215,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       importedCount: successCount,
       duplicateCount,
-      failedCount
+      failedCount,
+      totalFetched: filteredReviews.length
     });
 
   } catch (err: any) {
