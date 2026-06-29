@@ -71,7 +71,15 @@ export const hotelRepository = {
       organizationId: item.organization_id || item.organizationId,
       name: item.name,
       createdAt: item.created_at || item.createdAt,
-      connectionStatus: 'connected' // Hardcoded connection status for live Supabase hotels
+      connectionStatus: 'connected',
+      googleMapsLink: item.google_maps_link,
+      address: item.address,
+      phone: item.phone,
+      website: item.website,
+      city: item.city,
+      country: item.country,
+      timezone: item.timezone,
+      defaultLanguage: item.default_language
     }));
   },
 

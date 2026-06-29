@@ -63,7 +63,8 @@ const resources = {
           users: 'User Management',
           hotels: 'Hotel Management',
           org: 'Organization',
-          integrations: 'Integrations & Roles'
+          integrations: 'Integrations & Roles',
+          onboarding: 'Customer Onboarding'
         },
         users: {
           profilesCount: 'Corporate User Profiles ({{count}})',
@@ -180,7 +181,8 @@ const resources = {
           users: 'Kullanıcı Yönetimi',
           hotels: 'Otel Yönetimi',
           org: 'Organizasyon',
-          integrations: 'Entegrasyonlar ve Roller'
+          integrations: 'Entegrasyonlar ve Roller',
+          onboarding: 'Yeni Müşteri Kurulumu'
         },
         users: {
           profilesCount: 'Kurumsal Kullanıcı Profilleri ({{count}})',
@@ -297,7 +299,8 @@ const resources = {
           users: 'Управление пользователями',
           hotels: 'Управление отелями',
           org: 'Организация',
-          integrations: 'Интеграции и роли'
+          integrations: 'Интеграции и роли',
+          onboarding: 'Онбординг клиентов'
         },
         users: {
           profilesCount: 'Профили пользователей ({{count}})',

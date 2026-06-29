@@ -5,6 +5,7 @@ import { roleRepository } from '@/repositories/roleRepository';
 import { integrationRepository } from '@/repositories/integrationRepository';
 import { hotelRepository } from '@/repositories/hotelRepository';
 import { organizationRepository } from '@/repositories/organizationRepository';
+import { supabase } from '@/lib/supabase';
 
 export const adminService = {
   // User Management
@@ -56,5 +57,25 @@ export const adminService = {
   },
   async updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization> {
     return await organizationRepository.updateOrganization(id, updates);
+  },
+  async onboardCustomer(data: any): Promise<any> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/admin-onboard-customer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Onboarding failed');
+    }
+    return result;
   }
 };

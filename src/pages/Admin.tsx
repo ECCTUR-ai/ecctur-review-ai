@@ -33,8 +33,180 @@ export default function Admin() {
   const roleNameLower = role?.toLowerCase() || 'staff';
   const isSuperOrAdmin = roleNameLower === 'super admin' || roleNameLower === 'admin';
 
-  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding'>('users');
   const [toast, setToast] = useState<string | null>(null);
+
+  // Form States - Customer Onboarding Wizard
+  const [wizardStep, setWizardStep] = useState(1);
+  const [onboardOrgName, setOnboardOrgName] = useState('');
+  const [onboardOrgContact, setOnboardOrgContact] = useState('');
+  const [onboardOrgPhone, setOnboardOrgPhone] = useState('');
+  const [onboardOrgEmail, setOnboardOrgEmail] = useState('');
+  const [onboardOrgLogoUrl, setOnboardOrgLogoUrl] = useState('');
+  const [onboardOrgTaxOffice, setOnboardOrgTaxOffice] = useState('');
+  const [onboardOrgTaxNumber, setOnboardOrgTaxNumber] = useState('');
+  const [onboardOrgAddress, setOnboardOrgAddress] = useState('');
+
+  const [onboardHotelName, setOnboardHotelName] = useState('');
+  const [onboardHotelMaps, setOnboardHotelMaps] = useState('');
+  const [onboardHotelAddress, setOnboardHotelAddress] = useState('');
+  const [onboardHotelPhone, setOnboardHotelPhone] = useState('');
+  const [onboardHotelWebsite, setOnboardHotelWebsite] = useState('');
+  const [onboardHotelCity, setOnboardHotelCity] = useState('');
+  const [onboardHotelCountry, setOnboardHotelCountry] = useState('');
+  const [onboardHotelTimezone, setOnboardHotelTimezone] = useState('Europe/Istanbul');
+  const [onboardHotelLang, setOnboardHotelLang] = useState('tr');
+
+  const [onboardGoogleConnected, setOnboardGoogleConnected] = useState(false);
+  const [onboardTripadvisorLink, setOnboardTripadvisorLink] = useState('');
+  const [onboardWhatsappNumber, setOnboardWhatsappNumber] = useState('');
+  const [onboardEmailIntegration, setOnboardEmailIntegration] = useState('');
+
+  const [onboardUsers, setOnboardUsers] = useState<any[]>([
+    { firstName: '', lastName: '', email: '', password: '', phone: '', title: '', role: 'Hotel Manager' }
+  ]);
+
+  const [onboardAILang, setOnboardAILang] = useState('tr');
+  const [onboardAITone, setOnboardAITone] = useState<'official' | 'warm' | 'premium'>('warm');
+  const [onboardAIAutoDraft, setOnboardAIAutoDraft] = useState(true);
+  const [onboardAILowRatingAlert, setOnboardAILowRatingAlert] = useState(true);
+
+  const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
+  const [isOnboardLogoUploading, setIsOnboardLogoUploading] = useState(false);
+
+  const handleOnboardLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsOnboardLogoUploading(true);
+    try {
+      const fileName = `logos/onboard-${Date.now()}-${file.name}`;
+      const { data, error: uploadErr } = await supabase.storage
+        .from('organization-assets')
+        .upload(fileName, file, {
+          upsert: true,
+          contentType: file.type
+        });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('organization-assets')
+        .getPublicUrl(fileName);
+
+      setOnboardOrgLogoUrl(publicUrl);
+      triggerToast('Logo uploaded successfully');
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Logo upload failed: ${err.message}`);
+    } finally {
+      setIsOnboardLogoUploading(false);
+    }
+  };
+
+  const validateOnboardStep = (): boolean => {
+    if (wizardStep === 1) {
+      if (!onboardOrgName.trim()) { triggerToast('Şirket Adı gereklidir.'); return false; }
+      if (!onboardOrgEmail.trim()) { triggerToast('Şirket E-postası gereklidir.'); return false; }
+      return true;
+    }
+    if (wizardStep === 2) {
+      if (!onboardHotelName.trim()) { triggerToast('Otel Adı gereklidir.'); return false; }
+      if (!onboardHotelCity.trim() || !onboardHotelCountry.trim()) { triggerToast('Şehir ve Ülke gereklidir.'); return false; }
+      return true;
+    }
+    if (wizardStep === 4) {
+      for (let i = 0; i < onboardUsers.length; i++) {
+        const u = onboardUsers[i];
+        if (!u.firstName.trim() || !u.lastName.trim()) {
+          triggerToast(`Kullanıcı ${i + 1} için Ad ve Soyad alanları doldurulmalıdır.`);
+          return false;
+        }
+        if (!u.email.trim() || !u.email.includes('@')) {
+          triggerToast(`Kullanıcı ${i + 1} için geçerli bir E-posta girilmelidir.`);
+          return false;
+        }
+        if (!u.password || u.password.length < 8) {
+          triggerToast(`Kullanıcı ${i + 1} şifresi en az 8 karakter olmalıdır.`);
+          return false;
+        }
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const handleTriggerOnboarding = async () => {
+    setIsOnboardingSaving(true);
+    try {
+      const payload = {
+        org: {
+          name: onboardOrgName,
+          logoUrl: onboardOrgLogoUrl,
+          taxOffice: onboardOrgTaxOffice,
+          taxNumber: onboardOrgTaxNumber,
+          phone: onboardOrgPhone,
+          email: onboardOrgEmail,
+          address: onboardOrgAddress
+        },
+        hotel: {
+          name: onboardHotelName,
+          googleMapsLink: onboardHotelMaps,
+          address: onboardHotelAddress,
+          phone: onboardHotelPhone,
+          website: onboardHotelWebsite,
+          city: onboardHotelCity,
+          country: onboardHotelCountry,
+          timezone: onboardHotelTimezone,
+          defaultLanguage: onboardHotelLang
+        },
+        connections: {
+          googleConnected: onboardGoogleConnected,
+          tripadvisorLink: onboardTripadvisorLink,
+          whatsappNumber: onboardWhatsappNumber,
+          emailIntegration: onboardEmailIntegration
+        },
+        users: onboardUsers,
+        aiSettings: {
+          responseLanguage: onboardAILang,
+          tone: onboardAITone,
+          autoRespond: onboardAIAutoDraft,
+          lowRatingAlerts: onboardAILowRatingAlert
+        }
+      };
+
+      await adminService.onboardCustomer(payload);
+      triggerToast('Müşteri kurulumu başarıyla tamamlandı');
+      
+      setWizardStep(1);
+      setOnboardOrgName('');
+      setOnboardOrgContact('');
+      setOnboardOrgPhone('');
+      setOnboardOrgEmail('');
+      setOnboardOrgLogoUrl('');
+      setOnboardOrgTaxOffice('');
+      setOnboardOrgTaxNumber('');
+      setOnboardOrgAddress('');
+      setOnboardHotelName('');
+      setOnboardHotelMaps('');
+      setOnboardHotelAddress('');
+      setOnboardHotelPhone('');
+      setOnboardHotelWebsite('');
+      setOnboardHotelCity('');
+      setOnboardHotelCountry('');
+      setOnboardUsers([{ firstName: '', lastName: '', email: '', password: '', phone: '', title: '', role: 'Hotel Manager' }]);
+      
+      setActiveTab('users');
+      refetchUsers();
+      refetchOrgs();
+      refetchHotels();
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Kurulum Hatası (Adım ${wizardStep}): ${err.message || 'Bilinmeyen bir hata oluştu.'}`);
+    } finally {
+      setIsOnboardingSaving(false);
+    }
+  };
 
   // Load Data
   const { data: users, loading: usersLoading, refetch: refetchUsers } = useFetch(() => adminService.getAllUsers());
@@ -380,15 +552,26 @@ export default function Admin() {
           </button>
         )}
         {isSuperOrAdmin && (
-          <button
-            onClick={() => setActiveTab('integrations')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sliders size={14} />
-            {t('admin.tabs.integrations')}
-          </button>
+          <>
+            <button
+              onClick={() => setActiveTab('integrations')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sliders size={14} />
+              {t('admin.tabs.integrations')}
+            </button>
+            <button
+              onClick={() => setActiveTab('onboarding')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'onboarding' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sparkles size={14} />
+              {t('admin.tabs.onboarding')}
+            </button>
+          </>
         )}
       </div>
 
@@ -1225,6 +1408,594 @@ export default function Admin() {
                     <p className="text-[10px] text-slate-500 leading-normal m-0">{r.description || 'No description provided.'}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: CUSTOMER ONBOARDING WIZARD */}
+        {isSuperOrAdmin && activeTab === 'onboarding' && (
+          <div className="space-y-6 max-w-4xl">
+            {/* Wizard Header Progress Bar */}
+            <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-semibold text-blue-400 uppercase tracking-wider">Müşteri Kurulum Sihirbazı</span>
+                <span className="text-slate-400 font-medium">Adım {wizardStep} / 6</span>
+              </div>
+              <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-white/[0.04]">
+                <div 
+                  className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full transition-all duration-300"
+                  style={{ width: `${(wizardStep / 6) * 100}%` }}
+                />
+              </div>
+              <div className="grid grid-cols-6 gap-2 text-center text-[9px] font-semibold text-slate-500 uppercase tracking-wide">
+                <span className={wizardStep >= 1 ? 'text-blue-400' : ''}>Şirket</span>
+                <span className={wizardStep >= 2 ? 'text-blue-400' : ''}>Otel</span>
+                <span className={wizardStep >= 3 ? 'text-blue-400' : ''}>Platformlar</span>
+                <span className={wizardStep >= 4 ? 'text-blue-400' : ''}>Kullanıcılar</span>
+                <span className={wizardStep >= 5 ? 'text-blue-400' : ''}>AI Ayarları</span>
+                <span className={wizardStep >= 6 ? 'text-blue-400' : ''}>Özet</span>
+              </div>
+            </div>
+
+            {/* Wizard Body Cards */}
+            <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
+              {/* STEP 1: Şirket Bilgileri */}
+              {wizardStep === 1 && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <Building2 size={16} className="text-blue-400" />
+                    Şirket Bilgileri (Company Details)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Şirket Adı *</label>
+                      <input 
+                        type="text"
+                        required
+                        value={onboardOrgName}
+                        onChange={(e) => setOnboardOrgName(e.target.value)}
+                        placeholder="Örn. ECCTUR Group"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Yetkili Kişi</label>
+                      <input 
+                        type="text"
+                        value={onboardOrgContact}
+                        onChange={(e) => setOnboardOrgContact(e.target.value)}
+                        placeholder="Ad Soyad"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Telefon</label>
+                      <input 
+                        type="text"
+                        value={onboardOrgPhone}
+                        onChange={(e) => setOnboardOrgPhone(e.target.value)}
+                        placeholder="+90 212 ..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Şirket E-postası *</label>
+                      <input 
+                        type="email"
+                        required
+                        value={onboardOrgEmail}
+                        onChange={(e) => setOnboardOrgEmail(e.target.value)}
+                        placeholder="info@ecctur.com"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vergi Dairesi</label>
+                      <input 
+                        type="text"
+                        value={onboardOrgTaxOffice}
+                        onChange={(e) => setOnboardOrgTaxOffice(e.target.value)}
+                        placeholder="Maslak V.D."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vergi Numarası</label>
+                      <input 
+                        type="text"
+                        value={onboardOrgTaxNumber}
+                        onChange={(e) => setOnboardOrgTaxNumber(e.target.value)}
+                        placeholder="1234567890"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Şirket Adresi</label>
+                    <textarea 
+                      value={onboardOrgAddress}
+                      onChange={(e) => setOnboardOrgAddress(e.target.value)}
+                      placeholder="Şirket merkez adresi..."
+                      rows={2}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 resize-none"
+                    />
+                  </div>
+                  {/* Logo Upload Section */}
+                  <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl bg-slate-950 border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
+                      {onboardOrgLogoUrl ? (
+                        <img src={onboardOrgLogoUrl} alt="Onboard logo" className="w-full h-full object-contain" />
+                      ) : (
+                        <Building2 size={24} className="text-slate-600" />
+                      )}
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <span className="text-xs font-semibold text-slate-200 block">{t('admin.org.logo')}</span>
+                      <label className="px-3 py-1.5 bg-slate-900 border border-white/[0.06] hover:bg-white/[0.04] text-slate-300 hover:text-slate-100 rounded-xl cursor-pointer text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
+                        <Plus size={12} />
+                        {isOnboardLogoUploading ? t('admin.org.logoUploading') : t('admin.org.logo')}
+                        <input 
+                          type="file"
+                          accept="image/*"
+                          onChange={handleOnboardLogoUpload}
+                          className="hidden"
+                          disabled={isOnboardLogoUploading}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: Otel Bilgileri */}
+              {wizardStep === 2 && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <Building size={16} className="text-blue-400" />
+                    Otel Bilgileri (Hotel Information)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Otel Adı *</label>
+                      <input 
+                        type="text"
+                        required
+                        value={onboardHotelName}
+                        onChange={(e) => setOnboardHotelName(e.target.value)}
+                        placeholder="Örn. Montana Beach Resort"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Google Maps Linki</label>
+                      <input 
+                        type="text"
+                        value={onboardHotelMaps}
+                        onChange={(e) => setOnboardHotelMaps(e.target.value)}
+                        placeholder="https://maps.google.com/..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Telefon</label>
+                      <input 
+                        type="text"
+                        value={onboardHotelPhone}
+                        onChange={(e) => setOnboardHotelPhone(e.target.value)}
+                        placeholder="+90 242 ..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Web Sitesi</label>
+                      <input 
+                        type="text"
+                        value={onboardHotelPhone}
+                        onChange={(e) => setOnboardHotelWebsite(e.target.value)}
+                        placeholder="https://hotelname.com"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Şehir *</label>
+                      <input 
+                        type="text"
+                        required
+                        value={onboardHotelCity}
+                        onChange={(e) => setOnboardHotelCity(e.target.value)}
+                        placeholder="Antalya"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Ülke *</label>
+                      <input 
+                        type="text"
+                        required
+                        value={onboardHotelCountry}
+                        onChange={(e) => setOnboardHotelCountry(e.target.value)}
+                        placeholder="Türkiye"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Saat Dilimi</label>
+                      <input 
+                        type="text"
+                        value={onboardHotelTimezone}
+                        onChange={(e) => setOnboardHotelTimezone(e.target.value)}
+                        placeholder="Europe/Istanbul"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Varsayılan Dil</label>
+                      <select 
+                        value={onboardHotelLang}
+                        onChange={(e) => setOnboardHotelLang(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      >
+                        <option value="tr">Türkçe</option>
+                        <option value="en">English</option>
+                        <option value="ru">Русский</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Adres</label>
+                    <textarea 
+                      value={onboardHotelAddress}
+                      onChange={(e) => setOnboardHotelAddress(e.target.value)}
+                      placeholder="Montana Beach Resort, Kemer / Antalya"
+                      rows={2}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Platform Bağlantıları */}
+              {wizardStep === 3 && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <Sliders size={16} className="text-blue-400" />
+                    Platform Bağlantıları (Platform Connections)
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-slate-200 block">Google Business Profile</span>
+                        <span className="text-[10px] text-slate-500">Google Haritalar yorum senkronizasyonu.</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setOnboardGoogleConnected(!onboardGoogleConnected)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                          onboardGoogleConnected 
+                            ? 'bg-blue-600/10 border-blue-500/30 text-blue-400'
+                            : 'bg-slate-950 border-white/[0.06] text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {onboardGoogleConnected ? 'Bağlı (Connected)' : 'Bağla (Connect)'}
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">TripAdvisor Otel Linki</label>
+                      <input 
+                        type="text"
+                        value={onboardTripadvisorLink}
+                        onChange={(e) => setOnboardTripadvisorLink(e.target.value)}
+                        placeholder="https://www.tripadvisor.com.tr/Hotel_Review-..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">WhatsApp Business Numarası</label>
+                      <input 
+                        type="text"
+                        value={onboardWhatsappNumber}
+                        onChange={(e) => setOnboardWhatsappNumber(e.target.value)}
+                        placeholder="+905551234567"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">E-posta Entegrasyonu</label>
+                      <input 
+                        type="email"
+                        value={onboardEmailIntegration}
+                        onChange={(e) => setOnboardEmailIntegration(e.target.value)}
+                        placeholder="feedback@ecctur.ai"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Kullanıcılar */}
+              {wizardStep === 4 && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
+                      <Users size={16} className="text-blue-400" />
+                      Kurumsal Kullanıcılar (Users Directory)
+                    </h4>
+                    <button 
+                      type="button"
+                      onClick={() => setOnboardUsers([...onboardUsers, { firstName: '', lastName: '', email: '', password: '', phone: '', title: '', role: 'Staff' }])}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white text-xs font-semibold rounded-xl"
+                    >
+                      <Plus size={12} />
+                      Kullanıcı Ekle
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {onboardUsers.map((u, i) => (
+                      <div key={i} className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] space-y-3 relative">
+                        {onboardUsers.length > 1 && (
+                          <button 
+                            type="button"
+                            onClick={() => setOnboardUsers(onboardUsers.filter((_, idx) => idx !== i))}
+                            className="absolute top-4 right-4 p-1 rounded hover:bg-rose-500/10 text-rose-400 hover:text-rose-300"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Kullanıcı #{i + 1}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-semibold text-slate-400 uppercase">Ad *</label>
+                            <input 
+                              type="text"
+                              required
+                              value={u.firstName}
+                              onChange={(e) => {
+                                const newUsers = [...onboardUsers];
+                                newUsers[i].firstName = e.target.value;
+                                setOnboardUsers(newUsers);
+                              }}
+                              placeholder="Ad"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-semibold text-slate-400 uppercase">Soyad *</label>
+                            <input 
+                              type="text"
+                              required
+                              value={u.lastName}
+                              onChange={(e) => {
+                                const newUsers = [...onboardUsers];
+                                newUsers[i].lastName = e.target.value;
+                                setOnboardUsers(newUsers);
+                              }}
+                              placeholder="Soyad"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-semibold text-slate-400 uppercase">E-posta *</label>
+                            <input 
+                              type="email"
+                              required
+                              value={u.email}
+                              onChange={(e) => {
+                                const newUsers = [...onboardUsers];
+                                newUsers[i].email = e.target.value;
+                                setOnboardUsers(newUsers);
+                              }}
+                              placeholder="email@hotel.com"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-semibold text-slate-400 uppercase">Şifre * (min. 8 krkt)</label>
+                            <input 
+                              type="password"
+                              required
+                              value={u.password}
+                              onChange={(e) => {
+                                const newUsers = [...onboardUsers];
+                                newUsers[i].password = e.target.value;
+                                setOnboardUsers(newUsers);
+                              }}
+                              placeholder="Şifre"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-semibold text-slate-400 uppercase">Rol *</label>
+                            <select 
+                              value={u.role}
+                              onChange={(e) => {
+                                const newUsers = [...onboardUsers];
+                                newUsers[i].role = e.target.value;
+                                setOnboardUsers(newUsers);
+                              }}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                            >
+                              <option value="Super Admin">Super Admin</option>
+                              <option value="Admin">Admin</option>
+                              <option value="Hotel Manager">Hotel Manager</option>
+                              <option value="Staff">Staff</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-semibold text-slate-400 uppercase">Telefon</label>
+                            <input 
+                              type="text"
+                              value={u.phone}
+                              onChange={(e) => {
+                                const newUsers = [...onboardUsers];
+                                newUsers[i].phone = e.target.value;
+                                setOnboardUsers(newUsers);
+                              }}
+                              placeholder="+90555..."
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 5: AI Ayarları */}
+              {wizardStep === 5 && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <Sparkles size={16} className="text-blue-400" />
+                    AI Otomasyon Ayarları (AI Automation Settings)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Otel Cevap Dili</label>
+                      <select 
+                        value={onboardAILang}
+                        onChange={(e) => setOnboardAILang(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      >
+                        <option value="tr">Türkçe</option>
+                        <option value="en">English</option>
+                        <option value="ru">Русский</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">AI Yanıt Tonu</label>
+                      <select 
+                        value={onboardAITone}
+                        onChange={(e) => setOnboardAITone(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      >
+                        <option value="official">Resmi (Official / Formal)</option>
+                        <option value="warm">Samimi (Warm / Friendly)</option>
+                        <option value="premium">Lüks (Premium / Executive)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-slate-200 block">Otomatik Taslak Cevap</span>
+                        <span className="text-[10px] text-slate-500">Yapay zeka gelen yorumlar için otomatik taslak cevap üretsin.</span>
+                      </div>
+                      <input 
+                        type="checkbox"
+                        checked={onboardAIAutoDraft}
+                        onChange={(e) => setOnboardAIAutoDraft(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-slate-900 border-white/[0.06] rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-slate-900"
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-slate-200 block">Düşük Puan Uyarısı</span>
+                        <span className="text-[10px] text-slate-500">Düşük puanlı yorumlarda sisteme anlık uyarı düşsün.</span>
+                      </div>
+                      <input 
+                        type="checkbox"
+                        checked={onboardAILowRatingAlert}
+                        onChange={(e) => setOnboardAILowRatingAlert(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-slate-900 border-white/[0.06] rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-slate-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 6: Kurulum Özeti */}
+              {wizardStep === 6 && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <CheckCircle size={16} className="text-blue-400" />
+                    Kurulum Özeti & Onay (Setup Verification)
+                  </h4>
+                  <div className="divide-y divide-white/[0.04] text-xs space-y-3.5">
+                    <div className="pt-2">
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">Şirket Profil Bilgileri</span>
+                      <div className="grid grid-cols-2 gap-2 text-slate-300">
+                        <div><span className="text-slate-500">Şirket Adı:</span> {onboardOrgName}</div>
+                        <div><span className="text-slate-500">E-posta:</span> {onboardOrgEmail}</div>
+                        <div><span className="text-slate-500">Telefon:</span> {onboardOrgPhone || 'N/A'}</div>
+                        <div><span className="text-slate-500">Vergi Dairesi/No:</span> {onboardOrgTaxOffice || 'N/A'} / {onboardOrgTaxNumber || 'N/A'}</div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3">
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">Otel Profil Bilgileri</span>
+                      <div className="grid grid-cols-2 gap-2 text-slate-300">
+                        <div><span className="text-slate-500">Otel Adı:</span> {onboardHotelName}</div>
+                        <div><span className="text-slate-500">Şehir / Ülke:</span> {onboardHotelCity} / {onboardHotelCountry}</div>
+                        <div><span className="text-slate-500">Saat Dilimi:</span> {onboardHotelTimezone}</div>
+                        <div><span className="text-slate-500">Varsayılan Dil:</span> {onboardHotelLang}</div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3">
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">Oluşturulacak Kullanıcılar ({onboardUsers.length})</span>
+                      <div className="space-y-1">
+                        {onboardUsers.map((u, idx) => (
+                          <div key={idx} className="text-slate-300 font-mono text-[11px] bg-slate-900/50 p-2 rounded-xl border border-white/[0.02]">
+                            #{idx + 1}: {u.firstName} {u.lastName} ({u.email}) - <span className="text-blue-400 font-semibold">{u.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-3">
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">AI Otomasyonu</span>
+                      <div className="grid grid-cols-2 gap-2 text-slate-300">
+                        <div><span className="text-slate-500">Yanıt Dili:</span> {onboardAILang}</div>
+                        <div><span className="text-slate-500">Cevap Tonu:</span> <span className="capitalize">{onboardAITone}</span></div>
+                        <div><span className="text-slate-500">Otomatik Taslak:</span> {onboardAIAutoDraft ? 'Açık' : 'Kapalı'}</div>
+                        <div><span className="text-slate-500">Düşük Puan Uyarısı:</span> {onboardAILowRatingAlert ? 'Açık' : 'Kapalı'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step Navigation Controls */}
+              <div className="flex justify-between items-center pt-4 border-t border-white/[0.04]">
+                <button
+                  type="button"
+                  disabled={wizardStep === 1 || isOnboardingSaving}
+                  onClick={() => setWizardStep(wizardStep - 1)}
+                  className="px-4 py-2 border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-colors"
+                >
+                  Geri
+                </button>
+                {wizardStep < 6 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (validateOnboardStep()) {
+                        setWizardStep(wizardStep + 1);
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-colors"
+                  >
+                    İleri
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isOnboardingSaving}
+                    onClick={handleTriggerOnboarding}
+                    className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50"
+                  >
+                    {isOnboardingSaving ? 'Kurulum Yapılıyor...' : 'Kurulumu Tamamla'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
