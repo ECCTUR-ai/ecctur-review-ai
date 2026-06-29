@@ -11,22 +11,43 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// Post review helper to n8n webhook if configured
+// Post review helper to n8n webhook if configured (uses production URL when active)
 async function postToN8N(review: any) {
+  const webhookUrl = process.env.N8N_WEBHOOK_URL || 'https://cemilsezgin.app.n8n.cloud/webhook/ecctur-review';
+  console.log('[n8n Poster] Posting review to:', webhookUrl);
+  
+  let res: Response;
   try {
-    const webhookUrl = process.env.N8N_WEBHOOK_URL || 'https://n8n.ecctur.ai/webhook/reviews';
-    console.log('[n8n Poster] Posting review to:', webhookUrl);
-    
-    // In vercel environments fetch is built-in
-    const res = await fetch(webhookUrl, {
+    res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(review)
     });
-    console.log('[n8n Poster] Response status:', res.status);
-  } catch (err) {
-    console.error('[n8n Poster] Failed to post to n8n:', err);
+  } catch (err: any) {
+    throw new Error(JSON.stringify({
+      type: 'N8N_WEBHOOK_NETWORK_ERROR',
+      webhookUrl,
+      status: 0,
+      responseBody: err.message || String(err),
+      reviewId: review.id || review.platform_review_id
+    }));
   }
+
+  if (!res.ok) {
+    let bodyText = '';
+    try {
+      bodyText = await res.text();
+    } catch (_) {}
+    throw new Error(JSON.stringify({
+      type: 'N8N_WEBHOOK_HTTP_ERROR',
+      webhookUrl,
+      status: res.status,
+      responseBody: bodyText,
+      reviewId: review.id || review.platform_review_id
+    }));
+  }
+  
+  console.log('[n8n Poster] Response status:', res.status);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -162,6 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let successCount = 0;
     let duplicateCount = 0;
     let failedCount = 0;
+    const detailedErrors: any[] = [];
 
     for (let r of filteredReviews) {
       try {
@@ -195,19 +217,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .select()
           .single();
 
-        if (insErr) throw insErr;
+        if (insErr) {
+          throw new Error(JSON.stringify({
+            type: 'SUPABASE_INSERT_ERROR',
+            message: insErr.message || String(insErr),
+            reviewId: r.platform_review_id
+          }));
+        }
 
-        successCount++;
-
+        // Post to n8n (throws structured error if HTTP or network fail)
         await postToN8N({
           ...reviewRecord,
           id: newRev.id,
           hotelName: hotelData.name
         });
 
-      } catch (err) {
+        successCount++;
+
+      } catch (err: any) {
         failedCount++;
         console.error(`[Import] Failed to import review ${r.platform_review_id}:`, err);
+        
+        try {
+          const parsed = JSON.parse(err.message);
+          detailedErrors.push(parsed);
+        } catch (_) {
+          detailedErrors.push({
+            type: 'GENERIC_ERROR',
+            message: err.message || String(err),
+            reviewId: r.platform_review_id
+          });
+        }
       }
     }
 
@@ -216,7 +256,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       importedCount: successCount,
       duplicateCount,
       failedCount,
-      totalFetched: filteredReviews.length
+      totalFetched: filteredReviews.length,
+      detailedErrors
     });
 
   } catch (err: any) {

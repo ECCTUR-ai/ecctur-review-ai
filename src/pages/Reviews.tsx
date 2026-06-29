@@ -42,6 +42,7 @@ export default function Reviews() {
     duplicateCount: number;
     failedCount: number;
     range: string;
+    detailedErrors?: any[];
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -143,7 +144,8 @@ export default function Reviews() {
         importedCount: res.importedCount,
         duplicateCount: res.duplicateCount,
         failedCount: res.failedCount,
-        range: importRange
+        range: importRange,
+        detailedErrors: res.detailedErrors
       });
       refetch();
       setTimeout(() => {
@@ -348,7 +350,7 @@ export default function Reviews() {
       {/* Import Debug Summary Modal */}
       {importSummary && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
+          <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
             <div className="flex justify-between items-center pb-3 border-b border-white/[0.04]">
               <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
                 <Bell size={16} className="text-blue-400" />
@@ -362,36 +364,101 @@ export default function Reviews() {
               </button>
             </div>
             
-            <div className="space-y-3.5 text-xs">
-              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                <span className="text-slate-400">Tarih Aralığı:</span>
-                <span className="font-semibold text-slate-200">
-                  {importSummary.range === '30' && 'Son 30 gün'}
-                  {importSummary.range === '90' && 'Son 90 gün'}
-                  {importSummary.range === '180' && 'Son 180 gün'}
-                  {importSummary.range === '365' && 'Son 365 gün'}
-                  {importSummary.range === 'all' && 'Tüm zamanlar'}
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-3.5 text-xs">
+                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                  <span className="text-slate-400">Tarih Aralığı:</span>
+                  <span className="font-semibold text-slate-200">
+                    {importSummary.range === '30' && 'Son 30 gün'}
+                    {importSummary.range === '90' && 'Son 90 gün'}
+                    {importSummary.range === '180' && 'Son 180 gün'}
+                    {importSummary.range === '365' && 'Son 365 gün'}
+                    {importSummary.range === 'all' && 'Tüm zamanlar'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                  <span className="text-slate-400">Google’dan çekilen toplam:</span>
+                  <span className="font-bold text-blue-400">{importSummary.totalFetched}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                  <span className="text-slate-400">Mükerrer (Atlanan):</span>
+                  <span className="font-semibold text-amber-500">{importSummary.duplicateCount}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
+                  <span className="text-slate-400">n8n’e gönderilen yeni:</span>
+                  <span className="font-bold text-emerald-400">{importSummary.importedCount}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-slate-400">Hata alan yorum:</span>
+                  <span className="font-semibold text-rose-500">{importSummary.failedCount}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                <span className="text-slate-400">Google’dan çekilen toplam yorum:</span>
-                <span className="font-bold text-blue-400">{importSummary.totalFetched}</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                <span className="text-slate-400">Daha önce kayıtlı olduğu için atlanan yorum:</span>
-                <span className="font-semibold text-amber-500">{importSummary.duplicateCount}</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                <span className="text-slate-400">n8n’e gönderilen yeni yorum:</span>
-                <span className="font-bold text-emerald-400">{importSummary.importedCount}</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5">
-                <span className="text-slate-400">Hata alan yorum:</span>
-                <span className="font-semibold text-rose-500">{importSummary.failedCount}</span>
+
+              <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-white/[0.03]">
+                <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Debug Entegrasyon Durumu</h4>
+                <div className="text-[11px] text-slate-400 space-y-1.5 leading-relaxed">
+                  <div>
+                    <span className="text-slate-500">n8n Durumu:</span>{' '}
+                    {importSummary.importedCount > 0 ? (
+                      <span className="text-emerald-400 font-semibold">Aktif (Veri İletiliyor)</span>
+                    ) : importSummary.failedCount > 0 ? (
+                      <span className="text-rose-400 font-semibold">Hatalı (Bağlantı Sorunu)</span>
+                    ) : (
+                      <span className="text-slate-500">Beklemede</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Google API Sınıfı:</span>{' '}
+                    <span className="text-slate-300 font-mono text-[10px]">MockGoogleProvider</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            {importSummary.detailedErrors && importSummary.detailedErrors.length > 0 && (
+              <div className="space-y-3.5 pt-4 border-t border-white/[0.04]">
+                <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider block">
+                  Hata Detayları ({importSummary.detailedErrors.length})
+                </span>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {importSummary.detailedErrors.map((err, idx) => (
+                    <div key={idx} className="p-3.5 rounded-xl bg-rose-950/15 border border-rose-500/10 text-[10px] text-rose-300 space-y-1.5 leading-normal">
+                      <div className="flex justify-between items-center text-[9px] border-b border-rose-500/10 pb-1 mb-1">
+                        <span className="text-rose-400 font-semibold">HATA #{idx + 1}</span>
+                        <code className="text-slate-400 font-mono">ID: {err.reviewId}</code>
+                      </div>
+                      {err.webhookUrl && (
+                        <div className="flex items-start gap-1">
+                          <span className="text-slate-500 shrink-0 font-medium">Webhook URL:</span>
+                          <code className="text-slate-300 font-mono break-all">{err.webhookUrl}</code>
+                        </div>
+                      )}
+                      {err.status !== undefined && (
+                        <div>
+                          <span className="text-slate-500 font-medium">HTTP Durum Kodu:</span>{' '}
+                          <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold font-mono text-[9px]">{err.status}</span>
+                        </div>
+                      )}
+                      {err.responseBody && (
+                        <div className="space-y-0.5">
+                          <span className="text-slate-500 font-medium block">Yanıt Gövdesi (Response Body):</span>
+                          <pre className="mt-1 bg-black/40 p-2 rounded-lg text-slate-400 font-mono text-[9px] overflow-x-auto whitespace-pre-wrap max-h-20 leading-relaxed">
+                            {err.responseBody}
+                          </pre>
+                        </div>
+                      )}
+                      {err.message && (
+                        <div className="text-rose-400/90 font-mono text-[9px] bg-rose-950/30 p-2 rounded-lg border border-rose-500/5">
+                          {err.message}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-white/[0.04]">
               <button
                 onClick={() => setImportSummary(null)}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-colors"
