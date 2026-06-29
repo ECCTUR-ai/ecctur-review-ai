@@ -19,6 +19,17 @@ ADD COLUMN IF NOT EXISTS city TEXT,
 ADD COLUMN IF NOT EXISTS currency TEXT,
 ADD COLUMN IF NOT EXISTS default_language TEXT;
 
+-- Alter hotels table to support advanced hotel profiles and locale setups
+ALTER TABLE public.hotels 
+ADD COLUMN IF NOT EXISTS google_maps_link TEXT,
+ADD COLUMN IF NOT EXISTS address TEXT,
+ADD COLUMN IF NOT EXISTS phone TEXT,
+ADD COLUMN IF NOT EXISTS website TEXT,
+ADD COLUMN IF NOT EXISTS city TEXT,
+ADD COLUMN IF NOT EXISTS country TEXT,
+ADD COLUMN IF NOT EXISTS timezone TEXT,
+ADD COLUMN IF NOT EXISTS default_language TEXT;
+
 -- Alter profiles table to support comprehensive user details
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS phone TEXT,
