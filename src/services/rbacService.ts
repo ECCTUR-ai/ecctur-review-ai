@@ -29,8 +29,8 @@ export const rbacService = {
 
     let roleName = (userRolesData as any)?.[0]?.roles?.name;
 
-    // Hardcoded fallback for the default admin account if DB sync or RLS fails
-    if (!roleName && email === 'admin@ecctur.ai') {
+    // Hardcoded fallback for the default admin accounts if DB sync or RLS fails
+    if (!roleName && (email === 'admin@ecctur.ai' || email === 'cemil.sezgin@ecctur.com')) {
       roleName = 'Super Admin';
     }
 

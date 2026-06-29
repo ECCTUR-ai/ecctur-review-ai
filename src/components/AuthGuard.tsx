@@ -9,13 +9,15 @@ interface AuthContextType {
   role: string | null;
   permissions: string[];
   loading: boolean;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   userId: null,
   role: null,
   permissions: [],
-  loading: true
+  loading: true,
+  hasPermission: () => false
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -71,8 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const hasPermission = (permission: string): boolean => {
+    if (role?.toLowerCase() === 'super admin') return true;
+    return permissions.includes(permission);
+  };
+
   return (
-    <AuthContext.Provider value={{ userId, role, permissions, loading }}>
+    <AuthContext.Provider value={{ userId, role, permissions, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );
@@ -84,7 +91,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
-  const { userId, permissions, role, loading } = useAuth();
+  const { userId, hasPermission, loading } = useAuth();
 
   if (loading) {
     return (
@@ -98,9 +105,7 @@ export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperAdmin = role?.toLowerCase() === 'super admin';
-
-  if (requiredPermission && !isSuperAdmin && !permissions.includes(requiredPermission)) {
+  if (requiredPermission && !hasPermission(requiredPermission)) {
     return (
       <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
