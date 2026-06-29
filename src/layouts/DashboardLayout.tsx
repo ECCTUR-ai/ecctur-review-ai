@@ -282,8 +282,9 @@ export default function DashboardLayout() {
         {/* Navigation Items */}
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {sidebarItems.map((item) => {
+            const isSuperAdmin = role?.toLowerCase() === 'super admin';
             // When AUTH_ENABLED is false (development mode), bypass permission filtering
-            if (AUTH_ENABLED && item.permission && !permissions.includes(item.permission)) {
+            if (AUTH_ENABLED && item.permission && !isSuperAdmin && !permissions.includes(item.permission)) {
               return null;
             }
             const isActive = location.pathname === item.path;

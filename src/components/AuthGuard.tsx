@@ -84,7 +84,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
-  const { userId, permissions, loading } = useAuth();
+  const { userId, permissions, role, loading } = useAuth();
 
   if (loading) {
     return (
@@ -98,7 +98,9 @@ export function AuthGuard({ children, requiredPermission }: AuthGuardProps) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredPermission && !permissions.includes(requiredPermission)) {
+  const isSuperAdmin = role?.toLowerCase() === 'super admin';
+
+  if (requiredPermission && !isSuperAdmin && !permissions.includes(requiredPermission)) {
     return (
       <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
