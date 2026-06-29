@@ -46,7 +46,13 @@ export const userRepository = {
         roleId,
         roleName,
         hotelIds,
-        organizationId: item.organization_id || item.organizationId
+        organizationId: item.organization_id || item.organizationId,
+        phone: item.phone,
+        title: item.title,
+        department: item.department,
+        avatarUrl: item.avatar_url,
+        language: item.language,
+        timezone: item.timezone
       };
     });
 
@@ -90,7 +96,13 @@ export const userRepository = {
         lastName: user.lastName || '',
         roleId: user.roleId || null,
         hotelIds: user.hotelIds || [],
-        organizationId: user.organizationId || null
+        organizationId: user.organizationId || null,
+        phone: user.phone || null,
+        title: user.title || null,
+        department: user.department || null,
+        avatarUrl: user.avatarUrl || null,
+        language: user.language || 'tr',
+        timezone: user.timezone || 'Europe/Istanbul'
       })
     });
 
@@ -117,7 +129,13 @@ export const userRepository = {
         first_name: user.firstName,
         last_name: user.lastName,
         status: user.status,
-        organization_id: user.organizationId
+        organization_id: user.organizationId,
+        phone: user.phone || null,
+        title: user.title || null,
+        department: user.department || null,
+        avatar_url: user.avatarUrl || null,
+        language: user.language || 'tr',
+        timezone: user.timezone || 'Europe/Istanbul'
       })
       .eq('id', id);
 
@@ -186,7 +204,13 @@ export const userRepository = {
       roleId,
       roleName,
       hotelIds,
-      organizationId: data.organization_id || data.organizationId
+      organizationId: data.organization_id || data.organizationId,
+      phone: data.phone,
+      title: data.title,
+      department: data.department,
+      avatarUrl: data.avatar_url,
+      language: data.language,
+      timezone: data.timezone
     };
   }
 };

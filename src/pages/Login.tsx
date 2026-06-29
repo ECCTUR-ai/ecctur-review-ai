@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Lock, Mail, AlertCircle, Sparkles, ArrowLeft, CheckCircle } from 'lucide-react';
@@ -13,6 +13,22 @@ export default function Login() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isResetMode, setIsResetMode] = useState(false);
   const navigate = useNavigate();
+
+  const [orgLogo, setOrgLogo] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState<string>('ECCTUR REVIEW AI');
+
+  useEffect(() => {
+    supabase
+      .from('organizations')
+      .select('name, logo_url')
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setOrgName(data[0].name || 'ECCTUR REVIEW AI');
+          setOrgLogo(data[0].logo_url || null);
+        }
+      });
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,10 +115,14 @@ export default function Login() {
       <div className="w-full max-w-md space-y-8 z-10">
         {/* Logo Strip */}
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 mx-auto">
-            E
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-100">ECCTUR REVIEW AI</h2>
+          {orgLogo ? (
+            <img src={orgLogo} alt="Logo" className="w-16 h-16 rounded-2xl object-contain mx-auto shadow-lg bg-white/5 p-1" />
+          ) : (
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 mx-auto">
+              E
+            </div>
+          )}
+          <h2 className="text-2xl font-bold tracking-tight text-slate-100 uppercase">{orgName}</h2>
           <p className="text-xs text-slate-400">
             SaaS Multi-Hotel Feedback & Operational Workspace Manager
           </p>

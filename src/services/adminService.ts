@@ -53,5 +53,8 @@ export const adminService = {
   // Organization Management
   async editOrganizationName(id: string, name: string): Promise<Organization> {
     return await organizationRepository.editOrganizationName(id, name);
+  },
+  async updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization> {
+    return await organizationRepository.updateOrganization(id, updates);
   }
 };

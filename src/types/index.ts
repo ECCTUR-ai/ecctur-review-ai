@@ -118,6 +118,17 @@ export interface Organization {
   id: string;
   name: string;
   createdAt: string;
+  logoUrl?: string;
+  taxOffice?: string;
+  taxNumber?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  country?: string;
+  city?: string;
+  currency?: string;
+  defaultLanguage?: string;
 }
 
 export interface Hotel {
@@ -139,6 +150,12 @@ export interface UserProfile {
   roleName?: string;   // Primary role name
   hotelIds?: string[];  // List of hotel IDs the user has access to
   organizationId?: string; // Parent organization assignment
+  phone?: string;
+  title?: string;
+  department?: string;
+  avatarUrl?: string;
+  language?: string;
+  timezone?: string;
 }
 
 export interface Role {

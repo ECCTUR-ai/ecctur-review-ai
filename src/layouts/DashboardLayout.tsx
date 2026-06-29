@@ -68,6 +68,7 @@ export default function DashboardLayout() {
   const [currentHotelId, setCurrentHotelId] = useState<string>(
     localStorage.getItem('saas_selected_hotel_id') || ''
   );
+  const [currentOrg, setCurrentOrg] = useState<any>({ name: 'ECCTUR AI', logoUrl: '' });
   
   const location = useLocation();
 
@@ -84,6 +85,9 @@ export default function DashboardLayout() {
         
         // 2. Find the ECCTUR organization or fall back to the first one
         const eccturOrg = orgs.find(o => o.name === 'ECCTUR') || orgs[0];
+        if (eccturOrg) {
+          setCurrentOrg(eccturOrg);
+        }
         const orgId = eccturOrg ? eccturOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
         console.log('[Hotel Loader] Selected Organization ID:', orgId);
 
@@ -257,19 +261,27 @@ export default function DashboardLayout() {
                 exit={{ opacity: 0, x: -10 }}
                 className="flex items-center gap-2"
               >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
-                  E
-                </div>
-                <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                  ECCTUR AI
+                {currentOrg.logoUrl ? (
+                  <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5" />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
+                    E
+                  </div>
+                )}
+                <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent truncate max-w-[140px]">
+                  {currentOrg.name || 'ECCTUR AI'}
                 </span>
               </motion.div>
             )}
           </AnimatePresence>
           {collapsed && (
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white mx-auto">
-              E
-            </div>
+            currentOrg.logoUrl ? (
+              <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5 mx-auto" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white mx-auto">
+                E
+              </div>
+            )
           )}
           <button 
             onClick={() => setCollapsed(!collapsed)}

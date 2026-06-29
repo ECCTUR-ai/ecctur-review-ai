@@ -75,7 +75,31 @@ const resources = {
           empty: 'No corporate user accounts found. Add one to begin.',
           toastCreated: 'User created successfully',
           accessDenied: 'Access Denied',
-          missingPermission: 'You do not possess the required permission clearance ({{permission}}) to view this workspace.'
+          missingPermission: 'You do not possess the required permission clearance ({{permission}}) to view this workspace.',
+          phone: 'Phone Number',
+          title: 'Job Title / Role',
+          department: 'Department',
+          avatarUrl: 'Avatar Photo URL',
+          language: 'Language Preference',
+          timezone: 'Time Zone'
+        },
+        org: {
+          title: 'Corporate Organization Profile',
+          name: 'Company Name',
+          taxOffice: 'Tax Office',
+          taxNumber: 'Tax Number',
+          phone: 'Phone',
+          email: 'Email',
+          website: 'Website',
+          address: 'Address',
+          country: 'Country',
+          city: 'City',
+          currency: 'Currency',
+          defaultLanguage: 'Default Language',
+          logo: 'Company Logo',
+          logoUploading: 'Uploading Logo...',
+          save: 'Save Organization Details',
+          viewOnly: 'View Only (Insufficient Permissions to Edit)'
         }
       },
       login: {
@@ -168,7 +192,31 @@ const resources = {
           empty: 'Kurumsal kullanıcı hesabı bulunamadı. Başlamak için bir tane ekleyin.',
           toastCreated: 'Kullanıcı başarıyla oluşturuldu',
           accessDenied: 'Erişim Reddedildi',
-          missingPermission: 'Bu çalışma alanını görüntülemek için gerekli yetkiniz ({{permission}}) bulunmuyor.'
+          missingPermission: 'Bu çalışma alanını görüntülemek için gerekli yetkiniz ({{permission}}) bulunmuyor.',
+          phone: 'Telefon Numarası',
+          title: 'Görev / Ünvan',
+          department: 'Departman',
+          avatarUrl: 'Profil Fotoğrafı URL',
+          language: 'Dil Tercihi',
+          timezone: 'Saat Dilimi'
+        },
+        org: {
+          title: 'Kurumsal Şirket Bilgileri',
+          name: 'Şirket Adı',
+          taxOffice: 'Vergi Dairesi',
+          taxNumber: 'Vergi Numarası',
+          phone: 'Telefon',
+          email: 'E-posta',
+          website: 'Web Sitesi',
+          address: 'Adres',
+          country: 'Ülke',
+          city: 'Şehir',
+          currency: 'Para Birimi',
+          defaultLanguage: 'Varsayılan Dil',
+          logo: 'Şirket Logosu',
+          logoUploading: 'Logo Yükleniyor...',
+          save: 'Şirket Bilgilerini Kaydet',
+          viewOnly: 'Görüntüleme Modu (Düzenleme Yetkiniz Yok)'
         }
       },
       login: {
@@ -261,7 +309,31 @@ const resources = {
           empty: 'Пользователи не найдены. Добавьте первого.',
           toastCreated: 'Пользователь успешно создан',
           accessDenied: 'Доступ запрещен',
-          missingPermission: 'У вас нет необходимых прав ({{permission}}) для просмотра этой страницы.'
+          missingPermission: 'У вас нет необходимых прав ({{permission}}) для просмотра этой страницы.',
+          phone: 'Номер телефона',
+          title: 'Должность / Звание',
+          department: 'Департамент',
+          avatarUrl: 'URL аватара',
+          language: 'Языковые предпочтения',
+          timezone: 'Часовой пояс'
+        },
+        org: {
+          title: 'Профиль корпоративной организации',
+          name: 'Название компании',
+          taxOffice: 'Налоговый орган',
+          taxNumber: 'Налоговый номер',
+          phone: 'Телефон',
+          email: 'Электронная почта',
+          website: 'Веб-сайт',
+          address: 'Адрес',
+          country: 'Страна',
+          city: 'Город',
+          currency: 'Валюта',
+          defaultLanguage: 'Язык по умолчанию',
+          logo: 'Логотип компании',
+          logoUploading: 'Загрузка логотипа...',
+          save: 'Сохранить информацию о компании',
+          viewOnly: 'Только для чтения (Недостаточно прав для редактирования)'
         }
       },
       login: {
@@ -276,7 +348,9 @@ const resources = {
         loginSub: 'Войдите для доступа к панели управления отеля.',
         sendResetLink: 'Отправить ссылку',
         sendingRequest: 'Отправка запроса...',
-        authenticating: 'Авторизация...'
+        authenticating: 'Авторизация...',
+        multiTenantAccess: 'Правило многоарендного доступа',
+        multiTenantSub: 'Войдите с корпоративной почтой. Роли и права отделов назначаются автоматически.'
       }
     }
   }

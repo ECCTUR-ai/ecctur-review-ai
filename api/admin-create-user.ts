@@ -92,7 +92,21 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const { email, password, firstName, lastName, roleId, hotelIds, organizationId } = req.body;
+    const { 
+      email, 
+      password, 
+      firstName, 
+      lastName, 
+      roleId, 
+      hotelIds, 
+      organizationId,
+      phone,
+      title,
+      department,
+      avatarUrl,
+      language,
+      timezone
+    } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -179,7 +193,13 @@ export default async function handler(req: any, res: any) {
           last_name: lastName || '',
           status: 'active',
           organization_id: organizationId || null,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          phone: phone || null,
+          title: title || null,
+          department: department || null,
+          avatar_url: avatarUrl || null,
+          language: language || 'tr',
+          timezone: timezone || 'Europe/Istanbul'
         });
 
       if (profileError) {
@@ -194,7 +214,13 @@ export default async function handler(req: any, res: any) {
           first_name: firstName || '',
           last_name: lastName || '',
           status: 'active',
-          organization_id: organizationId || null
+          organization_id: organizationId || null,
+          phone: phone || null,
+          title: title || null,
+          department: department || null,
+          avatar_url: avatarUrl || null,
+          language: language || 'tr',
+          timezone: timezone || 'Europe/Istanbul'
         })
         .eq('id', targetProfileId);
 

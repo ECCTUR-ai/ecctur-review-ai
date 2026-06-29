@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { adminService } from '@/services/adminService';
 import { hotelService } from '@/services/hotelService';
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthGuard';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/lib/supabase';
 
 export default function Admin() {
   const { t } = useTranslation();
@@ -60,6 +61,12 @@ export default function Admin() {
   const [userPassword, setUserPassword] = useState('');
   const [userConfirmPassword, setUserConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [userPhone, setUserPhone] = useState('');
+  const [userTitle, setUserTitle] = useState('');
+  const [userDepartment, setUserDepartment] = useState('');
+  const [userAvatarUrl, setUserAvatarUrl] = useState('');
+  const [userLanguage, setUserLanguage] = useState('tr');
+  const [userTimezone, setUserTimezone] = useState('Europe/Istanbul');
 
   // Form States - Hotel
   const [isAddingHotel, setIsAddingHotel] = useState(false);
@@ -70,6 +77,35 @@ export default function Admin() {
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgName, setOrgName] = useState(currentOrg.name);
+  const [orgLogoUrl, setOrgLogoUrl] = useState('');
+  const [orgTaxOffice, setOrgTaxOffice] = useState('');
+  const [orgTaxNumber, setOrgTaxNumber] = useState('');
+  const [orgPhone, setOrgPhone] = useState('');
+  const [orgEmail, setOrgEmail] = useState('');
+  const [orgWebsite, setOrgWebsite] = useState('');
+  const [orgAddress, setOrgAddress] = useState('');
+  const [orgCountry, setOrgCountry] = useState('');
+  const [orgCity, setOrgCity] = useState('');
+  const [orgCurrency, setOrgCurrency] = useState('TRY');
+  const [orgDefaultLanguage, setOrgDefaultLanguage] = useState('tr');
+
+  useEffect(() => {
+    if (orgs && orgs.length > 0) {
+      const org = orgs[0];
+      setOrgName(org.name || '');
+      setOrgLogoUrl(org.logoUrl || '');
+      setOrgTaxOffice(org.taxOffice || '');
+      setOrgTaxNumber(org.taxNumber || '');
+      setOrgPhone(org.phone || '');
+      setOrgEmail(org.email || '');
+      setOrgWebsite(org.website || '');
+      setOrgAddress(org.address || '');
+      setOrgCountry(org.country || '');
+      setOrgCity(org.city || '');
+      setOrgCurrency(org.currency || 'TRY');
+      setOrgDefaultLanguage(org.defaultLanguage || 'tr');
+    }
+  }, [orgs]);
 
   // Show toast helper
   const triggerToast = (msg: string) => {
@@ -91,6 +127,12 @@ export default function Admin() {
     setUserPassword('');
     setUserConfirmPassword('');
     setShowPassword(false);
+    setUserPhone('');
+    setUserTitle('');
+    setUserDepartment('');
+    setUserAvatarUrl('');
+    setUserLanguage('tr');
+    setUserTimezone('Europe/Istanbul');
   };
 
   const handleOpenEditUser = (user: UserProfile) => {
@@ -103,6 +145,12 @@ export default function Admin() {
     setUserRoleId(user.roleId || '');
     setUserHotelIds(user.hotelIds || []);
     setUserOrgId(user.organizationId || currentOrg.id);
+    setUserPhone(user.phone || '');
+    setUserTitle(user.title || '');
+    setUserDepartment(user.department || '');
+    setUserAvatarUrl(user.avatarUrl || '');
+    setUserLanguage(user.language || 'tr');
+    setUserTimezone(user.timezone || 'Europe/Istanbul');
     setUserPassword('');
     setUserConfirmPassword('');
     setShowPassword(false);
@@ -134,7 +182,13 @@ export default function Admin() {
         roleId: userRoleId || undefined,
         hotelIds: userHotelIds,
         organizationId: userOrgId || undefined,
-        password: isAddingUser ? userPassword : undefined
+        password: isAddingUser ? userPassword : undefined,
+        phone: userPhone || undefined,
+        title: userTitle || undefined,
+        department: userDepartment || undefined,
+        avatarUrl: userAvatarUrl || undefined,
+        language: userLanguage || undefined,
+        timezone: userTimezone || undefined
       };
 
       if (isAddingUser) {
@@ -210,10 +264,54 @@ export default function Admin() {
   };
 
   // Org Actions
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingLogo(true);
+    try {
+      const fileName = `logos/${currentOrg.id}-${Date.now()}-${file.name}`;
+      const { data, error: uploadError } = await supabase.storage
+        .from('organization-assets')
+        .upload(fileName, file, {
+          upsert: true,
+          contentType: file.type
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('organization-assets')
+        .getPublicUrl(fileName);
+
+      setOrgLogoUrl(publicUrl);
+      triggerToast('Logo uploaded successfully');
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Logo upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   const handleSaveOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await adminService.editOrganizationName(currentOrg.id, orgName);
+      await adminService.updateOrganization(currentOrg.id, {
+        name: orgName,
+        logoUrl: orgLogoUrl || undefined,
+        taxOffice: orgTaxOffice || undefined,
+        taxNumber: orgTaxNumber || undefined,
+        phone: orgPhone || undefined,
+        email: orgEmail || undefined,
+        website: orgWebsite || undefined,
+        address: orgAddress || undefined,
+        country: orgCountry || undefined,
+        city: orgCity || undefined,
+        currency: orgCurrency || undefined,
+        defaultLanguage: orgDefaultLanguage || undefined
+      });
       triggerToast('Organization updated successfully');
       setIsEditingOrg(false);
       refetchOrgs();
@@ -260,35 +358,37 @@ export default function Admin() {
           {t('admin.tabs.users')}
         </button>
         {isSuperOrAdmin && (
-          <>
-            <button
-              onClick={() => setActiveTab('hotels')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Building size={14} />
-              {t('admin.tabs.hotels')}
-            </button>
-            <button
-              onClick={() => setActiveTab('org')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Building2 size={14} />
-              {t('admin.tabs.org')}
-            </button>
-            <button
-              onClick={() => setActiveTab('integrations')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Sliders size={14} />
-              {t('admin.tabs.integrations')}
-            </button>
-          </>
+          <button
+            onClick={() => setActiveTab('hotels')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Building size={14} />
+            {t('admin.tabs.hotels')}
+          </button>
+        )}
+        {(isSuperOrAdmin || roleNameLower === 'hotel manager') && (
+          <button
+            onClick={() => setActiveTab('org')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Building2 size={14} />
+            {t('admin.tabs.org')}
+          </button>
+        )}
+        {isSuperOrAdmin && (
+          <button
+            onClick={() => setActiveTab('integrations')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sliders size={14} />
+            {t('admin.tabs.integrations')}
+          </button>
         )}
       </div>
 
@@ -429,6 +529,80 @@ export default function Admin() {
                     </div>
                   </div>
 
+                  {/* Row 3: Contact & Department Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.users.phone')}</label>
+                      <input
+                        type="text"
+                        value={userPhone}
+                        onChange={(e) => setUserPhone(e.target.value)}
+                        placeholder="+90 555 123 4567"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.users.title')}</label>
+                      <input
+                        type="text"
+                        value={userTitle}
+                        onChange={(e) => setUserTitle(e.target.value)}
+                        placeholder="Guest Relations Specialist"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.users.department')}</label>
+                      <input
+                        type="text"
+                        value={userDepartment}
+                        onChange={(e) => setUserDepartment(e.target.value)}
+                        placeholder="Front Office"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 4: Avatar, Language & Timezone */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.users.avatarUrl')}</label>
+                      <input
+                        type="text"
+                        value={userAvatarUrl}
+                        onChange={(e) => setUserAvatarUrl(e.target.value)}
+                        placeholder="https://example.com/avatar.jpg"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.users.language')}</label>
+                      <select
+                        value={userLanguage}
+                        onChange={(e) => setUserLanguage(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                      >
+                        <option value="tr" className="bg-[#090b16] text-slate-300">Türkçe</option>
+                        <option value="en" className="bg-[#090b16] text-slate-300">English</option>
+                        <option value="ru" className="bg-[#090b16] text-slate-300">Русский</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.users.timezone')}</label>
+                      <input
+                        type="text"
+                        value={userTimezone}
+                        onChange={(e) => setUserTimezone(e.target.value)}
+                        placeholder="Europe/Istanbul"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                      />
+                    </div>
+                  </div>
+
                   {/* Assign Hotel Access clearances */}
                   <div className="space-y-2">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">Hotel Access Permissions</label>
@@ -509,6 +683,8 @@ export default function Admin() {
                     <tr className="border-b border-white/[0.04] text-slate-400 font-medium bg-white/[0.01]">
                       <th className="p-4 pl-6">Name</th>
                       <th className="p-4">Email</th>
+                      <th className="p-4">{t('admin.users.phone')}</th>
+                      <th className="p-4">{t('admin.users.title')}</th>
                       <th className="p-4">{t('admin.users.assignedRole')}</th>
                       <th className="p-4">{t('admin.users.clearanceStatus')}</th>
                       <th className="p-4">{t('admin.users.assignedHotels')}</th>
@@ -518,14 +694,14 @@ export default function Admin() {
                   <tbody>
                     {usersLoading ? (
                       <tr>
-                        <td colSpan={6} className="p-12 text-center text-slate-500">
+                        <td colSpan={8} className="p-12 text-center text-slate-500">
                           <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-slate-600" />
                           Loading user directories...
                         </td>
                       </tr>
                     ) : users?.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-12 text-center text-slate-500">
+                        <td colSpan={8} className="p-12 text-center text-slate-500">
                           {t('admin.users.empty')}
                         </td>
                       </tr>
@@ -536,6 +712,16 @@ export default function Admin() {
                             {u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'N/A'}
                           </td>
                           <td className="p-4">{u.email}</td>
+                          <td className="p-4 text-slate-400">{u.phone || '-'}</td>
+                          <td className="p-4 text-slate-400">
+                            {u.title ? (
+                              <span className="font-medium text-slate-300">
+                                {u.title} {u.department ? `(${u.department})` : ''}
+                              </span>
+                            ) : (
+                              u.department || '-'
+                            )}
+                          </td>
                           <td className="p-4">
                             <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20 text-[10px]">
                               {u.roleName || 'No Role'}
@@ -735,68 +921,224 @@ export default function Admin() {
         )}
 
         {/* TAB 3: ORGANIZATION */}
-        {isSuperOrAdmin && activeTab === 'org' && (
-          <div className="space-y-6 max-w-2xl">
+        {(isSuperOrAdmin || roleNameLower === 'hotel manager') && activeTab === 'org' && (
+          <div className="space-y-6 max-w-4xl">
             {/* Organization Edit Card */}
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
-              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                <Building2 size={16} className="text-blue-400" />
-                Corporate Organization Profile
-              </h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
+                  <Building2 size={16} className="text-blue-400" />
+                  {t('admin.org.title')}
+                </h3>
+                {!isSuperOrAdmin && (
+                  <span className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                    {t('admin.org.viewOnly')}
+                  </span>
+                )}
+              </div>
 
-              <form onSubmit={handleSaveOrg} className="space-y-4">
+              <form onSubmit={handleSaveOrg} className="space-y-6">
+                {/* Logo Section */}
+                <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] flex flex-col md:flex-row items-center gap-4.5">
+                  <div className="relative group w-20 h-20 rounded-2xl bg-slate-950 border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
+                    {orgLogoUrl ? (
+                      <img src={orgLogoUrl} alt="Logo Preview" className="w-full h-full object-contain" />
+                    ) : (
+                      <Building2 size={28} className="text-slate-600" />
+                    )}
+                  </div>
+                  <div className="space-y-1 text-center md:text-left flex-1">
+                    <span className="text-xs font-semibold text-slate-200 block">{t('admin.org.logo')}</span>
+                    <span className="text-[10px] text-slate-500 block">PNG, JPG formats supported. Keep size under 2MB.</span>
+                    {isSuperOrAdmin && (
+                      <div className="pt-2 flex items-center gap-3">
+                        <label className="px-3.5 py-2 border border-white/[0.06] hover:bg-white/[0.04] text-slate-300 hover:text-slate-100 rounded-xl cursor-pointer text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
+                          <Plus size={14} />
+                          {isUploadingLogo ? t('admin.org.logoUploading') : t('admin.org.logo')}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                            disabled={isUploadingLogo}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Grid Inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.name')}</label>
+                    <input
+                      type="text"
+                      required
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Tax Office */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.taxOffice')}</label>
+                    <input
+                      type="text"
+                      value={orgTaxOffice}
+                      onChange={(e) => setOrgTaxOffice(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="Maslak V.D."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Tax Number */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.taxNumber')}</label>
+                    <input
+                      type="text"
+                      value={orgTaxNumber}
+                      onChange={(e) => setOrgTaxNumber(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="1234567890"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.phone')}</label>
+                    <input
+                      type="text"
+                      value={orgPhone}
+                      onChange={(e) => setOrgPhone(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="+90 212 123 45 67"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.email')}</label>
+                    <input
+                      type="email"
+                      value={orgEmail}
+                      onChange={(e) => setOrgEmail(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="info@company.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Website */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.website')}</label>
+                    <input
+                      type="text"
+                      value={orgWebsite}
+                      onChange={(e) => setOrgWebsite(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="https://company.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Country */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.country')}</label>
+                    <input
+                      type="text"
+                      value={orgCountry}
+                      onChange={(e) => setOrgCountry(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="Türkiye"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* City */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.city')}</label>
+                    <input
+                      type="text"
+                      value={orgCity}
+                      onChange={(e) => setOrgCity(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      placeholder="İstanbul"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Currency */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.currency')}</label>
+                    <select
+                      value={orgCurrency}
+                      onChange={(e) => setOrgCurrency(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    >
+                      <option value="TRY">TRY (₺)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                    </select>
+                  </div>
+
+                  {/* Default Language */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.defaultLanguage')}</label>
+                    <select
+                      value={orgDefaultLanguage}
+                      onChange={(e) => setOrgDefaultLanguage(e.target.value)}
+                      disabled={!isSuperOrAdmin}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                    >
+                      <option value="tr">Türkçe</option>
+                      <option value="en">English</option>
+                      <option value="ru">Русский</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Address */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Organization Name</label>
-                  {isEditingOrg ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        required
-                        value={orgName}
-                        onChange={(e) => setOrgName(e.target.value)}
-                        className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => { setIsEditingOrg(false); setOrgName(currentOrg.name); }}
-                        className="px-3 border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 rounded-xl"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
-                      <span className="text-sm font-semibold text-slate-200">{currentOrg.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingOrg(true)}
-                        className="p-1.5 rounded-lg hover:bg-white/[0.04] text-blue-400 hover:text-blue-300"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
-                  )}
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t('admin.org.address')}</label>
+                  <textarea
+                    value={orgAddress}
+                    onChange={(e) => setOrgAddress(e.target.value)}
+                    disabled={!isSuperOrAdmin}
+                    placeholder="Company headquarters address..."
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60 resize-none"
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04]">
+                {/* Info block IDs */}
+                <div className="grid grid-cols-2 gap-4 text-xs pt-2">
+                  <div className="p-4 rounded-xl bg-slate-900/30 border border-white/[0.04]">
                     <span className="text-slate-500 block">Organization ID</span>
-                    <span className="font-mono text-[10px] text-slate-300 block mt-1 truncate">{currentOrg.id}</span>
+                    <span className="font-mono text-[10px] text-slate-400 block mt-1 truncate">{currentOrg.id}</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04]">
+                  <div className="p-4 rounded-xl bg-slate-900/30 border border-white/[0.04]">
                     <span className="text-slate-500 block">Associated Hotels count</span>
-                    <span className="font-semibold text-slate-300 block mt-1">{hotels?.length || 0} active hotels</span>
+                    <span className="font-semibold text-slate-400 block mt-1">{hotels?.length || 0} active hotels</span>
                   </div>
                 </div>
 
-                {isEditingOrg && (
-                  <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.04]">
+                {isSuperOrAdmin && (
+                  <div className="flex justify-end gap-2 pt-4 border-t border-white/[0.04]">
                     <button
                       type="submit"
-                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
                     >
                       <Save size={14} />
-                      Save Changes
+                      {t('admin.org.save')}
                     </button>
                   </div>
                 )}
