@@ -99,36 +99,56 @@ export default async function handler(req: any, res: any) {
     }
 
     // 1. Create Auth User using Admin API
-    let authUserId: string;
-    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { first_name: firstName, last_name: lastName }
-    });
+    let authUserId: string | null = null;
+    let authData: any = null;
+    let createError: any = null;
+
+    try {
+      const result = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { first_name: firstName, last_name: lastName }
+      });
+      authData = result.data;
+      createError = result.error;
+    } catch (err: any) {
+      console.log("CREATE_USER_ERROR_MESSAGE", err?.message || String(err));
+      createError = err;
+    }
 
     if (createError) {
-      const errMsg = createError.message?.toLowerCase();
-      // Handle scenario: "user already registered" / "email already in use"
-      if (errMsg.includes('already registered') || errMsg.includes('already in use') || errMsg.includes('already exists')) {
+      const errorMsg = (createError.message || String(createError)).toLowerCase();
+      console.log("CREATE_USER_ERROR_MESSAGE", createError.message || String(createError));
+
+      const isDuplicate = 
+        errorMsg.includes("a user with this email address has already been registered") ||
+        errorMsg.includes("user already registered") ||
+        errorMsg.includes("already registered") ||
+        errorMsg.includes("already exists") ||
+        errorMsg.includes("email already");
+
+      if (isDuplicate) {
+        console.log("DUPLICATE_USER_REPAIR_MODE", email);
         isExistingUser = true;
-        
+
         // Find existing Auth user ID
         const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
         if (listError) {
           console.error('Failed to list users during repair:', listError);
-          return res.status(400).json({ error: createError.message });
+          return res.status(400).json({ error: createError.message || String(createError) });
         }
-        
+
         const existingUser = listData.users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
         if (!existingUser) {
           return res.status(400).json({ error: `User already exists but could not be located in directory.` });
         }
-        
+
         authUserId = existingUser.id;
+        console.log("EXISTING_AUTH_USER_ID", authUserId);
       } else {
         console.error('Supabase Admin createUser error:', createError);
-        return res.status(400).json({ error: createError.message });
+        return res.status(400).json({ error: createError.message || String(createError) });
       }
     } else {
       authUserId = authData.user.id;
@@ -146,7 +166,7 @@ export default async function handler(req: any, res: any) {
       console.warn('Profile existence check query warning:', profileCheckError);
     }
 
-    const targetProfileId = existingProfile ? existingProfile.id : authUserId;
+    const targetProfileId = existingProfile ? existingProfile.id : authUserId!;
 
     if (!existingProfile) {
       // Repair / Create profile
@@ -165,6 +185,7 @@ export default async function handler(req: any, res: any) {
       if (profileError) {
         throw new Error(`Profile database write/repair error: ${profileError.message}`);
       }
+      console.log("PROFILE_REPAIR_DONE", targetProfileId);
     } else {
       // Ensure existing profile details are active and aligned
       const { error: profileUpdateError } = await supabaseAdmin
@@ -180,6 +201,7 @@ export default async function handler(req: any, res: any) {
       if (profileUpdateError) {
         console.warn('Profile state sync warning:', profileUpdateError);
       }
+      console.log("PROFILE_REPAIR_DONE", targetProfileId);
     }
 
     // 3. Upsert Role mapping

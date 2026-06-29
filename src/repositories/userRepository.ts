@@ -4,57 +4,30 @@ import { UserProfile } from '@/types';
 
 export const userRepository = {
   async getAllUsers(): Promise<UserProfile[]> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id;
+    if (!currentUserId) {
+      console.log("GET_ALL_USERS_CURRENT_ROLE", "none (unauthenticated)");
+      console.log("GET_ALL_USERS_COUNT", 0);
+      console.log("GET_ALL_USERS_RESULT", []);
+      return [];
+    }
+
+    // Dynamic import to avoid potential dependency cycles if services expand
+    const { rbacService } = await import('@/services/rbacService');
+    const { role } = await rbacService.getUserRoleAndPermissions(currentUserId);
+    console.log("GET_ALL_USERS_CURRENT_ROLE", role);
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*, user_roles(role_id, roles(name)), user_hotels(hotel_id)')
       .order('created_at', { ascending: false });
 
     if (error) {
-      // Fallback: If table doesn't exist yet, return seed users
-      if (error.code === 'PGRST116' || error.message.includes('relation "profiles" does not exist') || error.message.includes('schema cache')) {
-        return [
-          {
-            id: '9a900000-0000-0000-0000-000000000001',
-            email: 'admin@ecctur.ai',
-            firstName: 'Cemil',
-            lastName: 'Sezgin',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            roleId: '8a800000-0000-0000-0000-000000000001',
-            roleName: 'Super Admin',
-            hotelIds: ['00c00000-0000-0000-0000-000000000001', '00c00000-0000-0000-0000-000000000002', '00c00000-0000-0000-0000-000000000003'],
-            organizationId: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7'
-          },
-          {
-            id: '9a900000-0000-0000-0000-000000000002',
-            email: 'manager@ecctur.ai',
-            firstName: 'Ahmet',
-            lastName: 'Yılmaz',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            roleId: '8a800000-0000-0000-0000-000000000003',
-            roleName: 'Hotel Manager',
-            hotelIds: ['00c00000-0000-0000-0000-000000000001'],
-            organizationId: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7'
-          },
-          {
-            id: '9a900000-0000-0000-0000-000000000003',
-            email: 'staff@ecctur.ai',
-            firstName: 'Mehmet',
-            lastName: 'Demir',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            roleId: '8a800000-0000-0000-0000-000000000005',
-            roleName: 'Staff',
-            hotelIds: ['00c00000-0000-0000-0000-000000000001'],
-            organizationId: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7'
-          }
-        ];
-      }
       throw error;
     }
 
-    return (data || []).map((item: any) => {
+    const allUsers: UserProfile[] = (data || []).map((item: any) => {
       const userRoles = item.user_roles || [];
       const primaryRole = userRoles[0];
       const roleId = primaryRole?.role_id;
@@ -74,6 +47,27 @@ export const userRepository = {
         organizationId: item.organization_id || item.organizationId
       };
     });
+
+    const roleNameLower = role?.toLowerCase() || 'staff';
+    let filteredUsers = allUsers;
+
+    if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
+      const { data: currentUserHotels } = await supabase
+        .from('user_hotels')
+        .select('hotel_id')
+        .eq('profile_id', currentUserId);
+      
+      const assignedHotelIds = (currentUserHotels || []).map((uh: any) => uh.hotel_id);
+
+      filteredUsers = allUsers.filter(u => 
+        u.hotelIds && u.hotelIds.some(hId => assignedHotelIds.includes(hId))
+      );
+    }
+
+    console.log("GET_ALL_USERS_COUNT", filteredUsers.length);
+    console.log("GET_ALL_USERS_RESULT", filteredUsers);
+
+    return filteredUsers;
   },
 
   async addUser(user: Omit<UserProfile, 'id' | 'createdAt'> & { password?: string }): Promise<UserProfile> {
