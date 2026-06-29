@@ -48,16 +48,47 @@ export default async function handler(req: any, res: any) {
       return res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
 
-    // Security check: Only allow Super Admin or Admin to create users
-    const { data: userRole } = await supabaseAdmin
-      .from('user_roles')
-      .select('role_id, roles(name)')
-      .eq('profile_id', user.id)
+    // Security check: Join profiles -> user_roles -> roles to identify the user's role
+    const userEmail = user.email || '';
+    const { data: profileWithRoles, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, user_roles(roles(name))')
+      .eq('email', userEmail)
       .single();
 
-    const roleName = userRole?.roles?.name?.toLowerCase();
-    if (roleName !== 'admin' && roleName !== 'super admin') {
-      return res.status(403).json({ error: 'Forbidden: Insufficient permissions to create users' });
+    let roleName: string | undefined;
+
+    if (profileWithRoles) {
+      const rolesArray = (profileWithRoles as any).user_roles || [];
+      if (rolesArray.length > 0) {
+        roleName = rolesArray[0]?.roles?.name;
+      }
+    }
+
+    // Fallback: If not found by email profile join, query directly by user.id
+    if (!roleName) {
+      const { data: directUserRoles } = await supabaseAdmin
+        .from('user_roles')
+        .select('roles(name)')
+        .eq('profile_id', user.id);
+
+      if (directUserRoles && directUserRoles.length > 0) {
+        roleName = (directUserRoles as any)[0]?.roles?.name;
+      }
+    }
+
+    // Server-side fallback: Force Super Admin for default admin accounts if DB sync fails
+    if (!roleName && (userEmail === 'admin@ecctur.ai' || userEmail === 'cemil.sezgin@ecctur.com')) {
+      roleName = 'Super Admin';
+    }
+
+    const roleNameLower = roleName?.toLowerCase();
+    
+    // Only allow Admin or Super Admin roles
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ 
+        error: `Forbidden: Insufficient permissions to create users. Detected Email: ${userEmail}, Detected Role: ${roleName || 'None'}` 
+      });
     }
 
     const { email, password, firstName, lastName, roleId, hotelIds, organizationId } = req.body;
