@@ -99,7 +99,7 @@ export default function App() {
             <Route
               path="/admin"
               element={
-                <AuthGuard requiredPermission="view:settings">
+                <AuthGuard requiredPermission="view:users">
                   <Admin />
                 </AuthGuard>
               }

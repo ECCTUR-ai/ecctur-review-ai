@@ -28,6 +28,7 @@ import {
   History,
   FileText
 } from 'lucide-react';
+import { useAuth } from './AuthGuard';
 
 interface ReviewDetailPanelProps {
   review: Review;
@@ -46,8 +47,12 @@ export function ReviewDetailPanel({
   onGenerateAiReply,
   onUpdateNotes,
 }: ReviewDetailPanelProps) {
+  const { hasPermission } = useAuth();
+  const canManageReviews = hasPermission('manage:reviews');
+  const canManageTasks = hasPermission('manage:tasks');
+  const isEditable = canManageReviews;
+
   const [responseVal, setResponseVal] = useState(review.response || '');
-  const [isEditable, setIsEditable] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [managerNotes, setManagerNotes] = useState(review.managerNotes || '');
   const [internalNotes, setInternalNotes] = useState(review.internalNotes || '');
@@ -202,7 +207,7 @@ export function ReviewDetailPanel({
               <Sparkles size={11} className="text-blue-400" />
               AI Summary Overview
             </h4>
-            {isNegativeOrHighPriority && (
+            {isNegativeOrHighPriority && canManageTasks && (
               <button
                 onClick={() => setShowTaskForm(true)}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/20 text-[10px] font-bold text-rose-400 transition-colors"
@@ -233,44 +238,53 @@ export function ReviewDetailPanel({
             <textarea
               value={responseVal}
               onChange={(e) => setResponseVal(e.target.value)}
-              className="w-full h-32 p-3 bg-transparent border-0 text-xs focus:outline-none text-slate-300 leading-relaxed resize-none"
-              placeholder="Load AI suggested draft reply to edit..."
+              disabled={!isEditable}
+              className="w-full h-32 p-3 bg-transparent border-0 text-xs focus:outline-none text-slate-300 leading-relaxed resize-none disabled:opacity-50"
+              placeholder={isEditable ? "Load AI suggested draft reply to edit..." : "Read only mode - drafting is disabled"}
             />
             
             <div className="flex flex-wrap justify-between items-center gap-2 px-4 py-2 border-t border-white/[0.03] bg-[#0c0f22]/20">
               <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onSaveDraft(review.id, responseVal)}
-                  className="px-2.5 py-1 rounded bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] text-[10px] font-semibold text-slate-300 transition-colors"
-                >
-                  Save Draft
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateReply}
-                  disabled={isGenerating}
-                  className="px-2.5 py-1 rounded bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] text-[10px] font-semibold text-blue-400 transition-colors disabled:opacity-50"
-                >
-                  {isGenerating ? 'Generating...' : 'Regenerate'}
-                </button>
+                {isEditable && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onSaveDraft(review.id, responseVal)}
+                      className="px-2.5 py-1 rounded bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] text-[10px] font-semibold text-slate-300 transition-colors"
+                    >
+                      Save Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGenerateReply}
+                      disabled={isGenerating}
+                      className="px-2.5 py-1 rounded bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] text-[10px] font-semibold text-blue-400 transition-colors disabled:opacity-50"
+                    >
+                      {isGenerating ? 'Generating...' : 'Regenerate'}
+                    </button>
+                  </>
+                )}
               </div>
 
               <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onUpdateStatus(review.id, 'waiting_approval')}
-                  className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15 text-[10px] font-semibold text-amber-400 transition-colors"
-                >
-                  Approve Draft
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSubmitResponse(review.id, responseVal)}
-                  className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-[10px] font-semibold text-white transition-colors"
-                >
-                  Publish Live
-                </button>
+                {isEditable && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateStatus(review.id, 'waiting_approval')}
+                      className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15 text-[10px] font-semibold text-amber-400 transition-colors"
+                    >
+                      Approve Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSubmitResponse(review.id, responseVal)}
+                      className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-[10px] font-semibold text-white transition-colors"
+                    >
+                      Publish Live
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -283,14 +297,16 @@ export function ReviewDetailPanel({
               <UserCheck size={12} className="text-purple-400" />
               Manager & Internal Notes
             </h4>
-            <button
-              onClick={handleSaveNotes}
-              disabled={isSavingNotes}
-              className="text-[10px] text-purple-400 hover:text-purple-300 font-bold transition-colors disabled:opacity-50 flex items-center gap-1"
-            >
-              <Save size={10} />
-              {isSavingNotes ? 'Saving...' : 'Save Notes'}
-            </button>
+            {isEditable && (
+              <button
+                onClick={handleSaveNotes}
+                disabled={isSavingNotes}
+                className="text-[10px] text-purple-400 hover:text-purple-300 font-bold transition-colors disabled:opacity-50 flex items-center gap-1"
+              >
+                <Save size={10} />
+                {isSavingNotes ? 'Saving...' : 'Save Notes'}
+              </button>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -299,8 +315,9 @@ export function ReviewDetailPanel({
               <textarea
                 value={managerNotes}
                 onChange={(e) => setManagerNotes(e.target.value)}
-                placeholder="Type response checklist or instructions for hotel staff..."
-                className="w-full h-16 p-2 rounded-lg bg-slate-950/40 border border-white/[0.03] text-xs text-slate-300 focus:outline-none focus:border-purple-500/30 resize-none"
+                disabled={!isEditable}
+                placeholder={isEditable ? "Type response checklist or instructions for hotel staff..." : "Read only - notes are disabled"}
+                className="w-full h-16 p-2 rounded-lg bg-slate-950/40 border border-white/[0.03] text-xs text-slate-300 focus:outline-none focus:border-purple-500/30 resize-none disabled:opacity-50"
               />
             </div>
             <div>
@@ -308,8 +325,9 @@ export function ReviewDetailPanel({
               <textarea
                 value={internalNotes}
                 onChange={(e) => setInternalNotes(e.target.value)}
-                placeholder="Audit logs, staff assignments, or internal follow ups..."
-                className="w-full h-16 p-2 rounded-lg bg-slate-950/40 border border-white/[0.03] text-xs text-slate-300 focus:outline-none focus:border-purple-500/30 resize-none"
+                disabled={!isEditable}
+                placeholder={isEditable ? "Audit logs, staff assignments, or internal follow ups..." : "Read only - notes are disabled"}
+                className="w-full h-16 p-2 rounded-lg bg-slate-950/40 border border-white/[0.03] text-xs text-slate-300 focus:outline-none focus:border-purple-500/30 resize-none disabled:opacity-50"
               />
             </div>
           </div>

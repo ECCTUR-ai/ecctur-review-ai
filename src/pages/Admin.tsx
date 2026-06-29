@@ -23,8 +23,13 @@ import {
   Trash2,
   Sparkles
 } from 'lucide-react';
+import { useAuth } from '@/components/AuthGuard';
 
 export default function Admin() {
+  const { role } = useAuth();
+  const roleNameLower = role?.toLowerCase() || 'staff';
+  const isSuperOrAdmin = roleNameLower === 'super admin' || roleNameLower === 'admin';
+
   const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations'>('users');
   const [toast, setToast] = useState<string | null>(null);
 
@@ -252,33 +257,37 @@ export default function Admin() {
           <Users size={14} />
           User Management
         </button>
-        <button
-          onClick={() => setActiveTab('hotels')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-            activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Building size={14} />
-          Hotel Management
-        </button>
-        <button
-          onClick={() => setActiveTab('org')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-            activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Building2 size={14} />
-          Organization
-        </button>
-        <button
-          onClick={() => setActiveTab('integrations')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-            activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Sliders size={14} />
-          Integrations & Roles
-        </button>
+        {isSuperOrAdmin && (
+          <>
+            <button
+              onClick={() => setActiveTab('hotels')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Building size={14} />
+              Hotel Management
+            </button>
+            <button
+              onClick={() => setActiveTab('org')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Building2 size={14} />
+              Organization
+            </button>
+            <button
+              onClick={() => setActiveTab('integrations')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sliders size={14} />
+              Integrations & Roles
+            </button>
+          </>
+        )}
       </div>
 
       {/* Tab Contents */}
@@ -481,13 +490,15 @@ export default function Admin() {
                   <Users size={16} className="text-blue-400" />
                   Corporate User Profiles ({users?.length || 0})
                 </h3>
-                <button
-                  onClick={handleOpenAddUser}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
-                >
-                  <Plus size={14} />
-                  Add User
-                </button>
+                {isSuperOrAdmin && (
+                  <button
+                    onClick={handleOpenAddUser}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
+                  >
+                    <Plus size={14} />
+                    Add User
+                  </button>
+                )}
               </div>
 
               <div className="overflow-x-auto">
@@ -553,21 +564,27 @@ export default function Admin() {
                               <span className="text-slate-500">No hotel clearances</span>
                             )}
                           </td>
-                          <td className="p-4 pr-6 text-right flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleOpenEditUser(u)}
-                              className="p-1 rounded hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors"
-                              title="Edit User"
-                            >
-                              <Edit3 size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(u.id)}
-                              className="p-1 rounded hover:bg-white/[0.04] text-rose-400 hover:text-rose-300 transition-colors"
-                              title="Delete User"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                           <td className="p-4 pr-6 text-right flex items-center justify-end gap-1.5 font-mono text-[10px]">
+                            {isSuperOrAdmin ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenEditUser(u)}
+                                  className="p-1 rounded hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors"
+                                  title="Edit User"
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  className="p-1 rounded hover:bg-white/[0.04] text-rose-400 hover:text-rose-300 transition-colors"
+                                  title="Delete User"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-slate-500">Read Only</span>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -580,7 +597,7 @@ export default function Admin() {
         )}
 
         {/* TAB 2: HOTEL MANAGEMENT */}
-        {activeTab === 'hotels' && (
+        {isSuperOrAdmin && activeTab === 'hotels' && (
           <div className="space-y-6">
             {/* Hotel Form Panel */}
             {(isAddingHotel || editingHotel) && (
@@ -716,7 +733,7 @@ export default function Admin() {
         )}
 
         {/* TAB 3: ORGANIZATION */}
-        {activeTab === 'org' && (
+        {isSuperOrAdmin && activeTab === 'org' && (
           <div className="space-y-6 max-w-2xl">
             {/* Organization Edit Card */}
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
@@ -802,7 +819,7 @@ export default function Admin() {
         )}
 
         {/* TAB 4: INTEGRATIONS & ROLES */}
-        {activeTab === 'integrations' && (
+        {isSuperOrAdmin && activeTab === 'integrations' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Integrations Card */}
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">

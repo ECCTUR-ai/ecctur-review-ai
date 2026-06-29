@@ -55,6 +55,15 @@ export default async function handler(req: any, res: any) {
       callerRole = 'Super Admin';
     }
 
+    const roleNameLower = callerRole.toLowerCase();
+
+    // Secure check: Only Super Admin, Admin, and Hotel Manager roles can list users
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin' && roleNameLower !== 'hotel manager') {
+      return res.status(403).json({ 
+        error: `Forbidden: Insufficient permissions to retrieve users list.` 
+      });
+    }
+
     // 2. Fetch the caller's assigned hotels
     const { data: currentUserHotels } = await supabaseAdmin
       .from('user_hotels')
@@ -73,8 +82,17 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: queryError.message });
     }
 
+    // Secure backend filtering: If caller is Hotel Manager, restrict profiles to their assigned hotels
+    let returnedProfiles = profiles || [];
+    if (roleNameLower === 'hotel manager') {
+      returnedProfiles = (profiles || []).filter((p: any) => {
+        const profileHotels = (p.user_hotels || []).map((uh: any) => uh.hotel_id);
+        return profileHotels.some((hId: string) => assignedHotelIds.includes(hId));
+      });
+    }
+
     return res.status(200).json({ 
-      profiles: profiles || [], 
+      profiles: returnedProfiles, 
       callerRole,
       assignedHotelIds
     });

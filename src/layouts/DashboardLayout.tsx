@@ -49,7 +49,7 @@ const sidebarItems: SidebarItem[] = [
   { name: 'Analytics', path: '/analytics', icon: TrendingUp, permission: 'view:analytics', tKey: 'sidebar.analytics' },
   { name: 'WhatsApp', path: '/whatsapp', icon: MessageCircle, permission: 'view:whatsapp', tKey: 'sidebar.whatsapp' },
   { name: 'Settings', path: '/settings', icon: Settings, permission: 'view:settings', tKey: 'sidebar.settings' },
-  { name: 'Admin', path: '/admin', icon: ShieldCheck, permission: 'view:settings', tKey: 'sidebar.admin' },
+  { name: 'Admin', path: '/admin', icon: ShieldCheck, permission: 'view:users', tKey: 'sidebar.admin' },
 ];
 
 export default function DashboardLayout() {

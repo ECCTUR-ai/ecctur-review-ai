@@ -50,8 +50,10 @@ export const rbacService = {
       'view:analytics',
       'view:whatsapp',
       'view:settings',
+      'view:users',
       'manage:tasks',
-      'manage:reviews'
+      'manage:reviews',
+      'manage:users'
     ];
 
     let permissions: string[] = [];
@@ -59,20 +61,31 @@ export const rbacService = {
       // Super Admin and Admin automatically receive every permission
       permissions = ALL_PERMISSIONS;
     } else if (roleNameLower === 'manager' || roleNameLower === 'hotel manager') {
+      // Hotel Managers can view/manage tasks, reviews, and users of their hotels
       permissions = [
         'view:dashboard',
         'view:reviews',
         'view:tasks',
         'view:analytics',
+        'view:users',
         'manage:tasks',
-        'manage:reviews'
+        'manage:reviews',
+        'manage:users'
       ];
-    } else {
-      // staff / department manager / read only / others
+    } else if (roleNameLower === 'staff' || roleNameLower === 'department manager') {
+      // Staff can view dashboard, reviews, tasks, and update/manage tasks
       permissions = [
         'view:dashboard',
+        'view:reviews',
         'view:tasks',
         'manage:tasks'
+      ];
+    } else {
+      // Read Only or others get read-only view of reviews/tasks with absolutely no manage capabilities
+      permissions = [
+        'view:dashboard',
+        'view:reviews',
+        'view:tasks'
       ];
     }
 

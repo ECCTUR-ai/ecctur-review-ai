@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { taskService } from '@/services/taskService';
+import { useAuth } from '@/components/AuthGuard';
 import { Task } from '@/types';
 import { 
   CheckSquare, 
@@ -21,6 +22,8 @@ import {
 export default function Tasks() {
   const { t } = useTranslation();
   const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
+  const { hasPermission } = useAuth();
+  const canManageTasks = hasPermission('manage:tasks');
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
   const [department, setDepartment] = useState('');
@@ -213,8 +216,9 @@ export default function Tasks() {
                     {getStatusIcon(task.status)}
                     <select
                       value={task.status}
+                      disabled={!canManageTasks}
                       onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
-                      className="bg-transparent border-0 text-[10px] font-semibold focus:outline-none text-slate-300 capitalize cursor-pointer"
+                      className="bg-transparent border-0 text-[10px] font-semibold focus:outline-none text-slate-300 capitalize cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <option value="open">Open</option>
                       <option value="in_progress">In Progress</option>
