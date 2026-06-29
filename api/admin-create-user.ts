@@ -33,6 +33,7 @@ export default async function handler(req: any, res: any) {
   });
 
   let createdUserId: string | null = null;
+  let isExistingUser = false;
 
   try {
     const authHeader = req.headers.authorization;
@@ -98,6 +99,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // 1. Create Auth User using Admin API
+    let authUserId: string;
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -106,63 +108,118 @@ export default async function handler(req: any, res: any) {
     });
 
     if (createError) {
-      console.error('Supabase Admin createUser error:', createError);
-      return res.status(400).json({ error: createError.message });
+      const errMsg = createError.message?.toLowerCase();
+      // Handle scenario: "user already registered" / "email already in use"
+      if (errMsg.includes('already registered') || errMsg.includes('already in use') || errMsg.includes('already exists')) {
+        isExistingUser = true;
+        
+        // Find existing Auth user ID
+        const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (listError) {
+          console.error('Failed to list users during repair:', listError);
+          return res.status(400).json({ error: createError.message });
+        }
+        
+        const existingUser = listData.users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+        if (!existingUser) {
+          return res.status(400).json({ error: `User already exists but could not be located in directory.` });
+        }
+        
+        authUserId = existingUser.id;
+      } else {
+        console.error('Supabase Admin createUser error:', createError);
+        return res.status(400).json({ error: createError.message });
+      }
+    } else {
+      authUserId = authData.user.id;
+      createdUserId = authUserId; // Track for rollback in case of new user failure
     }
 
-    const newUserId = authData.user.id;
-    createdUserId = newUserId; // Track for rollback
-
-    // 2. Insert Profile
-    const { error: profileError } = await supabaseAdmin
+    // 2. Check if a profile already exists for this email
+    const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: newUserId,
-        email,
-        first_name: firstName || '',
-        last_name: lastName || '',
-        status: 'active',
-        organization_id: organizationId || null,
-        created_at: new Date().toISOString()
-      });
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
 
-    if (profileError) {
-      throw new Error(`Profile creation database error: ${profileError.message}`);
+    if (profileCheckError) {
+      console.warn('Profile existence check query warning:', profileCheckError);
     }
 
-    // 3. Insert Role mapping
+    const targetProfileId = existingProfile ? existingProfile.id : authUserId;
+
+    if (!existingProfile) {
+      // Repair / Create profile
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: targetProfileId,
+          email,
+          first_name: firstName || '',
+          last_name: lastName || '',
+          status: 'active',
+          organization_id: organizationId || null,
+          created_at: new Date().toISOString()
+        });
+
+      if (profileError) {
+        throw new Error(`Profile database write/repair error: ${profileError.message}`);
+      }
+    } else {
+      // Ensure existing profile details are active and aligned
+      const { error: profileUpdateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          first_name: firstName || '',
+          last_name: lastName || '',
+          status: 'active',
+          organization_id: organizationId || null
+        })
+        .eq('id', targetProfileId);
+
+      if (profileUpdateError) {
+        console.warn('Profile state sync warning:', profileUpdateError);
+      }
+    }
+
+    // 3. Upsert Role mapping
     if (roleId) {
+      // Clear out any stale mappings to avoid duplicate key violations
+      await supabaseAdmin.from('user_roles').delete().eq('profile_id', targetProfileId);
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
-        .insert({ profile_id: newUserId, role_id: roleId });
+        .insert({ profile_id: targetProfileId, role_id: roleId });
+      
       if (roleError) {
-        throw new Error(`Role assignment database error: ${roleError.message}`);
+        throw new Error(`Role mapping database error: ${roleError.message}`);
       }
     }
 
-    // 4. Insert Hotel mappings
-    if (hotelIds && hotelIds.length > 0) {
-      const hotelAccess = hotelIds.map((hId: string) => ({ profile_id: newUserId, hotel_id: hId }));
-      const { error: hotelsError } = await supabaseAdmin
-        .from('user_hotels')
-        .insert(hotelAccess);
-      if (hotelsError) {
-        throw new Error(`Hotel assignment database error: ${hotelsError.message}`);
+    // 4. Upsert Hotel mappings
+    if (hotelIds) {
+      await supabaseAdmin.from('user_hotels').delete().eq('profile_id', targetProfileId);
+      if (hotelIds.length > 0) {
+        const hotelAccess = hotelIds.map((hId: string) => ({ profile_id: targetProfileId, hotel_id: hId }));
+        const { error: hotelsError } = await supabaseAdmin
+          .from('user_hotels')
+          .insert(hotelAccess);
+        
+        if (hotelsError) {
+          throw new Error(`Hotel mapping database error: ${hotelsError.message}`);
+        }
       }
     }
 
-    return res.status(200).json({ userId: newUserId });
+    return res.status(200).json({ userId: targetProfileId });
   } catch (error: any) {
     console.error('API Error:', error);
     
-    // Rollback: delete created auth user if profile/roles/hotels inserts failed
-    if (createdUserId) {
-      console.warn(`Rollback triggered: Deleting created auth user with ID: ${createdUserId}`);
+    // Rollback ONLY if it was a newly created user (don't delete pre-existing user accounts)
+    if (createdUserId && !isExistingUser) {
+      console.warn(`Rollback: Deleting newly created auth user: ${createdUserId}`);
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(createdUserId);
       if (deleteError) {
-        console.error(`Rollback failed to delete user ${createdUserId}:`, deleteError);
-      } else {
-        console.log(`Successfully rolled back created user ${createdUserId}`);
+        console.error(`Rollback deletion failed for user ${createdUserId}:`, deleteError);
       }
     }
 

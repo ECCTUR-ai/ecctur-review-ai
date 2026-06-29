@@ -132,7 +132,7 @@ export default function Admin() {
 
       if (isAddingUser) {
         await adminService.addUser(payload);
-        triggerToast('User created and registered successfully');
+        triggerToast('User created successfully');
       } else if (editingUser) {
         await adminService.editUser(editingUser.id, payload);
         triggerToast('User updated successfully');
