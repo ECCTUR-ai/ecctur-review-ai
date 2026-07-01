@@ -19,7 +19,7 @@ import {
 
 export default function Reviews() {
   const { t } = useTranslation();
-  const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
+  const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
   // Query Filters state
   const [search, setSearch] = useState('');
@@ -35,6 +35,7 @@ export default function Reviews() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isImportingGoogleMaps, setIsImportingGoogleMaps] = useState(false);
   const [importRange, setImportRange] = useState('365');
   const [importSummary, setImportSummary] = useState<{
     totalFetched: number;
@@ -186,6 +187,50 @@ export default function Reviews() {
     }, 1000);
   };
 
+  const handleImportGoogleMapsReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || (currentHotel as any)?.google_maps_link || (currentHotel as any)?.google_maps_url;
+
+    if (!googleMapsUrl) {
+      alert('Bu otel için Google Maps işletme linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+      return;
+    }
+
+    setIsImportingGoogleMaps(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      const response = await fetch('/api/admin-import-google-maps-reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
+      });
+
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || 'İçe aktarım başarısız oldu.');
+      }
+
+      setToastMessage(`Google Maps yorumları içe aktarıldı: ${res.importedCount} yeni yorum eklendi.`);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Hata: ${err.message || 'İçe aktarım sırasında bir sorun oluştu.'}`);
+    } finally {
+      setIsImportingGoogleMaps(false);
+    }
+  };
+
   const handleUpdateStatus = async (id: string, newStatus: ReviewStatus) => {
     try {
       const updated = await reviewService.updateReviewStatus(id, newStatus);
@@ -264,6 +309,15 @@ export default function Reviews() {
           >
             <RefreshCw size={14} className={isImporting ? 'animate-spin' : ''} />
             <span>{isImporting ? 'İçe Aktarılıyor...' : t('reviews.import30Days')}</span>
+          </button>
+
+          <button
+            onClick={handleImportGoogleMapsReviews}
+            disabled={isImportingGoogleMaps}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 min-h-[36px]"
+          >
+            <RefreshCw size={14} className={isImportingGoogleMaps ? 'animate-spin' : ''} />
+            <span>{isImportingGoogleMaps ? 'Haritadan Çekiliyor...' : 'Google Maps Yorumlarını Çek'}</span>
           </button>
 
           <button

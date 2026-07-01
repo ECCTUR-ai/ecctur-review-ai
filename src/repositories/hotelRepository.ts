@@ -87,12 +87,14 @@ export const hotelRepository = {
     }));
   },
 
-  async addHotel(hotel: { name: string; organizationId: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
     const { data, error } = await supabase
       .from('hotels')
       .insert({
         name: hotel.name,
-        organization_id: hotel.organizationId
+        organization_id: hotel.organizationId,
+        google_maps_link: hotel.googleMapsLink,
+        google_maps_url: hotel.googleMapsLink
       })
       .select()
       .single();
@@ -103,16 +105,19 @@ export const hotelRepository = {
       organizationId: data.organization_id,
       name: data.name,
       createdAt: data.created_at,
-      connectionStatus: 'connected'
+      connectionStatus: 'connected',
+      googleMapsLink: data.google_maps_link
     };
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
     const { data, error } = await supabase
       .from('hotels')
       .update({
         name: hotel.name,
-        organization_id: hotel.organizationId
+        organization_id: hotel.organizationId,
+        google_maps_link: hotel.googleMapsLink,
+        google_maps_url: hotel.googleMapsLink
       })
       .eq('id', id)
       .select()
@@ -124,7 +129,8 @@ export const hotelRepository = {
       organizationId: data.organization_id,
       name: data.name,
       createdAt: data.created_at,
-      connectionStatus: 'connected'
+      connectionStatus: 'connected',
+      googleMapsLink: data.google_maps_link
     };
   }
 };

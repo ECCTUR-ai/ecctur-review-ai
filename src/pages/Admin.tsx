@@ -361,6 +361,7 @@ export default function Admin() {
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
   const [hotelName, setHotelName] = useState('');
   const [hotelOrgId, setHotelOrgId] = useState(currentOrg.id);
+  const [hotelGoogleMapsLink, setHotelGoogleMapsLink] = useState('');
 
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
@@ -522,6 +523,7 @@ export default function Admin() {
     setEditingHotel(null);
     setHotelName('');
     setHotelOrgId(currentOrg.id);
+    setHotelGoogleMapsLink('');
   };
 
   const handleOpenEditHotel = (h: Hotel) => {
@@ -529,21 +531,23 @@ export default function Admin() {
     setIsAddingHotel(false);
     setHotelName(h.name);
     setHotelOrgId(h.organizationId);
+    setHotelGoogleMapsLink(h.googleMapsLink || '');
   };
 
   const handleSaveHotel = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isAddingHotel) {
-        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId });
+        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsLink: hotelGoogleMapsLink });
         triggerToast('Hotel added successfully');
       } else if (editingHotel) {
-        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId });
+        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId, googleMapsLink: hotelGoogleMapsLink });
         triggerToast('Hotel updated successfully');
       }
 
       setIsAddingHotel(false);
       setEditingHotel(null);
+      setHotelGoogleMapsLink('');
       refetchHotels();
     } catch (err: any) {
       console.error(err);
@@ -1139,6 +1143,17 @@ export default function Admin() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Google Maps Link</label>
+                    <input
+                      type="url"
+                      value={hotelGoogleMapsLink}
+                      onChange={(e) => setHotelGoogleMapsLink(e.target.value)}
+                      placeholder="https://www.google.com/maps/place/..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                    />
                   </div>
 
                   <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.04]">

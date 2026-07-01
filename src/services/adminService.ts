@@ -43,11 +43,11 @@ export const adminService = {
   },
 
   // Hotel Management
-  async addHotel(hotel: { name: string; organizationId: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
     return await hotelRepository.addHotel(hotel);
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
     return await hotelRepository.editHotel(id, hotel);
   },
 
