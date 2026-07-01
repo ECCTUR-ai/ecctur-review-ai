@@ -60,27 +60,27 @@ function parseRelativeDate(relative: string): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // 1. Authorization check
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
-  }
-
-  const token = authHeader.split(' ')[1];
   try {
+    // Allow POST requests
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    // 1. Authorization check
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.split(' ')[1];
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
+      return res.status(401).json({ success: false, error: 'Invalid authentication token' });
     }
 
     const { hotelId, googleMapsUrl } = req.body;
     if (!hotelId || !googleMapsUrl) {
-      return res.status(400).json({ error: 'Missing hotelId or googleMapsUrl parameter' });
+      return res.status(400).json({ success: false, error: 'Missing hotelId or googleMapsUrl parameter' });
     }
 
     // 2. Load hotel information to assert organization mapping
@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (hotelError || !hotelData) {
-      return res.status(404).json({ error: 'Hotel not found' });
+      return res.status(404).json({ success: false, error: 'Hotel not found' });
     }
 
     const orgId = hotelData.organization_id;
@@ -106,7 +106,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 4. Duplicate checks and insert
     for (const r of scrapedReviews) {
-      // Check if a review already exists with: hotel_id + platform + guest_name + review_text + rating
       const { data: existingReview, error: lookupError } = await supabaseAdmin
         .from('reviews')
         .select('id')
@@ -127,10 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
 
-      // Determine sentiment
       const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
 
-      // Insert new review
       const { error: insertError } = await supabaseAdmin
         .from('reviews')
         .insert({
@@ -163,12 +160,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: any) {
     console.error('[Google Maps Scraper API] Handler failure:', err);
     
-    // Map known custom errors from scraper
-    const errMsg = err.message;
-    if (['invalid_url', 'captcha_or_blocked', 'no_reviews_found', 'scraper_failed'].includes(errMsg)) {
-      return res.status(500).json({ error: errMsg });
+    const errMsg = err.message || '';
+    
+    // Check if we are running in Vercel or if Playwright launch failed
+    const isPlaywrightLaunchFailure = 
+      process.env.VERCEL || 
+      errMsg.includes('launch') || 
+      errMsg.includes('executable') || 
+      errMsg.includes('scraper_failed') || 
+      String(err).includes('chromium') || 
+      String(err).includes('Playwright');
+
+    if (isPlaywrightLaunchFailure) {
+      return res.status(500).json({
+        success: false,
+        error: 'playwright_not_supported_on_vercel',
+        message: 'Playwright is not natively supported on Vercel Serverless Functions due to execution environment limits. Alternatives: playwright-core + @sparticuz/chromium, external workers, or Browserless/Apify.'
+      });
     }
 
-    return res.status(500).json({ error: 'scraper_failed', details: err.message || String(err) });
+    if (['invalid_url', 'captcha_or_blocked', 'no_reviews_found'].includes(errMsg)) {
+      return res.status(500).json({ success: false, error: errMsg });
+    }
+
+    return res.status(500).json({ success: false, error: 'scraper_failed', details: errMsg });
   }
 }

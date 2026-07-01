@@ -253,8 +253,19 @@ export default function Reviews() {
         body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
       });
 
-      const res = await response.json();
+      let res: any;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        res = await response.json();
+      } else {
+        const textError = await response.text();
+        throw new Error(textError || 'Bilinmeyen bir sunucu hatası oluştu (JSON yerine düz metin dönüldü).');
+      }
+
       if (!response.ok) {
+        if (res.error === 'playwright_not_supported_on_vercel') {
+          throw new Error(`Platform Uyumsuzluğu: Vercel üzerinde Playwright çalıştırılamıyor. Alternatif çözümler: Apify/Browserless veya harici worker kullanımı. Detay: ${res.message}`);
+        }
         throw new Error(res.error || 'İçe aktarım başarısız oldu.');
       }
 
