@@ -146,6 +146,10 @@ export interface Hotel {
   country?: string;
   timezone?: string;
   defaultLanguage?: string;
+  googleAccountId?: string;
+  googleLocationId?: string;
+  googleBusinessName?: string;
+  googleBusinessConnected?: boolean;
 }
 
 export interface UserProfile {

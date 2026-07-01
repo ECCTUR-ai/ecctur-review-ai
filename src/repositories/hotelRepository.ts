@@ -79,7 +79,11 @@ export const hotelRepository = {
       city: item.city,
       country: item.country,
       timezone: item.timezone,
-      defaultLanguage: item.default_language
+      defaultLanguage: item.default_language,
+      googleAccountId: item.google_account_id,
+      googleLocationId: item.google_location_id,
+      googleBusinessName: item.google_business_name,
+      googleBusinessConnected: item.google_business_connected
     }));
   },
 

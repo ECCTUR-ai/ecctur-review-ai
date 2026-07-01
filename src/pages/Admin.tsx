@@ -21,7 +21,8 @@ import {
   UserCheck,
   Power,
   Trash2,
-  Sparkles
+  Sparkles,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthGuard';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +34,7 @@ export default function Admin() {
   const roleNameLower = role?.toLowerCase() || 'staff';
   const isSuperOrAdmin = roleNameLower === 'super admin' || roleNameLower === 'admin';
 
-  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations'>('users');
   const [toast, setToast] = useState<string | null>(null);
 
   // Form States - Customer Onboarding Wizard
@@ -73,6 +74,88 @@ export default function Admin() {
 
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
   const [isOnboardLogoUploading, setIsOnboardLogoUploading] = useState(false);
+
+  // Google Locations state variables
+  const [googleLocations, setGoogleLocations] = useState<any[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [selectedHotelForGoogle, setSelectedHotelForGoogle] = useState<string>('');
+  const [connectingLocationId, setConnectingLocationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'google-locations') {
+      fetchGoogleLocations();
+    }
+  }, [activeTab]);
+
+  const fetchGoogleLocations = async () => {
+    setLoadingLocations(true);
+    setLocationsError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bilgisi bulunamadı.');
+
+      const res = await fetch('/api/admin-google-locations', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Lokasyonlar yüklenemedi.');
+      }
+
+      setGoogleLocations(data.locations || []);
+    } catch (err: any) {
+      console.error(err);
+      setLocationsError(err.message || 'Lokasyon yükleme hatası.');
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
+
+  const handleConnectLocation = async (loc: any) => {
+    if (!selectedHotelForGoogle) {
+      alert('Lütfen işlem yapılacak oteli seçin.');
+      return;
+    }
+    setConnectingLocationId(loc.locationId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bilgisi bulunamadı.');
+
+      const res = await fetch('/api/admin-connect-location', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          hotelId: selectedHotelForGoogle,
+          googleAccountId: loc.accountId,
+          googleLocationId: loc.locationId,
+          googleBusinessName: loc.businessName
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Bağlantı işlemi başarısız.');
+      }
+
+      setToast('Google lokasyonu başarıyla otele bağlandı.');
+      refetchHotels(); // Refresh hotel list mapping details
+      setTimeout(() => setToast(null), 4000);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Hata: ${err.message || 'Bağlantı yapılırken bir hata oluştu.'}`);
+    } finally {
+      setConnectingLocationId(null);
+    }
+  };
 
   const handleOnboardLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -570,6 +653,15 @@ export default function Admin() {
             >
               <Sparkles size={14} />
               {t('admin.tabs.onboarding')}
+            </button>
+            <button
+              onClick={() => setActiveTab('google-locations')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'google-locations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <MapPin size={14} />
+              <span>Google Lokasyonları</span>
             </button>
           </>
         )}
@@ -1997,6 +2089,107 @@ export default function Admin() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {isSuperOrAdmin && activeTab === 'google-locations' && (
+          <div className="space-y-6">
+            <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/[0.04]">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-200 m-0">Google My Business Lokasyonları</h3>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Google Business API'ye bağlı hesaplarınızdaki lokasyonları listeleyip, reviewAI paneline otellerinizi bağlayın.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <select
+                    value={selectedHotelForGoogle}
+                    onChange={(e) => setSelectedHotelForGoogle(e.target.value)}
+                    className="px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none text-slate-300 min-h-[36px] w-full sm:w-56"
+                  >
+                    <option value="">-- Bağlanacak Otel Seçin --</option>
+                    {hotels?.map((h: Hotel) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={fetchGoogleLocations}
+                    disabled={loadingLocations}
+                    className="flex items-center justify-center p-2 rounded-xl border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors min-w-[36px] min-h-[36px]"
+                    title="Yenile"
+                  >
+                    <RefreshCw size={14} className={loadingLocations ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+              </div>
+
+              {loadingLocations ? (
+                <div className="p-12 text-center text-xs text-slate-500">
+                  Google Business verileri çekiliyor, lütfen bekleyin...
+                </div>
+              ) : locationsError ? (
+                <div className="p-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                  {locationsError}
+                </div>
+              ) : googleLocations.length === 0 ? (
+                <div className="p-12 text-center text-xs text-slate-500">
+                  Google lokasyonu bulunamadı. Lütfen Google Business hesabınızda lokasyon tanımlı olduğundan emin olun.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-white/[0.04] text-slate-400 font-semibold">
+                        <th className="p-3">İşletme Adı</th>
+                        <th className="p-3">Lokasyon ID</th>
+                        <th className="p-3">Hesap ID</th>
+                        <th className="p-3">Adres</th>
+                        <th className="p-3 text-right">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.02]">
+                      {googleLocations.map((loc) => {
+                        const connectedHotels = hotels?.filter((h: Hotel) => h.googleLocationId === loc.locationId) || [];
+                        const isConnected = connectedHotels.length > 0;
+                        const isConnecting = connectingLocationId === loc.locationId;
+
+                        return (
+                          <tr key={loc.locationId} className="hover:bg-white/[0.01] transition-colors">
+                            <td className="p-3 font-semibold text-slate-200">{loc.businessName}</td>
+                            <td className="p-3 font-mono text-slate-400 text-[10px]">{loc.locationId}</td>
+                            <td className="p-3 font-mono text-slate-500 text-[10px]">{loc.accountId}</td>
+                            <td className="p-3 text-slate-400 text-[11px] max-w-xs truncate" title={loc.address}>{loc.address}</td>
+                            <td className="p-3 text-right">
+                              {isConnected ? (
+                                <div className="inline-flex flex-col items-end gap-1">
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold text-[9px] uppercase tracking-wider">
+                                    Bağlı
+                                  </span>
+                                  <span className="text-[9px] text-slate-500 font-medium">
+                                    ({connectedHotels.map((h: Hotel) => h.name).join(', ')})
+                                  </span>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleConnectLocation(loc)}
+                                  disabled={isConnecting || !selectedHotelForGoogle}
+                                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white disabled:text-slate-500 font-semibold text-xs rounded-xl shadow-md hover:shadow-blue-500/15 disabled:shadow-none transition-all"
+                                >
+                                  {isConnecting ? 'Bağlanıyor...' : 'Otele Bağla'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

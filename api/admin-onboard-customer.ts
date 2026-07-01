@@ -81,7 +81,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .insert({
         organization_id: orgId,
         name: hotel.name,
-        google_maps_link: hotel.googleMapsLink || null,
+        google_account_id: hotel.googleAccountId || null,
+        google_location_id: hotel.googleLocationId || null,
+        google_business_name: hotel.googleBusinessName || null,
+        google_business_connected: !!hotel.googleLocationId,
         address: hotel.address || null,
         phone: hotel.phone || null,
         website: hotel.website || null,
@@ -181,9 +184,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Step 4: Setup Integration Settings status values
     const integrations = [
-      { id: 'google_business', name: 'Google Business API', status: connections.googleConnected ? 'connected' : 'disconnected', updated_at: new Date().toISOString() },
-      { id: 'whatsapp', name: 'WhatsApp Business API', status: connections.whatsappNumber ? 'connected' : 'disconnected', updated_at: new Date().toISOString() },
-      { id: 'n8n', name: 'n8n Webhook Pipeline', status: connections.tripadvisorLink ? 'connected' : 'disconnected', updated_at: new Date().toISOString() }
+      { 
+        id: 'google_business', 
+        name: 'Google Business API', 
+        status: (connections.googleLocationId || connections.googleConnected) ? 'connected' : 'disconnected', 
+        provider: 'google',
+        is_active: !!(connections.googleLocationId || connections.googleConnected),
+        organization_id: orgId,
+        hotel_id: hotelId,
+        config: {
+          google_account_id: connections.googleAccountId || hotel.googleAccountId || null,
+          google_location_id: connections.googleLocationId || hotel.googleLocationId || null,
+          google_business_name: connections.googleBusinessName || hotel.googleBusinessName || null
+        },
+        updated_at: new Date().toISOString() 
+      },
+      { id: 'whatsapp', name: 'WhatsApp Business API', status: connections.whatsappNumber ? 'connected' : 'disconnected', provider: 'whatsapp', is_active: !!connections.whatsappNumber, organization_id: orgId, hotel_id: hotelId, updated_at: new Date().toISOString() },
+      { id: 'n8n', name: 'n8n Webhook Pipeline', status: connections.tripadvisorLink ? 'connected' : 'disconnected', provider: 'n8n', is_active: !!connections.tripadvisorLink, organization_id: orgId, hotel_id: hotelId, updated_at: new Date().toISOString() }
     ];
 
     for (let item of integrations) {
