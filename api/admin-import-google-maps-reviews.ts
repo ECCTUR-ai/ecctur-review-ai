@@ -187,14 +187,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    if (errMsg === 'invalid_url') {
-      return res.status(400).json({
-        success: false,
-        error: 'invalid_google_maps_url',
-        message: 'Lütfen geçerli bir Google Maps işletme linki girin.'
-      });
-    }
-
     return res.status(500).json({
       success: false,
       error: 'scraper_failed',

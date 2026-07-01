@@ -272,9 +272,6 @@ export default function Reviews() {
         if (res.error === 'no_reviews_found') {
           throw new Error('Yorum Bulunamadı: Bu Google Maps linkinden yorum çekilemedi veya çekilen yorumlar boş döndü.');
         }
-        if (res.error === 'invalid_google_maps_url') {
-          throw new Error('Geçersiz Google Maps Linki!\n\nKabul edilen formatlar:\n- https://www.google.com/maps/place/...\n- https://www.google.com/maps?cid=...\n- https://maps.app.goo.gl/...\n- https://goo.gl/maps/...\n- https://g.page/...');
-        }
         throw new Error(res.error || 'İçe aktarım başarısız oldu.');
       }
 
