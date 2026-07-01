@@ -58,55 +58,6 @@ async function postToN8N(review: any) {
   console.log('[n8n Poster] Response status:', res.status);
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // 1. Authorization check
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Invalid authentication token' });
-  }
-
-  const { hotelId, range = '365' } = req.body;
-  if (!hotelId) {
-    return res.status(400).json({ error: 'Missing hotelId parameter' });
-  }
-
-  // Load caller role and hotel permissions
-  const { data: userRolesData } = await supabaseAdmin
-    .from('user_roles')
-    .select('*, roles(name)')
-    .eq('profile_id', user.id);
-
-  let userRole = userRolesData?.[0]?.roles?.name;
-  if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
-    userRole = 'Super Admin';
-  }
-
-  const roleNameLower = userRole?.toLowerCase();
-  
-  // Verify user has access to this hotel
-  if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
-    const { data: userHotels } = await supabaseAdmin
-      .from('user_hotels')
-      .select('*')
-      .eq('profile_id', user.id)
-      .eq('hotel_id', hotelId);
-
-    if (!userHotels || userHotels.length === 0) {
-      return res.status(403).json({ error: 'Forbidden: You do not have clearance for this hotel.' });
-    }
-  }
-
 function mapGoogleReview(raw: any, hotelId: string, orgId: string) {
   const platformReviewId = raw.reviewId || raw.platform_review_id || (raw.name ? raw.name.split('/').pop() : null);
   if (!platformReviewId) return null;
@@ -153,55 +104,63 @@ function mapGoogleReview(raw: any, hotelId: string, orgId: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  let hotelIdForLog = 'unknown';
+  let orgIdForLog = 'unknown';
+  const isMock = !process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_BUSINESS_REFRESH_TOKEN;
 
-  // 1. Authorization check
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Invalid authentication token' });
-  }
-
-  const { hotelId, range = '365', googleReviews = [] } = req.body;
-  if (!hotelId) {
-    return res.status(400).json({ error: 'Missing hotelId parameter' });
-  }
-
-  // Load caller role and hotel permissions
-  const { data: userRolesData } = await supabaseAdmin
-    .from('user_roles')
-    .select('*, roles(name)')
-    .eq('profile_id', user.id);
-
-  let userRole = userRolesData?.[0]?.roles?.name;
-  if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
-    userRole = 'Super Admin';
-  }
-
-  const roleNameLower = userRole?.toLowerCase();
-  
-  // Verify user has access to this hotel
-  if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
-    const { data: userHotels } = await supabaseAdmin
-      .from('user_hotels')
-      .select('*')
-      .eq('profile_id', user.id)
-      .eq('hotel_id', hotelId);
-
-    if (!userHotels || userHotels.length === 0) {
-      return res.status(403).json({ error: 'Forbidden: You do not have clearance for this hotel.' });
-    }
-  }
-
+  // Enforce try/catch around the entire handler (Requirement 3)
   try {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    // 1. Authorization check
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return res.status(401).json({ success: false, error: 'Invalid authentication token' });
+    }
+
+    const { hotelId, range = '365' } = req.body;
+    let { googleReviews = [] } = req.body;
+
+    if (!hotelId) {
+      return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
+    }
+    hotelIdForLog = hotelId;
+
+    // Load caller role and hotel permissions
+    const { data: userRolesData } = await supabaseAdmin
+      .from('user_roles')
+      .select('*, roles(name)')
+      .eq('profile_id', user.id);
+
+    let userRole = userRolesData?.[0]?.roles?.name;
+    if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      userRole = 'Super Admin';
+    }
+
+    const roleNameLower = userRole?.toLowerCase();
+    
+    // Verify user has access to this hotel
+    if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
+      const { data: userHotels } = await supabaseAdmin
+        .from('user_hotels')
+        .select('*')
+        .eq('profile_id', user.id)
+        .eq('hotel_id', hotelId);
+
+      if (!userHotels || userHotels.length === 0) {
+        return res.status(403).json({ success: false, error: 'Forbidden: You do not have clearance for this hotel.' });
+      }
+    }
+
     // Get organization associated with hotel
     const { data: hotelData, error: hotelErr } = await supabaseAdmin
       .from('hotels')
@@ -214,8 +173,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const orgId = hotelData.organization_id;
+    orgIdForLog = orgId;
 
-    // Log raw google reviews array before sending to n8n (Requirement 1)
+    // Check if real Google provider is requested but configuration is missing (Requirement 8)
+    if (req.body.provider === 'real' && isMock) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google Business Profile API configuration is missing.',
+        details: 'To use the real Google provider, you must configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_BUSINESS_REFRESH_TOKEN environment variables in your deployment.'
+      });
+    }
+
+    // If using mock provider and no input reviews are provided, return mock reviews correctly (Requirement 6 & 7)
+    if (isMock && googleReviews.length === 0) {
+      googleReviews = [
+        {
+          name: `accounts/12345/locations/67890/reviews/mock-${hotelId}-201`,
+          reviewId: `mock-${hotelId}-201`,
+          reviewer: { displayName: 'Hakan Çelik' },
+          starRating: 'FIVE',
+          comment: 'Konumu harikaydı, odalar çok temiz ve personel son derece ilgiliydi. Memnun kaldık.',
+          createTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          name: `accounts/12345/locations/67890/reviews/mock-${hotelId}-202`,
+          reviewId: `mock-${hotelId}-202`,
+          reviewer: { displayName: 'Merve Aslan' },
+          starRating: 'THREE',
+          comment: 'Kahvaltısı güzeldi fakat odadaki banyo havalandırması iyi çalışmıyordu.',
+          createTime: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          name: `accounts/12345/locations/67890/reviews/mock-${hotelId}-203`,
+          reviewId: `mock-${hotelId}-203`,
+          reviewer: { displayName: 'David Beckham' },
+          starRating: 'FIVE',
+          comment: '', // Empty comment to test Requirement 5
+          createTime: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+    }
+
+    // Log start of import details (Requirement 4)
+    console.log('IMPORT_REVIEWS_START', {
+      hotelId,
+      organizationId: orgId,
+      googleProviderClass: isMock ? 'MockGoogleProvider' : 'RealGoogleProvider',
+      webhookUrl: process.env.N8N_WEBHOOK_URL || 'https://cemilsezgin.app.n8n.cloud/webhook/ecctur-review'
+    });
+
+    // Log raw Google reviews before sending to n8n (Requirement 1)
     console.log('GOOGLE_RAW_REVIEWS', JSON.stringify(googleReviews, null, 2));
 
     // Map Google review payloads
@@ -349,7 +356,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (err: any) {
-    console.error('Reviews import failed:', err);
-    return res.status(500).json({ error: err.message || String(err) });
+    // Log details on handler level exception (Requirement 4)
+    console.error('IMPORT_REVIEWS_ERROR', {
+      hotelId: hotelIdForLog,
+      organizationId: orgIdForLog,
+      googleProviderClass: isMock ? 'MockGoogleProvider' : 'RealGoogleProvider',
+      webhookUrl: process.env.N8N_WEBHOOK_URL || 'https://cemilsezgin.app.n8n.cloud/webhook/ecctur-review',
+      errorStack: err.stack || String(err)
+    });
+
+    // Ensure API always returns JSON (Requirement 5)
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Internal server error',
+      details: err.stack || String(err)
+    });
   }
 }
