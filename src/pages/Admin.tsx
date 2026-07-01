@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { adminService } from '@/services/adminService';
 import { hotelService } from '@/services/hotelService';
@@ -36,6 +37,38 @@ export default function Admin() {
 
   const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations'>('users');
   const [toast, setToast] = useState<string | null>(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Sync from URL to activeTab
+  useEffect(() => {
+    if (location.pathname === '/admin/google-locations') {
+      if (activeTab !== 'google-locations') {
+        setActiveTab('google-locations');
+      }
+    } else if (location.pathname === '/admin') {
+      if (activeTab === 'google-locations') {
+        setActiveTab('users');
+      }
+    }
+  }, [location.pathname, activeTab]);
+
+  // Sync from activeTab to URL
+  useEffect(() => {
+    if (activeTab === 'google-locations') {
+      if (location.pathname !== '/admin/google-locations') {
+        navigate('/admin/google-locations');
+      }
+    } else {
+      if (location.pathname !== '/admin') {
+        // Only reset url to /admin if we are currently at /admin/google-locations
+        if (location.pathname === '/admin/google-locations') {
+          navigate('/admin');
+        }
+      }
+    }
+  }, [activeTab, location.pathname, navigate]);
 
   // Form States - Customer Onboarding Wizard
   const [wizardStep, setWizardStep] = useState(1);

@@ -104,6 +104,14 @@ export default function App() {
                 </AuthGuard>
               }
             />
+            <Route
+              path="/admin/google-locations"
+              element={
+                <AuthGuard requiredPermission="view:users">
+                  <Admin />
+                </AuthGuard>
+              }
+            />
           </Route>
           
           {/* Fallback wildcard route redirects unmatched paths back to root */}

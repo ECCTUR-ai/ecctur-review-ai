@@ -237,9 +237,11 @@ export default function DashboardLayout() {
   };
 
   const getPageTitle = () => {
+    if (location.pathname.startsWith('/admin')) {
+      return 'Admin Panel';
+    }
     const current = sidebarItems.find(item => item.path === location.pathname);
     if (current) {
-      if (current.path === '/admin') return 'Admin Panel';
       return current.name;
     }
     return 'Platform';
@@ -298,7 +300,9 @@ export default function DashboardLayout() {
                 if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
                   return null;
                 }
-                const isActive = location.pathname === item.path;
+                const isActive = item.path === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(item.path);
                 const Icon = item.icon;
 
                 return (
@@ -398,7 +402,9 @@ export default function DashboardLayout() {
             if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
               return null;
             }
-            const isActive = location.pathname === item.path;
+            const isActive = item.path === '/'
+              ? location.pathname === '/'
+              : location.pathname.startsWith(item.path);
             const Icon = item.icon;
 
             return (
