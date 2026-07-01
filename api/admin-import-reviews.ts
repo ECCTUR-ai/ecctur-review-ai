@@ -13,7 +13,13 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 // Post review helper to n8n webhook if configured (uses production URL when active)
 async function postToN8N(review: any) {
-  const webhookUrl = process.env.N8N_WEBHOOK_URL || 'https://cemilsezgin.app.n8n.cloud/webhook/ecctur-review';
+  let webhookUrl = process.env.N8N_WEBHOOK_URL || 'https://cemilsezgin.app.n8n.cloud/webhook/ecctur-review';
+  if (webhookUrl.includes('/webhook-test/')) {
+    webhookUrl = webhookUrl.replace('/webhook-test/', '/webhook/');
+  }
+  if (webhookUrl.includes('n8n.cloud') && !webhookUrl.includes('/webhook/ecctur-review')) {
+    webhookUrl = 'https://cemilsezgin.app.n8n.cloud/webhook/ecctur-review';
+  }
   console.log('[n8n Poster] Posting review to:', webhookUrl);
   
   let res: Response;
@@ -29,11 +35,12 @@ async function postToN8N(review: any) {
       webhookUrl,
       status: 0,
       responseBody: err.message || String(err),
+      message: err.message || String(err),
       reviewId: review.id || review.platform_review_id
     }));
   }
 
-  if (!res.ok) {
+  if (res.status !== 200) {
     let bodyText = '';
     try {
       bodyText = await res.text();
@@ -43,6 +50,7 @@ async function postToN8N(review: any) {
       webhookUrl,
       status: res.status,
       responseBody: bodyText,
+      message: `n8n webhook returned status ${res.status}: ${bodyText}`,
       reviewId: review.id || review.platform_review_id
     }));
   }
@@ -220,6 +228,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (insErr) {
           throw new Error(JSON.stringify({
             type: 'SUPABASE_INSERT_ERROR',
+            webhookUrl: '',
+            status: 500,
+            responseBody: insErr.message || String(insErr),
             message: insErr.message || String(insErr),
             reviewId: r.platform_review_id
           }));
@@ -240,10 +251,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         try {
           const parsed = JSON.parse(err.message);
-          detailedErrors.push(parsed);
+          detailedErrors.push({
+            type: parsed.type || 'GENERIC_ERROR',
+            webhookUrl: parsed.webhookUrl || '',
+            status: parsed.status !== undefined ? parsed.status : 0,
+            responseBody: parsed.responseBody || '',
+            message: parsed.message || err.message || String(err),
+            reviewId: parsed.reviewId || r.platform_review_id
+          });
         } catch (_) {
           detailedErrors.push({
             type: 'GENERIC_ERROR',
+            webhookUrl: '',
+            status: 500,
+            responseBody: err.message || String(err),
             message: err.message || String(err),
             reviewId: r.platform_review_id
           });
