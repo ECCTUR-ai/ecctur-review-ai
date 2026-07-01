@@ -16,10 +16,11 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<Sc
     throw new Error('apify_token_missing');
   }
 
-  const actorId = process.env.APIFY_GOOGLE_MAPS_ACTOR_ID || 'apify/google-maps-scraper';
-  const url = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
+  const rawActorId = process.env.APIFY_GOOGLE_MAPS_ACTOR_ID || 'apify/google-maps-scraper';
+  const encodedActorId = encodeURIComponent(rawActorId);
+  const url = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  console.log(`[Apify Scraper] Running actor: ${actorId} for URL: ${targetUrl}`);
+  console.log(`[Apify Scraper] Running actor: ${rawActorId} (encoded: ${encodedActorId}) for target URL (token hidden)`);
 
   const payload = {
     startUrls: [{ url: targetUrl }],
