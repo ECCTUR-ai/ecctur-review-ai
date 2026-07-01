@@ -155,7 +155,24 @@ export default function Reviews() {
       }, 5000);
     } catch (err: any) {
       console.error(err);
-      alert(`Hata: ${err.message || 'İçe aktarım başarısız oldu'}`);
+      setImportSummary({
+        totalFetched: 0,
+        importedCount: 0,
+        duplicateCount: 0,
+        failedCount: 1,
+        range: importRange,
+        detailedErrors: [
+          {
+            type: 'SERVER_ERROR',
+            message: err.message || 'İçe aktarım başarısız oldu',
+            reviewId: 'Genel Sistem Hatası',
+            webhookUrl: '/api/admin-import-reviews',
+            status: err.message?.match(/Status\s*(\d+)/i)?.[1] ? parseInt(err.message.match(/Status\s*(\d+)/i)[1], 10) : 500,
+            responseBody: err.message || String(err)
+          }
+        ],
+        importDetails: []
+      });
     } finally {
       setIsImporting(false);
     }

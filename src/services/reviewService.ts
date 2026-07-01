@@ -86,7 +86,8 @@ export const reviewService = {
     const token = session?.access_token;
     if (!token) throw new Error('Missing token');
 
-    const response = await fetch('/api/admin-import-reviews', {
+    const endpointUrl = '/api/admin-import-reviews';
+    const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,10 +96,36 @@ export const reviewService = {
       body: JSON.stringify({ hotelId, range })
     });
 
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.error || 'Import failed');
+    const contentType = response.headers.get('content-type') || '';
+    const rawText = await response.text();
+
+    let result: any;
+    let parseErrorOccurred = false;
+    try {
+      result = JSON.parse(rawText);
+    } catch (parseError: any) {
+      parseErrorOccurred = true;
+      console.error('Import Response JSON Parse Failure Log:', {
+        endpointUrl,
+        status: response.status,
+        contentType,
+        rawText,
+        parseError: parseError.message || String(parseError)
+      });
     }
+
+    if (!response.ok) {
+      if (parseErrorOccurred) {
+        throw new Error(`Server Error (${response.status}): ${rawText}`);
+      } else {
+        throw new Error(result?.error || result?.message || `Import failed with status ${response.status}`);
+      }
+    }
+
+    if (parseErrorOccurred) {
+      throw new Error(`Server Error (${response.status}): Unexpected plain text response. Text: ${rawText}`);
+    }
+
     return result;
   }
 };
