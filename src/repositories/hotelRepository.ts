@@ -19,21 +19,27 @@ export const hotelRepository = {
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
             name: 'Demo Hotel',
             createdAt: new Date().toISOString(),
-            connectionStatus: 'connected'
+            connectionStatus: 'connected',
+            googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
+            googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
           },
           {
             id: '00c00000-0000-0000-0000-000000000002',
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
             name: 'Montana 2543',
             createdAt: new Date().toISOString(),
-            connectionStatus: 'connected'
+            connectionStatus: 'connected',
+            googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
+            googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
           },
           {
             id: '00c00000-0000-0000-0000-000000000003',
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
             name: 'Fahri Heritage Hotel',
             createdAt: new Date().toISOString(),
-            connectionStatus: 'connected'
+            connectionStatus: 'connected',
+            googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
+            googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
           }
         ];
       }
@@ -47,21 +53,27 @@ export const hotelRepository = {
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'Demo Hotel',
           createdAt: new Date().toISOString(),
-          connectionStatus: 'connected'
+          connectionStatus: 'connected',
+          googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
+          googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
         },
         {
           id: '00c00000-0000-0000-0000-000000000002',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'Montana 2543',
           createdAt: new Date().toISOString(),
-          connectionStatus: 'connected'
+          connectionStatus: 'connected',
+          googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
+          googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
         },
         {
           id: '00c00000-0000-0000-0000-000000000003',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'Fahri Heritage Hotel',
           createdAt: new Date().toISOString(),
-          connectionStatus: 'connected'
+          connectionStatus: 'connected',
+          googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
+          googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
         }
       ];
     }
@@ -72,7 +84,8 @@ export const hotelRepository = {
       name: item.name,
       createdAt: item.created_at || item.createdAt,
       connectionStatus: 'connected',
-      googleMapsLink: item.google_maps_link,
+      googleMapsLink: item.google_maps_url || item.google_maps_link,
+      googleMapsUrl: item.google_maps_url || item.google_maps_link,
       address: item.address,
       phone: item.phone,
       website: item.website,
@@ -108,7 +121,8 @@ export const hotelRepository = {
           name: hotel.name,
           createdAt: new Date().toISOString(),
           connectionStatus: 'connected',
-          googleMapsLink: hotel.googleMapsLink
+          googleMapsLink: hotel.googleMapsLink,
+          googleMapsUrl: hotel.googleMapsLink
         };
       }
       throw error;
@@ -119,7 +133,8 @@ export const hotelRepository = {
       organization_id: hotel.organizationId,
       name: hotel.name,
       created_at: new Date().toISOString(),
-      google_maps_link: hotel.googleMapsLink
+      google_maps_link: hotel.googleMapsLink,
+      google_maps_url: hotel.googleMapsLink
     };
 
     return {
@@ -128,7 +143,8 @@ export const hotelRepository = {
       name: resultRow.name,
       createdAt: resultRow.created_at || resultRow.createdAt,
       connectionStatus: 'connected',
-      googleMapsLink: resultRow.google_maps_link
+      googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
+      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link
     };
   },
 
@@ -154,7 +170,8 @@ export const hotelRepository = {
           name: hotel.name,
           createdAt: new Date().toISOString(),
           connectionStatus: 'connected',
-          googleMapsLink: hotel.googleMapsLink
+          googleMapsLink: hotel.googleMapsLink,
+          googleMapsUrl: hotel.googleMapsLink
         };
       }
       throw error;
@@ -165,7 +182,8 @@ export const hotelRepository = {
       organization_id: hotel.organizationId,
       name: hotel.name,
       created_at: new Date().toISOString(),
-      google_maps_link: hotel.googleMapsLink
+      google_maps_link: hotel.googleMapsLink,
+      google_maps_url: hotel.googleMapsLink
     };
 
     return {
@@ -174,7 +192,8 @@ export const hotelRepository = {
       name: resultRow.name,
       createdAt: resultRow.created_at || resultRow.createdAt,
       connectionStatus: 'connected',
-      googleMapsLink: resultRow.google_maps_link
+      googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
+      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link
     };
   }
 };

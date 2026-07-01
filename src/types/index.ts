@@ -139,6 +139,7 @@ export interface Hotel {
   createdAt: string;
   connectionStatus?: 'connected' | 'disconnected'; // UI property for hotel management status
   googleMapsLink?: string;
+  googleMapsUrl?: string;
   address?: string;
   phone?: string;
   website?: string;
