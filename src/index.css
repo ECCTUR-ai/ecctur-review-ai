@@ -109,3 +109,44 @@
   pointer-events: none;
 }
 
+/* Premium Light Theme Contrast Overrides */
+.text-slate-100 {
+  color: #0f172a !important; /* text-slate-900 */
+}
+.text-slate-200 {
+  color: #1e293b !important; /* text-slate-800 */
+}
+.text-slate-300 {
+  color: #334155 !important; /* text-slate-700 */
+}
+.text-slate-400 {
+  color: #475569 !important; /* text-slate-600 */
+}
+.text-slate-500 {
+  color: #64748b !important; /* text-slate-500 */
+}
+.text-slate-600 {
+  color: #334155 !important; /* text-slate-700 */
+}
+
+/* Ensure headings/text fields in lists are highly visible */
+h1, h2, h3, h4, h5, h6 {
+  color: #0f172a;
+}
+
+/* Input fields text contrast */
+input, select, textarea {
+  color: #0f172a;
+}
+input::placeholder, textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* Tab active and hover contrasts */
+.text-blue-400 {
+  color: #2563eb !important; /* blue-600 */
+}
+.hover\:text-slate-200:hover {
+  color: #1e293b !important; /* dark slate-800 */
+}
+

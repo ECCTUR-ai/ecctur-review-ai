@@ -39,7 +39,7 @@ export default function Departments() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 rounded-2xl bg-white/[0.02] border border-white/[0.04] animate-pulse" />
+            <div key={i} className="h-64 rounded-2xl bg-slate-50 border border-slate-200 animate-pulse" />
           ))}
         </div>
       ) : error || !departments || departments.length === 0 ? (
@@ -93,7 +93,7 @@ export default function Departments() {
               </div>
 
               {/* Lower Section */}
-              <div className="pt-4 border-t border-white/[0.04] flex items-center justify-between">
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1">
                     <MessageSquare size={12} />

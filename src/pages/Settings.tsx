@@ -76,7 +76,7 @@ export default function Settings() {
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value as any)}
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
               >
                 <option value="professional">Professional & Objective</option>
                 <option value="warm">Warm & Welcoming</option>
@@ -89,7 +89,7 @@ export default function Settings() {
               <select
                 value={minRatingAutoRespond}
                 onChange={(e) => setMinRatingAutoRespond(Number(e.target.value))}
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
               >
                 <option value={5}>5 Stars Only</option>
                 <option value={4}>4 Stars and Above</option>
@@ -144,7 +144,7 @@ export default function Settings() {
             Database & API Integration
           </h3>
 
-          <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] text-xs text-slate-400 space-y-3">
+          <div className="p-4 rounded-xl bg-slate-500 border border-slate-200 text-xs text-slate-400 space-y-3">
             <div className="flex items-center gap-2 text-yellow-500 font-semibold mb-1">
               <AlertCircle size={14} />
               <span>Production Integration Instructions</span>
@@ -152,8 +152,8 @@ export default function Settings() {
             <p>
               To run the system with your live endpoints, define the environment settings inside your deployment:
             </p>
-            <div className="p-3 bg-slate-950 rounded-lg font-mono text-[11px] text-slate-300 space-y-1">
-              <div>VITE_API_URL=https://api.ecctur-review-ai.com/v1</div>
+            <div className="p-3 bg-slate-50 rounded-lg font-mono text-[11px] text-slate-300 space-y-1">
+              <div>VITE_API_URL=https://api.GuestReview.ai-review-ai.com/v1</div>
               <div>VITE_OPENAI_API_KEY=your_openai_secret_key</div>
               <div>VITE_WHATSAPP_PHONE_ID=your_whatsapp_phone_number_id</div>
             </div>

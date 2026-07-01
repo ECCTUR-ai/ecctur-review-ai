@@ -629,7 +629,7 @@ export default function Admin() {
   return (
     <div className="space-y-6">
       {/* Title Header */}
-      <div className="border-b border-white/[0.04] pb-6 flex justify-between items-center">
+      <div className="border-b border-slate-200 pb-6 flex justify-between items-center">
         <div>
           <h1 className="text-xl font-bold text-slate-100 m-0">{t('admin.title')}</h1>
           <p className="text-xs text-slate-400 mt-1.5">
@@ -639,7 +639,7 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/[0.06] gap-2">
+      <div className="flex border-b border-slate-200 gap-2">
         <button
           onClick={() => handleTabChange('users')}
           className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
@@ -711,7 +711,7 @@ export default function Admin() {
           <div className="space-y-6">
             {/* User Form Panel (Add / Edit) */}
             {(isAddingUser || editingUser) && (
-              <div className="glass-panel p-6 rounded-2xl border border-blue-500/20 bg-slate-950/40 relative card-glow">
+              <div className="glass-panel p-6 rounded-2xl border border-blue-500/20 bg-slate-50/40 relative card-glow">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                     <UserCheck size={16} className="text-blue-400" />
@@ -719,7 +719,7 @@ export default function Admin() {
                   </h3>
                   <button 
                     onClick={() => { setIsAddingUser(false); setEditingUser(null); }}
-                    className="p-1 rounded-lg hover:bg-white/[0.04] text-slate-400 hover:text-slate-200"
+                    className="p-1 rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-200"
                   >
                     <X size={14} />
                   </button>
@@ -735,7 +735,7 @@ export default function Admin() {
                         value={userEmail}
                         onChange={(e) => setUserEmail(e.target.value)}
                         placeholder="email@guestreview.ai"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -745,7 +745,7 @@ export default function Admin() {
                         value={userFirstName}
                         onChange={(e) => setUserFirstName(e.target.value)}
                         placeholder="John"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -755,7 +755,7 @@ export default function Admin() {
                         value={userLastName}
                         onChange={(e) => setUserLastName(e.target.value)}
                         placeholder="Doe"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -779,7 +779,7 @@ export default function Admin() {
                           value={userPassword}
                           onChange={(e) => setUserPassword(e.target.value)}
                           placeholder="At least 8 characters"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                         />
                       </div>
 
@@ -791,7 +791,7 @@ export default function Admin() {
                           value={userConfirmPassword}
                           onChange={(e) => setUserConfirmPassword(e.target.value)}
                           placeholder="Re-enter password"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                         />
                       </div>
                     </div>
@@ -803,7 +803,7 @@ export default function Admin() {
                       <select
                         value={userRoleId}
                         onChange={(e) => setUserRoleId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         {roles?.map((r) => (
                           <option key={r.id} value={r.id} className="bg-[#090b16] text-slate-300">
@@ -818,7 +818,7 @@ export default function Admin() {
                       <select
                         value={userStatus}
                         onChange={(e) => setUserStatus(e.target.value as any)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         <option value="active" className="bg-[#090b16] text-slate-300">Active (Grant platform access)</option>
                         <option value="inactive" className="bg-[#090b16] text-slate-300">Inactive (Revoke platform access)</option>
@@ -830,7 +830,7 @@ export default function Admin() {
                       <select
                         value={userOrgId}
                         onChange={(e) => setUserOrgId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         {orgs?.map((o) => (
                           <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
@@ -850,7 +850,7 @@ export default function Admin() {
                         value={userPhone}
                         onChange={(e) => setUserPhone(e.target.value)}
                         placeholder="+90 555 123 4567"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
 
@@ -861,7 +861,7 @@ export default function Admin() {
                         value={userTitle}
                         onChange={(e) => setUserTitle(e.target.value)}
                         placeholder="Guest Relations Specialist"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
 
@@ -872,7 +872,7 @@ export default function Admin() {
                         value={userDepartment}
                         onChange={(e) => setUserDepartment(e.target.value)}
                         placeholder="Front Office"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -886,7 +886,7 @@ export default function Admin() {
                         value={userAvatarUrl}
                         onChange={(e) => setUserAvatarUrl(e.target.value)}
                         placeholder="https://example.com/avatar.jpg"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
 
@@ -895,7 +895,7 @@ export default function Admin() {
                       <select
                         value={userLanguage}
                         onChange={(e) => setUserLanguage(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         <option value="tr" className="bg-[#090b16] text-slate-300">Türkçe</option>
                         <option value="en" className="bg-[#090b16] text-slate-300">English</option>
@@ -910,7 +910,7 @@ export default function Admin() {
                         value={userTimezone}
                         onChange={(e) => setUserTimezone(e.target.value)}
                         placeholder="Europe/Istanbul"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -929,7 +929,7 @@ export default function Admin() {
                             className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                               hasAccess 
                                 ? 'bg-blue-600/10 border-blue-500/30 text-blue-400' 
-                                : 'bg-slate-900 border-white/[0.06] text-slate-400 hover:text-slate-200'
+                                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-200'
                             }`}
                           >
                             {h.name}
@@ -951,11 +951,11 @@ export default function Admin() {
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.04]">
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button
                       type="button"
                       onClick={() => { setIsAddingUser(false); setEditingUser(null); }}
-                      className="px-4 py-2 border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 font-medium text-xs rounded-xl"
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-200 font-medium text-xs rounded-xl"
                     >
                       Cancel
                     </button>
@@ -973,7 +973,7 @@ export default function Admin() {
 
             {/* Users List Card */}
             <div className="glass-panel rounded-2xl relative overflow-hidden card-glow">
-              <div className="h-16 flex items-center justify-between px-6 border-b border-white/[0.04]">
+              <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
                 <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
                   <Users size={16} className="text-blue-400" />
                   {t('admin.users.profilesCount', { count: users?.length || 0 })}
@@ -992,7 +992,7 @@ export default function Admin() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-white/[0.04] text-slate-400 font-medium bg-white/[0.01]">
+                    <tr className="border-b border-slate-200 text-slate-400 font-medium bg-white/[0.01]">
                       <th className="p-4 pl-6">Name</th>
                       <th className="p-4">Email</th>
                       <th className="p-4">{t('admin.users.phone')}</th>
@@ -1054,7 +1054,7 @@ export default function Admin() {
                                 {u.hotelIds.map(hId => {
                                   const name = hotels?.find(h => h.id === hId)?.name || 'Unknown';
                                   return (
-                                    <span key={hId} className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-white/[0.04]">
+                                    <span key={hId} className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-slate-200">
                                       {name}
                                     </span>
                                   );
@@ -1069,14 +1069,14 @@ export default function Admin() {
                               <>
                                 <button
                                   onClick={() => handleOpenEditUser(u)}
-                                  className="p-1 rounded hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors"
+                                  className="p-1 rounded hover:bg-slate-50 text-slate-400 hover:text-slate-200 transition-colors"
                                   title="Edit User"
                                 >
                                   <Edit3 size={14} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteUser(u.id)}
-                                  className="p-1 rounded hover:bg-white/[0.04] text-rose-400 hover:text-rose-300 transition-colors"
+                                  className="p-1 rounded hover:bg-slate-50 text-rose-400 hover:text-rose-300 transition-colors"
                                   title="Delete User"
                                 >
                                   <Trash2 size={14} />
@@ -1101,7 +1101,7 @@ export default function Admin() {
           <div className="space-y-6">
             {/* Hotel Form Panel */}
             {(isAddingHotel || editingHotel) && (
-              <div className="glass-panel p-6 rounded-2xl border border-blue-500/20 bg-slate-950/40 relative card-glow">
+              <div className="glass-panel p-6 rounded-2xl border border-blue-500/20 bg-slate-50/40 relative card-glow">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                     <Building size={16} className="text-blue-400" />
@@ -1109,7 +1109,7 @@ export default function Admin() {
                   </h3>
                   <button 
                     onClick={() => { setIsAddingHotel(false); setEditingHotel(null); }}
-                    className="p-1 rounded-lg hover:bg-white/[0.04] text-slate-400 hover:text-slate-200"
+                    className="p-1 rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-200"
                   >
                     <X size={14} />
                   </button>
@@ -1125,7 +1125,7 @@ export default function Admin() {
                         value={hotelName}
                         onChange={(e) => setHotelName(e.target.value)}
                         placeholder="Demo Hotel"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                       />
                     </div>
 
@@ -1134,7 +1134,7 @@ export default function Admin() {
                       <select
                         value={hotelOrgId}
                         onChange={(e) => setHotelOrgId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         {orgs?.map((o) => (
                           <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
@@ -1152,15 +1152,15 @@ export default function Admin() {
                       value={hotelGoogleMapsLink}
                       onChange={(e) => setHotelGoogleMapsLink(e.target.value)}
                       placeholder="https://www.google.com/maps/place/..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                     />
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.04]">
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button
                       type="button"
                       onClick={() => { setIsAddingHotel(false); setEditingHotel(null); }}
-                      className="px-4 py-2 border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 font-medium text-xs rounded-xl"
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-200 font-medium text-xs rounded-xl"
                     >
                       Cancel
                     </button>
@@ -1178,7 +1178,7 @@ export default function Admin() {
 
             {/* Hotels List Card */}
             <div className="glass-panel rounded-2xl relative overflow-hidden card-glow">
-              <div className="h-16 flex items-center justify-between px-6 border-b border-white/[0.04]">
+              <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
                 <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
                   <Building size={16} className="text-blue-400" />
                   Hotels List ({hotels?.length || 0})
@@ -1195,7 +1195,7 @@ export default function Admin() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-white/[0.04] text-slate-400 font-medium bg-white/[0.01]">
+                    <tr className="border-b border-slate-200 text-slate-400 font-medium bg-white/[0.01]">
                       <th className="p-4 pl-6">Hotel Name</th>
                       <th className="p-4">Hotel ID</th>
                       <th className="p-4">Organization</th>
@@ -1227,7 +1227,7 @@ export default function Admin() {
                           <td className="p-4 pr-6 text-right">
                             <button
                               onClick={() => handleOpenEditHotel(h)}
-                              className="p-1 rounded hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors"
+                              className="p-1 rounded hover:bg-slate-50 text-slate-400 hover:text-slate-200 transition-colors"
                               title="Edit Hotel"
                             >
                               <Edit3 size={14} />
@@ -1254,7 +1254,7 @@ export default function Admin() {
                   {t('admin.org.title')}
                 </h3>
                 {!isSuperOrAdmin && (
-                  <span className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
                     {t('admin.org.viewOnly')}
                   </span>
                 )}
@@ -1262,8 +1262,8 @@ export default function Admin() {
 
               <form onSubmit={handleSaveOrg} className="space-y-6">
                 {/* Logo Section */}
-                <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] flex flex-col md:flex-row items-center gap-4.5">
-                  <div className="relative group w-20 h-20 rounded-2xl bg-slate-950 border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
+                <div className="p-4 rounded-xl bg-slate-500 border border-slate-200 flex flex-col md:flex-row items-center gap-4.5">
+                  <div className="relative group w-20 h-20 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                     {orgLogoUrl ? (
                       <img src={orgLogoUrl} alt="Logo Preview" className="w-full h-full object-contain" />
                     ) : (
@@ -1275,7 +1275,7 @@ export default function Admin() {
                     <span className="text-[10px] text-slate-500 block">PNG, JPG formats supported. Keep size under 2MB.</span>
                     {isSuperOrAdmin && (
                       <div className="pt-2 flex items-center gap-3">
-                        <label className="px-3.5 py-2 border border-white/[0.06] hover:bg-white/[0.04] text-slate-300 hover:text-slate-100 rounded-xl cursor-pointer text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
+                        <label className="px-3.5 py-2 border border-slate-200 hover:bg-slate-50 text-slate-300 hover:text-slate-100 rounded-xl cursor-pointer text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
                           <Plus size={14} />
                           {isUploadingLogo ? t('admin.org.logoUploading') : t('admin.org.logo')}
                           <input
@@ -1302,7 +1302,7 @@ export default function Admin() {
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
                       disabled={!isSuperOrAdmin}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1315,7 +1315,7 @@ export default function Admin() {
                       onChange={(e) => setOrgTaxOffice(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="Maslak V.D."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1328,7 +1328,7 @@ export default function Admin() {
                       onChange={(e) => setOrgTaxNumber(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="1234567890"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1341,7 +1341,7 @@ export default function Admin() {
                       onChange={(e) => setOrgPhone(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="+90 212 123 45 67"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1354,7 +1354,7 @@ export default function Admin() {
                       onChange={(e) => setOrgEmail(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="info@company.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1367,7 +1367,7 @@ export default function Admin() {
                       onChange={(e) => setOrgWebsite(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="https://company.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1380,7 +1380,7 @@ export default function Admin() {
                       onChange={(e) => setOrgCountry(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="Türkiye"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1393,7 +1393,7 @@ export default function Admin() {
                       onChange={(e) => setOrgCity(e.target.value)}
                       disabled={!isSuperOrAdmin}
                       placeholder="İstanbul"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     />
                   </div>
 
@@ -1404,7 +1404,7 @@ export default function Admin() {
                       value={orgCurrency}
                       onChange={(e) => setOrgCurrency(e.target.value)}
                       disabled={!isSuperOrAdmin}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     >
                       <option value="TRY">TRY (₺)</option>
                       <option value="USD">USD ($)</option>
@@ -1420,7 +1420,7 @@ export default function Admin() {
                       value={orgDefaultLanguage}
                       onChange={(e) => setOrgDefaultLanguage(e.target.value)}
                       disabled={!isSuperOrAdmin}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60"
                     >
                       <option value="tr">Türkçe</option>
                       <option value="en">English</option>
@@ -1438,24 +1438,24 @@ export default function Admin() {
                     disabled={!isSuperOrAdmin}
                     placeholder="Company headquarters address..."
                     rows={3}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60 resize-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-60 resize-none"
                   />
                 </div>
 
                 {/* Info block IDs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
-                  <div className="p-4 rounded-xl bg-slate-900/30 border border-white/[0.04]">
+                  <div className="p-4 rounded-xl bg-white/30 border border-slate-200">
                     <span className="text-slate-500 block">Organization ID</span>
                     <span className="font-mono text-[10px] text-slate-400 block mt-1 truncate">{currentOrg.id}</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-900/30 border border-white/[0.04]">
+                  <div className="p-4 rounded-xl bg-white/30 border border-slate-200">
                     <span className="text-slate-500 block">Associated Hotels count</span>
                     <span className="font-semibold text-slate-400 block mt-1">{hotels?.length || 0} active hotels</span>
                   </div>
                 </div>
 
                 {isSuperOrAdmin && (
-                  <div className="flex justify-end gap-2 pt-4 border-t border-white/[0.04]">
+                  <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
                     <button
                       type="submit"
                       className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
@@ -1500,7 +1500,7 @@ export default function Admin() {
 
               <div className="space-y-4">
                 {integrations?.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-3.5 rounded-xl bg-slate-900 border border-white/[0.06]">
+                  <div key={item.id} className="flex justify-between items-center p-3.5 rounded-xl bg-white border border-slate-200">
                     <div className="space-y-0.5">
                       <span className="text-xs font-semibold text-slate-200 block">{item.name}</span>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1">
@@ -1517,7 +1517,7 @@ export default function Admin() {
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
                         item.status === 'connected'
                           ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
-                          : 'bg-slate-950 border-white/[0.06] text-slate-400 hover:text-slate-200'
+                          : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-200'
                       }`}
                     >
                       <Power size={12} />
@@ -1540,7 +1540,7 @@ export default function Admin() {
 
               <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
                 {roles?.map((r) => (
-                  <div key={r.id} className="p-3.5 rounded-xl bg-slate-900/50 border border-white/[0.04] space-y-1">
+                  <div key={r.id} className="p-3.5 rounded-xl bg-slate-500 border border-slate-200 space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-semibold text-slate-200">{r.name}</span>
                       <span className="text-[9px] font-mono text-slate-500">{r.id.split('-')[0]}...</span>
@@ -1562,7 +1562,7 @@ export default function Admin() {
                 <span className="font-semibold text-blue-400 uppercase tracking-wider">Müşteri Kurulum Sihirbazı</span>
                 <span className="text-slate-400 font-medium">Adım {wizardStep} / 6</span>
               </div>
-              <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-white/[0.04]">
+              <div className="w-full bg-white rounded-full h-1.5 overflow-hidden border border-slate-200">
                 <div 
                   className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full transition-all duration-300"
                   style={{ width: `${(wizardStep / 6) * 100}%` }}
@@ -1596,7 +1596,7 @@ export default function Admin() {
                         value={onboardOrgName}
                         onChange={(e) => setOnboardOrgName(e.target.value)}
                         placeholder="Örn. GuestReview.ai Group"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1606,7 +1606,7 @@ export default function Admin() {
                         value={onboardOrgContact}
                         onChange={(e) => setOnboardOrgContact(e.target.value)}
                         placeholder="Ad Soyad"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1616,7 +1616,7 @@ export default function Admin() {
                         value={onboardOrgPhone}
                         onChange={(e) => setOnboardOrgPhone(e.target.value)}
                         placeholder="+90 212 ..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1627,7 +1627,7 @@ export default function Admin() {
                         value={onboardOrgEmail}
                         onChange={(e) => setOnboardOrgEmail(e.target.value)}
                         placeholder="info@guestreview.ai"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1637,7 +1637,7 @@ export default function Admin() {
                         value={onboardOrgTaxOffice}
                         onChange={(e) => setOnboardOrgTaxOffice(e.target.value)}
                         placeholder="Maslak V.D."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1647,7 +1647,7 @@ export default function Admin() {
                         value={onboardOrgTaxNumber}
                         onChange={(e) => setOnboardOrgTaxNumber(e.target.value)}
                         placeholder="1234567890"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                   </div>
@@ -1658,12 +1658,12 @@ export default function Admin() {
                       onChange={(e) => setOnboardOrgAddress(e.target.value)}
                       placeholder="Şirket merkez adresi..."
                       rows={2}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 resize-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 resize-none"
                     />
                   </div>
                   {/* Logo Upload Section */}
-                  <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-xl bg-slate-950 border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="p-4 rounded-xl bg-slate-500 border border-slate-200 flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                       {onboardOrgLogoUrl ? (
                         <img src={onboardOrgLogoUrl} alt="Onboard logo" className="w-full h-full object-contain" />
                       ) : (
@@ -1672,7 +1672,7 @@ export default function Admin() {
                     </div>
                     <div className="space-y-1 flex-1">
                       <span className="text-xs font-semibold text-slate-200 block">{t('admin.org.logo')}</span>
-                      <label className="px-3 py-1.5 bg-slate-900 border border-white/[0.06] hover:bg-white/[0.04] text-slate-300 hover:text-slate-100 rounded-xl cursor-pointer text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
+                      <label className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-300 hover:text-slate-100 rounded-xl cursor-pointer text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
                         <Plus size={12} />
                         {isOnboardLogoUploading ? t('admin.org.logoUploading') : t('admin.org.logo')}
                         <input 
@@ -1704,7 +1704,7 @@ export default function Admin() {
                         value={onboardHotelName}
                         onChange={(e) => setOnboardHotelName(e.target.value)}
                         placeholder="Örn. Montana Beach Resort"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1714,7 +1714,7 @@ export default function Admin() {
                         value={onboardHotelMaps}
                         onChange={(e) => setOnboardHotelMaps(e.target.value)}
                         placeholder="https://maps.google.com/..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1724,7 +1724,7 @@ export default function Admin() {
                         value={onboardHotelPhone}
                         onChange={(e) => setOnboardHotelPhone(e.target.value)}
                         placeholder="+90 242 ..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1734,7 +1734,7 @@ export default function Admin() {
                         value={onboardHotelPhone}
                         onChange={(e) => setOnboardHotelWebsite(e.target.value)}
                         placeholder="https://hotelname.com"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1745,7 +1745,7 @@ export default function Admin() {
                         value={onboardHotelCity}
                         onChange={(e) => setOnboardHotelCity(e.target.value)}
                         placeholder="Antalya"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1756,7 +1756,7 @@ export default function Admin() {
                         value={onboardHotelCountry}
                         onChange={(e) => setOnboardHotelCountry(e.target.value)}
                         placeholder="Türkiye"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1766,7 +1766,7 @@ export default function Admin() {
                         value={onboardHotelTimezone}
                         onChange={(e) => setOnboardHotelTimezone(e.target.value)}
                         placeholder="Europe/Istanbul"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1774,7 +1774,7 @@ export default function Admin() {
                       <select 
                         value={onboardHotelLang}
                         onChange={(e) => setOnboardHotelLang(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         <option value="tr">Türkçe</option>
                         <option value="en">English</option>
@@ -1789,7 +1789,7 @@ export default function Admin() {
                       onChange={(e) => setOnboardHotelAddress(e.target.value)}
                       placeholder="Montana Beach Resort, Kemer / Antalya"
                       rows={2}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 resize-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 resize-none"
                     />
                   </div>
                 </div>
@@ -1803,7 +1803,7 @@ export default function Admin() {
                     Platform Bağlantıları (Platform Connections)
                   </h4>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
+                    <div className="flex justify-between items-center p-3 rounded-xl bg-white border border-slate-200">
                       <div className="space-y-0.5">
                         <span className="text-xs font-semibold text-slate-200 block">Google Business Profile</span>
                         <span className="text-[10px] text-slate-500">Google Haritalar yorum senkronizasyonu.</span>
@@ -1814,7 +1814,7 @@ export default function Admin() {
                         className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
                           onboardGoogleConnected 
                             ? 'bg-blue-600/10 border-blue-500/30 text-blue-400'
-                            : 'bg-slate-950 border-white/[0.06] text-slate-400 hover:text-slate-200'
+                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-200'
                         }`}
                       >
                         {onboardGoogleConnected ? 'Bağlı (Connected)' : 'Bağla (Connect)'}
@@ -1828,7 +1828,7 @@ export default function Admin() {
                         value={onboardTripadvisorLink}
                         onChange={(e) => setOnboardTripadvisorLink(e.target.value)}
                         placeholder="https://www.tripadvisor.com.tr/Hotel_Review-..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
 
@@ -1839,7 +1839,7 @@ export default function Admin() {
                         value={onboardWhatsappNumber}
                         onChange={(e) => setOnboardWhatsappNumber(e.target.value)}
                         placeholder="+905551234567"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
 
@@ -1850,7 +1850,7 @@ export default function Admin() {
                         value={onboardEmailIntegration}
                         onChange={(e) => setOnboardEmailIntegration(e.target.value)}
                         placeholder="feedback@guestreview.ai"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
                   </div>
@@ -1877,7 +1877,7 @@ export default function Admin() {
 
                   <div className="space-y-4">
                     {onboardUsers.map((u, i) => (
-                      <div key={i} className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.04] space-y-3 relative">
+                      <div key={i} className="p-4 rounded-xl bg-slate-500 border border-slate-200 space-y-3 relative">
                         {onboardUsers.length > 1 && (
                           <button 
                             type="button"
@@ -1901,7 +1901,7 @@ export default function Admin() {
                                 setOnboardUsers(newUsers);
                               }}
                               placeholder="Ad"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1916,7 +1916,7 @@ export default function Admin() {
                                 setOnboardUsers(newUsers);
                               }}
                               placeholder="Soyad"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1931,7 +1931,7 @@ export default function Admin() {
                                 setOnboardUsers(newUsers);
                               }}
                               placeholder="email@hotel.com"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1946,7 +1946,7 @@ export default function Admin() {
                                 setOnboardUsers(newUsers);
                               }}
                               placeholder="Şifre"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1958,7 +1958,7 @@ export default function Admin() {
                                 newUsers[i].role = e.target.value;
                                 setOnboardUsers(newUsers);
                               }}
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                             >
                               <option value="Super Admin">Super Admin</option>
                               <option value="Admin">Admin</option>
@@ -1977,7 +1977,7 @@ export default function Admin() {
                                 setOnboardUsers(newUsers);
                               }}
                               placeholder="+90555..."
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                             />
                           </div>
                         </div>
@@ -2000,7 +2000,7 @@ export default function Admin() {
                       <select 
                         value={onboardAILang}
                         onChange={(e) => setOnboardAILang(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         <option value="tr">Türkçe</option>
                         <option value="en">English</option>
@@ -2013,7 +2013,7 @@ export default function Admin() {
                       <select 
                         value={onboardAITone}
                         onChange={(e) => setOnboardAITone(e.target.value as any)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
                         <option value="official">Resmi (Official / Formal)</option>
                         <option value="warm">Samimi (Warm / Friendly)</option>
@@ -2023,7 +2023,7 @@ export default function Admin() {
                   </div>
 
                   <div className="space-y-4 pt-2">
-                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
+                    <div className="flex justify-between items-center p-3 rounded-xl bg-white border border-slate-200">
                       <div className="space-y-0.5">
                         <span className="text-xs font-semibold text-slate-200 block">Otomatik Taslak Cevap</span>
                         <span className="text-[10px] text-slate-500">Yapay zeka gelen yorumlar için otomatik taslak cevap üretsin.</span>
@@ -2032,11 +2032,11 @@ export default function Admin() {
                         type="checkbox"
                         checked={onboardAIAutoDraft}
                         onChange={(e) => setOnboardAIAutoDraft(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 bg-slate-900 border-white/[0.06] rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-slate-900"
+                        className="w-4 h-4 text-blue-600 bg-white border-slate-200 rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-slate-900"
                       />
                     </div>
 
-                    <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-white/[0.06]">
+                    <div className="flex justify-between items-center p-3 rounded-xl bg-white border border-slate-200">
                       <div className="space-y-0.5">
                         <span className="text-xs font-semibold text-slate-200 block">Düşük Puan Uyarısı</span>
                         <span className="text-[10px] text-slate-500">Düşük puanlı yorumlarda sisteme anlık uyarı düşsün.</span>
@@ -2045,7 +2045,7 @@ export default function Admin() {
                         type="checkbox"
                         checked={onboardAILowRatingAlert}
                         onChange={(e) => setOnboardAILowRatingAlert(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 bg-slate-900 border-white/[0.06] rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-slate-900"
+                        className="w-4 h-4 text-blue-600 bg-white border-slate-200 rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-slate-900"
                       />
                     </div>
                   </div>
@@ -2084,7 +2084,7 @@ export default function Admin() {
                       <span className="font-bold text-slate-400 uppercase tracking-wide block text-[10px] mb-1.5">Oluşturulacak Kullanıcılar ({onboardUsers.length})</span>
                       <div className="space-y-1">
                         {onboardUsers.map((u, idx) => (
-                          <div key={idx} className="text-slate-300 font-mono text-[11px] bg-slate-900/50 p-2 rounded-xl border border-white/[0.02]">
+                          <div key={idx} className="text-slate-300 font-mono text-[11px] bg-slate-500 p-2 rounded-xl border border-white/[0.02]">
                             #{idx + 1}: {u.firstName} {u.lastName} ({u.email}) - <span className="text-blue-400 font-semibold">{u.role}</span>
                           </div>
                         ))}
@@ -2105,12 +2105,12 @@ export default function Admin() {
               )}
 
               {/* Step Navigation Controls */}
-              <div className="flex justify-between items-center pt-4 border-t border-white/[0.04]">
+              <div className="flex justify-between items-center pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   disabled={wizardStep === 1 || isOnboardingSaving}
                   onClick={() => setWizardStep(wizardStep - 1)}
-                  className="px-4 py-2 border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-colors"
                 >
                   Geri
                 </button>
@@ -2144,7 +2144,7 @@ export default function Admin() {
         {isSuperOrAdmin && activeTab === 'google-locations' && (
           <div className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/[0.04]">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-200 m-0">Google My Business Lokasyonları</h3>
                   <p className="text-[11px] text-slate-400 mt-1">
@@ -2155,7 +2155,7 @@ export default function Admin() {
                   <select
                     value={selectedHotelForGoogle}
                     onChange={(e) => setSelectedHotelForGoogle(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none text-slate-300 min-h-[36px] w-full sm:w-56"
+                    className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none text-slate-300 min-h-[36px] w-full sm:w-56"
                   >
                     <option value="">-- Bağlanacak Otel Seçin --</option>
                     {hotels?.map((h: Hotel) => (
@@ -2167,7 +2167,7 @@ export default function Admin() {
                   <button
                     onClick={fetchGoogleLocations}
                     disabled={loadingLocations}
-                    className="flex items-center justify-center p-2 rounded-xl border border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 transition-colors min-w-[36px] min-h-[36px]"
+                    className="flex items-center justify-center p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-200 transition-colors min-w-[36px] min-h-[36px]"
                     title="Yenile"
                   >
                     <RefreshCw size={14} className={loadingLocations ? 'animate-spin' : ''} />
@@ -2191,7 +2191,7 @@ export default function Admin() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs min-w-[700px]">
                     <thead>
-                      <tr className="border-b border-white/[0.04] text-slate-400 font-semibold">
+                      <tr className="border-b border-slate-200 text-slate-400 font-semibold">
                         <th className="p-3">İşletme Adı</th>
                         <th className="p-3">Lokasyon ID</th>
                         <th className="p-3">Hesap ID</th>

@@ -83,7 +83,7 @@ export default function Tasks() {
   return (
     <div className="space-y-6">
       {/* Title Header */}
-      <div className="border-b border-white/[0.04] pb-6">
+      <div className="border-b border-slate-200 pb-6">
         <h1 className="text-xl font-bold text-slate-100 m-0">{t('tasks.title')}</h1>
         <p className="text-xs text-slate-400 mt-1.5">
           {t('tasks.subtitle')}
@@ -100,7 +100,7 @@ export default function Tasks() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('tasks.search')}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-500"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-500"
           />
         </div>
 
@@ -109,7 +109,7 @@ export default function Tasks() {
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
           >
             <option value="">All Priorities</option>
             <option value="low">Low</option>
@@ -124,7 +124,7 @@ export default function Tasks() {
           <select
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
           >
             <option value="">All Departments</option>
             <option value="Front Office">Front Office</option>
@@ -140,7 +140,7 @@ export default function Tasks() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
           >
             <option value="">All Statuses</option>
             <option value="open">Open</option>
@@ -155,7 +155,7 @@ export default function Tasks() {
       <div className="space-y-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-white/[0.01] border border-white/[0.04] animate-pulse" />
+            <div key={i} className="h-28 rounded-2xl bg-white/[0.01] border border-slate-200 animate-pulse" />
           ))
         ) : error ? (
           <div className="glass-panel p-6 rounded-2xl border-l-4 border-rose-500 text-rose-400 bg-rose-950/10 flex items-center gap-3">
@@ -175,7 +175,7 @@ export default function Tasks() {
             {tasks.map((task) => (
               <div 
                 key={task.id} 
-                className="p-5 rounded-2xl border border-white/[0.04] bg-[#090b16] hover:bg-slate-900/40 hover:border-white/[0.08] transition-all duration-300 flex flex-col md:flex-row justify-between gap-4"
+                className="p-5 rounded-2xl border border-slate-200 bg-[#090b16] hover:bg-white/40 hover:border-slate-200 transition-all duration-300 flex flex-col md:flex-row justify-between gap-4"
               >
                 <div className="space-y-2">
                   <div className="flex items-center gap-2.5 flex-wrap">
@@ -212,7 +212,7 @@ export default function Tasks() {
 
                 {/* Inline Status Controller */}
                 <div className="flex items-center gap-3 self-start md:self-center shrink-0">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950 border border-white/[0.04]">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200">
                     {getStatusIcon(task.status)}
                     <select
                       value={task.status}

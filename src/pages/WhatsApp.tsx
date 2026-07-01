@@ -58,7 +58,7 @@ export default function WhatsApp() {
           <div className="flex-1 overflow-y-auto space-y-2">
             {chatsLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 rounded-xl bg-white/[0.02] border border-white/[0.04] animate-pulse" />
+                <div key={i} className="h-16 rounded-xl bg-slate-50 border border-slate-200 animate-pulse" />
               ))
             ) : chatsError || !chats || chats.length === 0 ? (
               <div className="text-center py-20 space-y-4 px-4">
@@ -76,7 +76,7 @@ export default function WhatsApp() {
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                     selectedChatId === chat.id 
                       ? 'bg-blue-600/5 border-blue-500/20' 
-                      : 'bg-white/[0.01] border-white/[0.04] hover:bg-white/[0.02]'
+                      : 'bg-white/[0.01] border-slate-200 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex justify-between items-start">
@@ -91,11 +91,11 @@ export default function WhatsApp() {
         </div>
 
         {/* Chat Window */}
-        <div className="lg:col-span-2 glass-panel rounded-2xl flex flex-col h-full overflow-hidden bg-slate-950/40">
+        <div className="lg:col-span-2 glass-panel rounded-2xl flex flex-col h-full overflow-hidden bg-slate-50/40">
           {selectedChat ? (
             <div className="flex flex-col h-full justify-between">
               {/* Header */}
-              <div className="p-4 border-b border-white/[0.04] bg-white/[0.01] flex justify-between items-center">
+              <div className="p-4 border-b border-slate-200 bg-white/[0.01] flex justify-between items-center">
                 <div>
                   <h4 className="text-sm font-semibold text-slate-200">{selectedChat.guestName}</h4>
                   <p className="text-xs text-slate-500">{selectedChat.phoneNumber}</p>
@@ -113,7 +113,7 @@ export default function WhatsApp() {
                     >
                       <div className={`max-w-md p-3.5 rounded-2xl text-xs space-y-1 ${
                         isGuest 
-                          ? 'bg-white/[0.03] border border-white/[0.04] text-slate-300 rounded-tl-none' 
+                          ? 'bg-slate-50 border border-slate-200 text-slate-300 rounded-tl-none' 
                           : msg.sender === 'ai'
                           ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-tr-none'
                           : 'bg-slate-800 text-slate-200 rounded-tr-none'
@@ -130,13 +130,13 @@ export default function WhatsApp() {
               </div>
 
               {/* Input Area */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t border-white/[0.04] bg-white/[0.01] flex gap-3">
+              <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-200 bg-white/[0.01] flex gap-3">
                 <input 
                   type="text" 
                   value={typedMessage}
                   onChange={(e) => setTypedMessage(e.target.value)}
                   placeholder="Type a message or select an AI draft template..."
-                  className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                  className="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                 />
                 <button 
                   type="submit" 

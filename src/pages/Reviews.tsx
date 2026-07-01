@@ -279,7 +279,7 @@ export default function Reviews() {
   return (
     <div className="space-y-6">
       {/* Title Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.04] pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div className="space-y-1.5">
           <h1 className="text-xl font-bold text-slate-100 m-0">{t('reviews.title')}</h1>
           <p className="text-xs text-slate-400">
@@ -292,7 +292,7 @@ export default function Reviews() {
             <select
               value={importRange}
               onChange={(e) => setImportRange(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none text-slate-300 min-h-[36px]"
+              className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none text-slate-300 min-h-[36px]"
             >
               <option value="30">Son 30 gün</option>
               <option value="90">Son 90 gün</option>
@@ -323,7 +323,7 @@ export default function Reviews() {
           <button
             onClick={handleSyncReviews}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
           >
             <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
             <span>{isSyncing ? 'Syncing...' : t('reviews.sync')}</span>
@@ -332,7 +332,7 @@ export default function Reviews() {
           <button
             onClick={handleExportReviews}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/[0.06] hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
           >
             <Download size={14} className={isExporting ? 'animate-spin' : ''} />
             <span>{isExporting ? 'Exporting...' : t('reviews.export')}</span>
@@ -362,7 +362,7 @@ export default function Reviews() {
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl bg-white/[0.01] border border-white/[0.04] animate-pulse" />
+                <div key={i} className="h-32 rounded-2xl bg-white/[0.01] border border-slate-200 animate-pulse" />
               ))}
             </div>
           ) : error ? (
@@ -395,7 +395,7 @@ export default function Reviews() {
         {/* Right pane: Review detail card */}
         <div className="lg:col-span-1">
           {isLoadingDetail ? (
-            <div className="glass-panel rounded-2xl p-12 text-center h-[85vh] flex flex-col justify-center items-center space-y-4 border border-white/[0.04] bg-[#090b16]/95">
+            <div className="glass-panel rounded-2xl p-12 text-center h-[85vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white">
               <RefreshCw className="animate-spin text-blue-500" size={32} />
               <p className="text-xs text-slate-400">Loading operations center data...</p>
             </div>
@@ -424,7 +424,7 @@ export default function Reviews() {
       {importSummary && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
-            <div className="flex justify-between items-center pb-3 border-b border-white/[0.04]">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
               <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
                 <Bell size={16} className="text-blue-400" />
                 <span>İçe Aktarım Sonuç Özeti</span>
@@ -467,7 +467,7 @@ export default function Reviews() {
                 </div>
               </div>
 
-              <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-white/[0.03]">
+              <div className="space-y-2 bg-slate-50/40 p-4 rounded-xl border border-white/[0.03]">
                 <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Debug Entegrasyon Durumu</h4>
                 <div className="text-[11px] text-slate-400 space-y-1.5 leading-relaxed">
                   <div>
@@ -489,13 +489,13 @@ export default function Reviews() {
             </div>
 
             {importSummary.importDetails && importSummary.importDetails.length > 0 && (
-              <div className="space-y-3 pt-4 border-t border-white/[0.04]">
+              <div className="space-y-3 pt-4 border-t border-slate-200">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
                   Senkronizasyon Detayları ({importSummary.importDetails.length} Yorum)
                 </span>
                 <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {importSummary.importDetails.map((detail: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-950/20 border border-white/[0.02] text-[10px]">
+                    <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50/20 border border-white/[0.02] text-[10px]">
                       <code className="text-slate-300 font-mono text-[9px] truncate max-w-[200px]">{detail.reviewId}</code>
                       <span className={`px-2 py-0.5 rounded font-semibold text-[8px] uppercase tracking-wider ${
                         detail.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
@@ -513,7 +513,7 @@ export default function Reviews() {
             )}
 
             {importSummary.detailedErrors && importSummary.detailedErrors.length > 0 && (
-              <div className="space-y-3.5 pt-4 border-t border-white/[0.04]">
+              <div className="space-y-3.5 pt-4 border-t border-slate-200">
                 <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider block">
                   Hata Detayları ({importSummary.detailedErrors.length})
                 </span>
@@ -555,7 +555,7 @@ export default function Reviews() {
               </div>
             )}
 
-            <div className="flex justify-end pt-2 border-t border-white/[0.04]">
+            <div className="flex justify-end pt-2 border-t border-slate-200">
               <button
                 onClick={() => setImportSummary(null)}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-colors"
