@@ -5,11 +5,33 @@ export interface ScrapedReview {
   relativeDate: string;
 }
 
-export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<ScrapedReview[]> {
-  // Validate URL format
-  if (!googleMapsUrl || (!googleMapsUrl.includes('google.com/maps') && !googleMapsUrl.includes('goo.gl/maps'))) {
+export function normalizeGoogleMapsUrl(googleMapsUrl: string): string {
+  if (!googleMapsUrl) {
     throw new Error('invalid_url');
   }
+
+  const urlStr = googleMapsUrl.trim();
+  
+  // List of valid signatures for Google Maps locations
+  const patterns = [
+    /google\.[a-z]+(\.[a-z]+)?\/maps/i,
+    /maps\.google\.[a-z]+/i,
+    /maps\.app\.goo\.gl/i,
+    /goo\.gl\/maps/i,
+    /g\.page/i,
+    /search\.google\.[a-z]+\/local\/reviews/i
+  ];
+
+  const isValid = patterns.some(regex => regex.test(urlStr));
+  if (!isValid) {
+    throw new Error('invalid_url');
+  }
+
+  return urlStr;
+}
+
+export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<ScrapedReview[]> {
+  const normalizedUrl = normalizeGoogleMapsUrl(googleMapsUrl);
 
   const apifyToken = process.env.APIFY_TOKEN;
   if (!apifyToken) {
@@ -19,10 +41,10 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<Sc
   const actorId = process.env.APIFY_GOOGLE_MAPS_ACTOR_ID || 'apify/google-maps-scraper';
   const url = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  console.log(`[Apify Scraper] Running actor: ${actorId} for URL: ${googleMapsUrl}`);
+  console.log(`[Apify Scraper] Running actor: ${actorId} for URL: ${normalizedUrl}`);
 
   const payload = {
-    startUrls: [{ url: googleMapsUrl }],
+    startUrls: [{ url: normalizedUrl }],
     maxReviews: 20,
     language: 'tr',
     personalDataAuthorization: 'GDPR_COMPLIANT'
