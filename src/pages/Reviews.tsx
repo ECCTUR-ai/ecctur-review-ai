@@ -43,6 +43,7 @@ export default function Reviews() {
     failedCount: number;
     range: string;
     detailedErrors?: any[];
+    importDetails?: any[];
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -145,7 +146,8 @@ export default function Reviews() {
         duplicateCount: res.duplicateCount,
         failedCount: res.failedCount,
         range: importRange,
-        detailedErrors: res.detailedErrors
+        detailedErrors: res.detailedErrors,
+        importDetails: res.importDetails
       });
       refetch();
       setTimeout(() => {
@@ -414,6 +416,30 @@ export default function Reviews() {
                 </div>
               </div>
             </div>
+
+            {importSummary.importDetails && importSummary.importDetails.length > 0 && (
+              <div className="space-y-3 pt-4 border-t border-white/[0.04]">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  Senkronizasyon Detayları ({importSummary.importDetails.length} Yorum)
+                </span>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {importSummary.importDetails.map((detail: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-950/20 border border-white/[0.02] text-[10px]">
+                      <code className="text-slate-300 font-mono text-[9px] truncate max-w-[200px]">{detail.reviewId}</code>
+                      <span className={`px-2 py-0.5 rounded font-semibold text-[8px] uppercase tracking-wider ${
+                        detail.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                        detail.status === 'duplicate_skipped' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                        'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      }`}>
+                        {detail.status === 'sent' && 'İletildi'}
+                        {detail.status === 'duplicate_skipped' && 'Mükerrer'}
+                        {detail.status === 'failed' && 'Hata'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {importSummary.detailedErrors && importSummary.detailedErrors.length > 0 && (
               <div className="space-y-3.5 pt-4 border-t border-white/[0.04]">

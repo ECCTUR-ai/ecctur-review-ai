@@ -80,6 +80,7 @@ export const reviewService = {
     failedCount: number;
     totalFetched: number;
     detailedErrors?: any[];
+    importDetails?: any[];
   }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;

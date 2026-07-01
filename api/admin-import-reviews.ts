@@ -107,11 +107,105 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+function mapGoogleReview(raw: any, hotelId: string, orgId: string) {
+  const platformReviewId = raw.reviewId || raw.platform_review_id || (raw.name ? raw.name.split('/').pop() : null);
+  if (!platformReviewId) return null;
+
+  const reviewerDisplayName = raw.reviewer?.displayName || raw.reviewerDisplayName || raw.guestName || raw.guest_name || 'Google User';
+
+  let starRating = 5;
+  if (raw.starRating) {
+    const ratingStr = String(raw.starRating).toUpperCase();
+    if (ratingStr === 'FIVE') starRating = 5;
+    else if (ratingStr === 'FOUR') starRating = 4;
+    else if (ratingStr === 'THREE') starRating = 3;
+    else if (ratingStr === 'TWO') starRating = 2;
+    else if (ratingStr === 'ONE') starRating = 1;
+    else {
+      const parsed = parseInt(ratingStr, 10);
+      if (!isNaN(parsed)) starRating = parsed;
+    }
+  } else if (raw.rating !== undefined) {
+    starRating = Number(raw.rating) || 5;
+  }
+
+  const commentText = raw.comment || raw.commentText || raw.reviewText || raw.review_text || '';
+  const createUpdateTime = raw.createTime || raw.updateTime || raw.reviewDate || raw.review_date || raw.createdAt || raw.created_at || new Date().toISOString();
+  const reply = raw.reviewReply?.comment || raw.reply || null;
+
+  let googleLocationId = raw.locationId || raw.googleLocationId || null;
+  if (!googleLocationId && raw.name) {
+    const match = raw.name.match(/locations\/([^\/]+)/);
+    if (match) googleLocationId = match[1];
+  }
+
+  return {
+    platform_review_id: platformReviewId,
+    reviewer_display_name: reviewerDisplayName,
+    star_rating: starRating,
+    comment_text: commentText,
+    create_update_time: createUpdateTime,
+    reply: reply,
+    google_location_id: googleLocationId,
+    hotel_id: hotelId,
+    organization_id: orgId
+  };
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // 1. Authorization check
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid authentication token' });
+  }
+
+  const { hotelId, range = '365', googleReviews = [] } = req.body;
+  if (!hotelId) {
+    return res.status(400).json({ error: 'Missing hotelId parameter' });
+  }
+
+  // Load caller role and hotel permissions
+  const { data: userRolesData } = await supabaseAdmin
+    .from('user_roles')
+    .select('*, roles(name)')
+    .eq('profile_id', user.id);
+
+  let userRole = userRolesData?.[0]?.roles?.name;
+  if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+    userRole = 'Super Admin';
+  }
+
+  const roleNameLower = userRole?.toLowerCase();
+  
+  // Verify user has access to this hotel
+  if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
+    const { data: userHotels } = await supabaseAdmin
+      .from('user_hotels')
+      .select('*')
+      .eq('profile_id', user.id)
+      .eq('hotel_id', hotelId);
+
+    if (!userHotels || userHotels.length === 0) {
+      return res.status(403).json({ error: 'Forbidden: You do not have clearance for this hotel.' });
+    }
+  }
+
   try {
     // Get organization associated with hotel
     const { data: hotelData, error: hotelErr } = await supabaseAdmin
       .from('hotels')
-      .select('organization_id, name')
+      .select('organization_id, name, google_maps_link')
       .eq('id', hotelId)
       .single();
 
@@ -121,59 +215,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const orgId = hotelData.organization_id;
 
-    // Google Business simulated review bank with distributed dates
-    const rawImportedReviews = [
-      {
-        platform_review_id: `g-${hotelId}-101`,
-        guest_name: 'Kemal Sunal',
-        rating: 5,
-        review_text: 'Otel personeli çok kibar ve ilgiliydi. Temizlik harikaydı, odalar çok geniş.',
-        platform: 'Google',
-        sentiment: 'positive',
-        status: 'draft',
-        review_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days ago (Fits Son 30)
-      },
-      {
-        platform_review_id: `g-${hotelId}-102`,
-        guest_name: 'Şener Şen',
-        rating: 4,
-        review_text: 'Kahvaltı çeşitleri yeterliydi ancak akşam yemeğinde servis biraz yavaş kaldı. Genel olarak memnun kaldık.',
-        platform: 'Google',
-        sentiment: 'neutral',
-        status: 'draft',
-        review_date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString() // 45 days ago (Fits Son 90)
-      },
-      {
-        platform_review_id: `g-${hotelId}-103`,
-        guest_name: 'Adile Naşit',
-        rating: 2,
-        review_text: 'Giriş işlemleri çok uzun sürdü, oda hazır değildi. Hizmet kalitesi bu fiyata yakışmıyor.',
-        platform: 'Google',
-        sentiment: 'negative',
-        status: 'draft',
-        review_date: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString() // 120 days ago (Fits Son 180)
-      },
-      {
-        platform_review_id: `g-${hotelId}-104`,
-        guest_name: 'Halit Akçatepe',
-        rating: 5,
-        review_text: 'Konumu mükemmel, denize sıfır ve bahçesi çok güzel dizayn edilmiş. Kesinlikle öneririm.',
-        platform: 'Google',
-        sentiment: 'positive',
-        status: 'draft',
-        review_date: new Date(Date.now() - 250 * 24 * 60 * 60 * 1000).toISOString() // 250 days ago (Fits Son 365)
-      },
-      {
-        platform_review_id: `g-${hotelId}-105`,
-        guest_name: 'Tarık Akan',
-        rating: 3,
-        review_text: 'Oda servisi başarılıydı ancak havuz hijyeni konusunda bazı şüphelerim var. Geliştirilmeli.',
-        platform: 'Google',
-        sentiment: 'neutral',
-        status: 'draft',
-        review_date: new Date(Date.now() - 500 * 24 * 60 * 60 * 1000).toISOString() // 500 days ago (Fits All Time)
+    // Log raw google reviews array before sending to n8n (Requirement 1)
+    console.log('GOOGLE_RAW_REVIEWS', JSON.stringify(googleReviews, null, 2));
+
+    // Map Google review payloads
+    const mappedReviews: any[] = [];
+    for (let raw of googleReviews) {
+      const mapped = mapGoogleReview(raw, hotelId, orgId);
+      if (mapped) {
+        if (!mapped.google_location_id && hotelData.google_maps_link) {
+          const match = hotelData.google_maps_link.match(/place\/([^\/]+)/);
+          if (match) mapped.google_location_id = match[1];
+        }
+        mappedReviews.push(mapped);
       }
-    ];
+    }
 
     // Compute cutoff date
     let cutoffDate: Date | null = null;
@@ -183,15 +239,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       cutoffDate.setDate(cutoffDate.getDate() - days);
     }
 
-    const filteredReviews = rawImportedReviews.filter(r => {
+    const filteredReviews = mappedReviews.filter(r => {
       if (!cutoffDate) return true;
-      return new Date(r.review_date) >= cutoffDate;
+      return new Date(r.create_update_time) >= cutoffDate;
     });
 
     let successCount = 0;
     let duplicateCount = 0;
     let failedCount = 0;
     const detailedErrors: any[] = [];
+    const importDetails: { reviewId: string; status: 'sent' | 'duplicate_skipped' | 'failed'; error?: string }[] = [];
 
     for (let r of filteredReviews) {
       try {
@@ -203,20 +260,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (existingReview && existingReview.length > 0) {
           duplicateCount++;
           console.log(`[Import] Review ${r.platform_review_id} already exists, skipping.`);
+          importDetails.push({ reviewId: r.platform_review_id, status: 'duplicate_skipped' });
           continue;
         }
 
         const reviewRecord = {
           platform_review_id: r.platform_review_id,
-          guest_name: r.guest_name,
-          rating: r.rating,
-          review_text: r.review_text,
-          platform: r.platform,
-          sentiment: r.sentiment,
-          status: r.status,
-          created_at: r.review_date,
+          guest_name: r.reviewer_display_name,
+          rating: r.star_rating,
+          review_text: r.comment_text,
+          platform: 'Google',
+          sentiment: r.star_rating >= 4 ? 'positive' : r.star_rating === 3 ? 'neutral' : 'negative',
+          status: 'draft',
+          created_at: r.create_update_time,
           hotel_id: hotelId,
-          organization_id: orgId
+          organization_id: orgId,
+          ai_reply: r.reply || null
         };
 
         const { data: newRev, error: insErr } = await supabaseAdmin
@@ -236,39 +295,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }));
         }
 
-        // Post to n8n (throws structured error if HTTP or network fail)
+        // Post Google-specific fields to n8n (Requirement 2)
         await postToN8N({
-          ...reviewRecord,
-          id: newRev.id,
-          hotelName: hotelData.name
+          platform_review_id: r.platform_review_id,
+          reviewer_display_name: r.reviewer_display_name,
+          star_rating: r.star_rating,
+          comment_text: r.comment_text,
+          create_update_time: r.create_update_time,
+          reply: r.reply || null,
+          google_location_id: r.google_location_id || null,
+          hotel_id: hotelId,
+          organization_id: orgId
         });
 
         successCount++;
+        importDetails.push({ reviewId: r.platform_review_id, status: 'sent' });
 
       } catch (err: any) {
         failedCount++;
         console.error(`[Import] Failed to import review ${r.platform_review_id}:`, err);
         
+        let parsedErr: any;
         try {
-          const parsed = JSON.parse(err.message);
-          detailedErrors.push({
-            type: parsed.type || 'GENERIC_ERROR',
-            webhookUrl: parsed.webhookUrl || '',
-            status: parsed.status !== undefined ? parsed.status : 0,
-            responseBody: parsed.responseBody || '',
-            message: parsed.message || err.message || String(err),
-            reviewId: parsed.reviewId || r.platform_review_id
-          });
+          parsedErr = JSON.parse(err.message);
         } catch (_) {
-          detailedErrors.push({
+          parsedErr = {
             type: 'GENERIC_ERROR',
             webhookUrl: '',
             status: 500,
             responseBody: err.message || String(err),
             message: err.message || String(err),
             reviewId: r.platform_review_id
-          });
+          };
         }
+
+        detailedErrors.push(parsedErr);
+        importDetails.push({
+          reviewId: r.platform_review_id,
+          status: 'failed',
+          error: parsedErr.message || String(err)
+        });
       }
     }
 
@@ -278,7 +344,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       duplicateCount,
       failedCount,
       totalFetched: filteredReviews.length,
-      detailedErrors
+      detailedErrors,
+      importDetails
     });
 
   } catch (err: any) {
