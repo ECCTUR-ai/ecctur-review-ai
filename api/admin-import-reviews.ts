@@ -161,10 +161,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Get organization associated with hotel
+    // Inspect and print actual hotels table columns for debugging (Requirement 9 / startup debugging)
+    const { data: sampleRows } = await supabaseAdmin.from('hotels').select('*').limit(1);
+    const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : ['id', 'organization_id', 'name', 'created_at'];
+    console.log('ACTUAL_HOTELS_COLUMNS:', actualHotelCols);
+
+    // Dynamic schema validation (Requirement 6)
+    let hasGoogleMapsLink = false;
+    let hasGooglePlaceId = false;
+
+    const { error: mapsLinkErr } = await supabaseAdmin.from('hotels').select('google_maps_link').limit(1);
+    if (!mapsLinkErr) {
+      hasGoogleMapsLink = true;
+    }
+
+    const { error: placeIdErr } = await supabaseAdmin.from('hotels').select('google_place_id').limit(1);
+    if (!placeIdErr) {
+      hasGooglePlaceId = true;
+    }
+
+    // Determine query fields
+    let selectFields = 'organization_id, name';
+    if (hasGoogleMapsLink) {
+      selectFields += ', google_maps_link';
+    } else if (hasGooglePlaceId) {
+      selectFields += ', google_place_id';
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Hotel has no Google Business mapping configured.',
+        details: 'The hotels table schema is missing both google_maps_link and google_place_id columns.'
+      });
+    }
+
+    // Get organization associated with hotel safely
     const { data: hotelData, error: hotelErr } = await supabaseAdmin
       .from('hotels')
-      .select('organization_id, name, google_maps_link')
+      .select(selectFields)
       .eq('id', hotelId)
       .single();
 
@@ -174,6 +207,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const orgId = hotelData.organization_id;
     orgIdForLog = orgId;
+
+    // Verify hotel mapping is actually configured
+    const mappingValue = (hotelData as any).google_maps_link || (hotelData as any).google_place_id;
+    if (!mappingValue) {
+      return res.status(400).json({
+        success: false,
+        error: 'Hotel has no Google Business mapping configured.',
+        details: `The selected hotel exists but has empty values for ${hasGoogleMapsLink ? 'google_maps_link' : 'google_place_id'}.`
+      });
+    }
 
     // Check if real Google provider is requested but configuration is missing (Requirement 8)
     if (req.body.provider === 'real' && isMock) {
@@ -230,9 +273,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (let raw of googleReviews) {
       const mapped = mapGoogleReview(raw, hotelId, orgId);
       if (mapped) {
-        if (!mapped.google_location_id && hotelData.google_maps_link) {
-          const match = hotelData.google_maps_link.match(/place\/([^\/]+)/);
-          if (match) mapped.google_location_id = match[1];
+        if (!mapped.google_location_id && mappingValue) {
+          const match = String(mappingValue).match(/place\/([^\/]+)/);
+          if (match) {
+            mapped.google_location_id = match[1];
+          } else {
+            mapped.google_location_id = mappingValue;
+          }
         }
         mappedReviews.push(mapped);
       }
