@@ -85,8 +85,8 @@ export default function DashboardLayout() {
         const orgs = await hotelService.getOrganizations();
         console.log('[Hotel Loader] Organizations result:', orgs);
         
-        // 2. Find the ECCTUR organization or fall back to the first one
-        const eccturOrg = orgs.find(o => o.name === 'ECCTUR') || orgs[0];
+        // 2. Find the GuestReview.ai or ECCTUR organization or fall back to the first one
+        const eccturOrg = orgs.find(o => o.name === 'GuestReview.ai' || o.name === 'ECCTUR') || orgs[0];
         if (eccturOrg) {
           setCurrentOrg(eccturOrg);
         }
@@ -248,7 +248,7 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen flex text-slate-100 bg-[#060814] premium-grid-bg">
+    <div className="min-h-screen flex text-slate-800 bg-[#f8fafc] premium-grid-bg">
       {/* Mobile Sidebar Backdrop */}
       <AnimatePresence>
         {mobileSidebarOpen && (
@@ -257,7 +257,7 @@ export default function DashboardLayout() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setMobileSidebarOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
           />
         )}
       </AnimatePresence>
@@ -270,23 +270,23 @@ export default function DashboardLayout() {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 left-0 w-[260px] bg-[#0c0f22]/98 border-r border-white/[0.06] z-50 md:hidden flex flex-col"
+            className="fixed inset-y-0 left-0 w-[260px] bg-white border-r border-slate-200 z-50 md:hidden flex flex-col"
           >
             {/* Logo Section */}
-            <div className="h-20 flex items-center justify-between px-6 border-b border-white/[0.04]">
+            <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 {currentOrg.logoUrl ? (
-                  <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5" />
+                  <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-slate-50 p-0.5" />
                 ) : (
                   <img src="/branding/logo.png" alt="GuestReview.ai Logo" className="h-8 object-contain" />
                 )}
-                <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent truncate max-w-[140px]">
-                  {currentOrg.name || 'GuestReview AI'}
+                <span className="font-bold text-base tracking-wide text-slate-800 truncate max-w-[140px]">
+                  {currentOrg.name || 'GuestReview.ai'}
                 </span>
               </div>
               <button 
                 onClick={() => setMobileSidebarOpen(false)}
-                className="p-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-slate-300 transition-colors"
+                className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -309,11 +309,11 @@ export default function DashboardLayout() {
                       <div
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                           isActive 
-                            ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-[inset_0_0_12px_rgba(59,130,246,0.06)]' 
-                            : 'border border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                            ? 'bg-blue-50 border border-blue-100/50 text-blue-600 shadow-sm font-semibold' 
+                            : 'border border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                         }`}
                       >
-                        <Icon size={20} className={isActive ? 'text-blue-400' : 'text-slate-400'} />
+                        <Icon size={20} className={isActive ? 'text-blue-600' : 'text-slate-500'} />
                         <span className="text-sm font-medium">{t(item.tKey)}</span>
                       </div>
                     </div>
@@ -323,20 +323,20 @@ export default function DashboardLayout() {
             </nav>
 
             {/* Profile / Footer Section */}
-            <div className="p-4 border-t border-white/[0.04]">
-              <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white/[0.02]">
+            <div className="p-4 border-t border-slate-100">
+              <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 font-semibold border border-white/[0.06] shrink-0 uppercase">
+                  <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 font-semibold border border-slate-300 shrink-0 uppercase">
                     {role ? role[0] : 'U'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate capitalize">{role || 'User'}</p>
-                    <p className="text-xs text-slate-500 truncate">GuestReview Platform</p>
+                    <p className="text-sm font-semibold truncate capitalize">{currentOrg.name || 'GuestReview.ai'}</p>
+                    <p className="text-xs text-slate-500 truncate">{role || 'Super Admin'}</p>
                   </div>
                 </div>
                 <button
                   onClick={async () => { await supabase.auth.signOut(); }}
-                  className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition-colors shrink-0"
+                  className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-colors shrink-0"
                   title="Sign Out"
                 >
                   <LogOut size={14} />
@@ -354,7 +354,7 @@ export default function DashboardLayout() {
         className="h-screen sticky top-0 sidebar-glass hidden md:flex flex-col z-20"
       >
         {/* Logo Section */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-white/[0.04]">
+        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100">
           <AnimatePresence mode="wait">
             {!collapsed && (
               <motion.div
@@ -364,26 +364,26 @@ export default function DashboardLayout() {
                 className="flex items-center gap-2"
               >
                 {currentOrg.logoUrl ? (
-                  <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5" />
+                  <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-slate-50 p-0.5" />
                 ) : (
                   <img src="/branding/logo.png" alt="GuestReview.ai Logo" className="h-8 object-contain" />
                 )}
-                <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent truncate max-w-[140px]">
-                  {currentOrg.name || 'GuestReview AI'}
+                <span className="font-bold text-base tracking-wide text-slate-800 truncate max-w-[140px]">
+                  {currentOrg.name || 'GuestReview.ai'}
                 </span>
               </motion.div>
             )}
           </AnimatePresence>
           {collapsed && (
             currentOrg.logoUrl ? (
-              <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5 mx-auto" />
+              <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-slate-50 p-0.5 mx-auto" />
             ) : (
-              <img src="/branding/logo.png" alt="Logo" className="w-8 h-8 object-cover object-left rounded-lg bg-white/5 p-0.5 mx-auto" />
+              <img src="/branding/logo.png" alt="Logo" className="w-8 h-8 object-cover object-left rounded-lg bg-slate-50 p-0.5 mx-auto" />
             )
           )}
           <button 
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+            className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors shadow-sm cursor-pointer"
           >
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
@@ -407,11 +407,11 @@ export default function DashboardLayout() {
                   <motion.div
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                       isActive 
-                        ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-[inset_0_0_12px_rgba(59,130,246,0.06)]' 
-                        : 'border border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                        ? 'bg-blue-50 border border-blue-100/50 text-blue-600 shadow-sm font-semibold' 
+                        : 'border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80'
                     }`}
                   >
-                    <Icon size={20} className={isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-200'} />
+                    <Icon size={20} className={isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-700'} />
                     {!collapsed && (
                       <span className="text-sm font-medium">{t(item.tKey)}</span>
                     )}
@@ -419,7 +419,7 @@ export default function DashboardLayout() {
                   {isActive && !collapsed && (
                     <motion.div 
                       layoutId="active-indicator"
-                      className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-blue-500 rounded-r"
+                      className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-blue-600 rounded-r"
                     />
                   )}
                 </div>
@@ -429,23 +429,23 @@ export default function DashboardLayout() {
         </nav>
 
         {/* Profile / Footer Section */}
-        <div className="p-4 border-t border-white/[0.04]">
-          <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white/[0.02]">
+        <div className="p-4 border-t border-slate-100">
+          <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 font-semibold border border-white/[0.06] shrink-0 uppercase">
+              <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 font-semibold border border-slate-300 shrink-0 uppercase">
                 {role ? role[0] : 'U'}
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate capitalize">{role || 'User'}</p>
-                  <p className="text-xs text-slate-500 truncate">GuestReview Platform</p>
+                  <p className="text-sm font-semibold truncate capitalize">{currentOrg.name || 'GuestReview.ai'}</p>
+                  <p className="text-xs text-slate-500 truncate">{role || 'Super Admin'}</p>
                 </div>
               )}
             </div>
             {!collapsed && (
               <button
                 onClick={async () => { await supabase.auth.signOut(); }}
-                className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition-colors shrink-0"
+                className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-colors shrink-0"
                 title="Sign Out"
               >
                 <LogOut size={14} />
@@ -458,24 +458,24 @@ export default function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Premium Header */}
-        <header className="min-h-20 py-3 md:py-0 glass-panel border-b border-white/[0.04] sticky top-0 z-10 flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 gap-3">
+        <header className="min-h-20 py-3 md:py-0 bg-white border-b border-slate-200/80 sticky top-0 z-10 flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 gap-3">
           <div className="flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-                className="md:hidden p-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-slate-300 transition-colors"
+                className="md:hidden p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors"
               >
                 <Menu size={16} />
               </button>
-              <h1 className="text-sm md:text-lg font-semibold text-slate-200 m-0 leading-none">
+              <h1 className="text-sm md:text-lg font-bold text-slate-800 m-0 leading-none">
                 {getPageTitle()}
               </h1>
             </div>
             
             <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-medium border ${
               isApiOnline 
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
+                : 'bg-amber-50 border-amber-200 text-amber-600'
             }`}>
               {isApiOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
               <span className="hidden sm:inline">{isApiOnline ? 'API Connected' : 'Demo Offline Mode'}</span>
@@ -485,16 +485,16 @@ export default function DashboardLayout() {
 
           <div className="flex items-center gap-2 md:gap-4 justify-between md:justify-end w-full md:w-auto flex-wrap">
             {/* Hotel Switcher Dropdown */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-white/[0.06] max-w-[160px] md:max-w-none truncate">
-              <Building size={12} className="text-slate-400 shrink-0" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-sm text-slate-700 max-w-[160px] md:max-w-none truncate">
+              <Building size={12} className="text-slate-500 shrink-0" />
               {hotels.length > 0 ? (
                 <select
                   value={currentHotelId}
                   onChange={(e) => handleHotelChange(e.target.value)}
-                  className="bg-transparent border-none text-[11px] md:text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer max-w-[110px] md:max-w-none truncate"
+                  className="bg-transparent border-none text-[11px] md:text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer max-w-[110px] md:max-w-none truncate"
                 >
                   {hotels.map((h) => (
-                    <option key={h.id} value={h.id} className="bg-[#090b16] text-slate-300">
+                    <option key={h.id} value={h.id} className="bg-white text-slate-700">
                       {h.name}
                     </option>
                   ))}
@@ -505,16 +505,16 @@ export default function DashboardLayout() {
             </div>
 
             {/* Language Switcher Dropdown */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-white/[0.06]">
-              <Globe size={12} className="text-slate-400 shrink-0" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-sm text-slate-700">
+              <Globe size={12} className="text-slate-500 shrink-0" />
               <select
                 value={i18n.language}
                 onChange={(e) => i18n.changeLanguage(e.target.value)}
-                className="bg-transparent border-none text-[11px] md:text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer"
+                className="bg-transparent border-none text-[11px] md:text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer"
               >
-                <option value="en" className="bg-[#090b16] text-slate-300">EN</option>
-                <option value="tr" className="bg-[#090b16] text-slate-300">TR</option>
-                <option value="ru" className="bg-[#090b16] text-slate-300">RU</option>
+                <option value="en" className="bg-white text-slate-700">EN</option>
+                <option value="tr" className="bg-white text-slate-700">TR</option>
+                <option value="ru" className="bg-white text-slate-700">RU</option>
               </select>
             </div>
 
@@ -522,11 +522,11 @@ export default function DashboardLayout() {
             <div className="relative">
               <button 
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="p-2 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] transition-colors relative"
+                className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors relative text-slate-600 shadow-sm cursor-pointer"
               >
                 <Bell size={18} />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full bg-blue-600 border border-[#060814] flex items-center justify-center text-[9px] font-bold text-white px-1">
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full bg-blue-600 border border-white flex items-center justify-center text-[9px] font-bold text-white px-1">
                     {unreadCount}
                   </span>
                 )}
@@ -538,14 +538,14 @@ export default function DashboardLayout() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute right-0 mt-3 w-80 rounded-2xl border border-white/[0.06] bg-[#0c0f22]/95 backdrop-blur-md p-4 shadow-2xl z-30"
+                    className="absolute right-0 mt-3 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-30 text-slate-800"
                   >
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-xs font-bold text-slate-200">Alert Center</h3>
+                      <h3 className="text-xs font-bold text-slate-800">Alert Center</h3>
                       {unreadCount > 0 && (
                         <button
                           onClick={handleMarkAllAsRead}
-                          className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold"
+                          className="text-[10px] text-blue-600 hover:text-blue-500 font-semibold"
                         >
                           Mark all as read
                         </button>
@@ -563,17 +563,17 @@ export default function DashboardLayout() {
                             key={n.id} 
                             className={`p-2.5 rounded-xl border transition-all relative flex flex-col gap-1.5 ${
                               n.isRead 
-                                ? 'bg-white/[0.01] border-white/[0.03] text-slate-400' 
-                                : 'bg-blue-500/[0.02] border-blue-500/10 text-slate-200 shadow-sm'
+                                ? 'bg-slate-50/50 border-slate-100 text-slate-400' 
+                                : 'bg-blue-50/30 border-blue-100 text-slate-800 shadow-sm'
                             }`}
                           >
                             <div className="flex justify-between items-start gap-2">
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                                n.type === 'high_risk' ? 'text-rose-400 bg-rose-500/10' :
-                                n.type === 'task_completed' ? 'text-emerald-400 bg-emerald-500/10' :
-                                n.type === 'approval_needed' ? 'text-amber-400 bg-amber-500/10' :
-                                n.type === 'task_assigned' ? 'text-purple-400 bg-purple-500/10' :
-                                'text-blue-400 bg-blue-500/10'
+                                n.type === 'high_risk' ? 'text-rose-600 bg-rose-50' :
+                                n.type === 'task_completed' ? 'text-emerald-600 bg-emerald-50' :
+                                n.type === 'approval_needed' ? 'text-amber-600 bg-amber-50' :
+                                n.type === 'task_assigned' ? 'text-purple-600 bg-purple-50' :
+                                'text-blue-600 bg-blue-50'
                               }`}>
                                 {n.type.replace('_', ' ')}
                               </span>
@@ -581,7 +581,7 @@ export default function DashboardLayout() {
                               {!n.isRead && (
                                 <button
                                   onClick={() => handleMarkAsRead(n.id)}
-                                  className="text-slate-500 hover:text-slate-300 cursor-pointer"
+                                  className="text-slate-500 hover:text-slate-700 cursor-pointer"
                                   title="Mark as read"
                                 >
                                   <Eye size={12} />
@@ -591,7 +591,7 @@ export default function DashboardLayout() {
 
                             <div>
                               <h4 className="text-xs font-semibold">{n.title}</h4>
-                              <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{n.message}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{n.message}</p>
                             </div>
                           </div>
                         ))
@@ -603,15 +603,15 @@ export default function DashboardLayout() {
             </div>
 
             {/* Profile Menu */}
-            <div className="w-px h-6 bg-white/[0.08]" />
+            <div className="w-px h-6 bg-slate-200" />
             <div className="relative">
               <button 
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
                 title="Profile Menu"
               >
-                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-white/[0.06]">
-                  <User size={16} className="text-slate-300" />
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-600">
+                  <User size={16} className="text-slate-600" />
                 </div>
               </button>
 
@@ -621,10 +621,10 @@ export default function DashboardLayout() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute right-0 mt-3 w-56 rounded-2xl border border-white/[0.06] bg-[#0c0f22]/95 backdrop-blur-md p-4 shadow-2xl z-30"
+                    className="absolute right-0 mt-3 w-56 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-30 text-slate-800"
                   >
-                    <div className="border-b border-white/[0.04] pb-3 mb-3">
-                      <span className="text-xs font-semibold text-slate-200 block truncate capitalize">
+                    <div className="border-b border-slate-100 pb-3 mb-3">
+                      <span className="text-xs font-semibold text-slate-800 block truncate capitalize">
                         {role || 'User'}
                       </span>
                       <span className="text-[10px] text-slate-500 block truncate">
@@ -638,7 +638,7 @@ export default function DashboardLayout() {
                         await supabase.auth.signOut();
                         navigate('/login');
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <LogOut size={14} />
                       Sign Out
