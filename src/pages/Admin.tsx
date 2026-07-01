@@ -35,11 +35,22 @@ export default function Admin() {
   const roleNameLower = role?.toLowerCase() || 'staff';
   const isSuperOrAdmin = roleNameLower === 'super admin' || roleNameLower === 'admin';
 
-  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations'>('users');
-  const [toast, setToast] = useState<string | null>(null);
-
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations'>(() => {
+    return window.location.pathname === '/admin/google-locations' ? 'google-locations' : 'users';
+  });
+  const [toast, setToast] = useState<string | null>(null);
+
+  const handleTabChange = (tab: 'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations') => {
+    setActiveTab(tab);
+    if (tab === 'google-locations') {
+      navigate('/admin/google-locations');
+    } else {
+      navigate('/admin');
+    }
+  };
 
   // Sync from URL to activeTab
   useEffect(() => {
@@ -53,22 +64,6 @@ export default function Admin() {
       }
     }
   }, [location.pathname, activeTab]);
-
-  // Sync from activeTab to URL
-  useEffect(() => {
-    if (activeTab === 'google-locations') {
-      if (location.pathname !== '/admin/google-locations') {
-        navigate('/admin/google-locations');
-      }
-    } else {
-      if (location.pathname !== '/admin') {
-        // Only reset url to /admin if we are currently at /admin/google-locations
-        if (location.pathname === '/admin/google-locations') {
-          navigate('/admin');
-        }
-      }
-    }
-  }, [activeTab, location.pathname, navigate]);
 
   // Form States - Customer Onboarding Wizard
   const [wizardStep, setWizardStep] = useState(1);
@@ -312,7 +307,7 @@ export default function Admin() {
       setOnboardHotelCountry('');
       setOnboardUsers([{ firstName: '', lastName: '', email: '', password: '', phone: '', title: '', role: 'Hotel Manager' }]);
       
-      setActiveTab('users');
+      handleTabChange('users');
       refetchUsers();
       refetchOrgs();
       refetchHotels();
@@ -637,7 +632,7 @@ export default function Admin() {
       {/* Tabs */}
       <div className="flex border-b border-white/[0.06] gap-2">
         <button
-          onClick={() => setActiveTab('users')}
+          onClick={() => handleTabChange('users')}
           className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
             activeTab === 'users' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
@@ -647,7 +642,7 @@ export default function Admin() {
         </button>
         {isSuperOrAdmin && (
           <button
-            onClick={() => setActiveTab('hotels')}
+            onClick={() => handleTabChange('hotels')}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
@@ -658,7 +653,7 @@ export default function Admin() {
         )}
         {(isSuperOrAdmin || roleNameLower === 'hotel manager') && (
           <button
-            onClick={() => setActiveTab('org')}
+            onClick={() => handleTabChange('org')}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
@@ -670,7 +665,7 @@ export default function Admin() {
         {isSuperOrAdmin && (
           <>
             <button
-              onClick={() => setActiveTab('integrations')}
+              onClick={() => handleTabChange('integrations')}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
                 activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
@@ -679,7 +674,7 @@ export default function Admin() {
               {t('admin.tabs.integrations')}
             </button>
             <button
-              onClick={() => setActiveTab('onboarding')}
+              onClick={() => handleTabChange('onboarding')}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
                 activeTab === 'onboarding' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
@@ -688,7 +683,7 @@ export default function Admin() {
               {t('admin.tabs.onboarding')}
             </button>
             <button
-              onClick={() => setActiveTab('google-locations')}
+              onClick={() => handleTabChange('google-locations')}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
                 activeTab === 'google-locations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
