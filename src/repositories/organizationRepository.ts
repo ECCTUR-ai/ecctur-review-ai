@@ -12,13 +12,13 @@ export const organizationRepository = {
     if (error) {
       // If table doesn't exist yet, return the default organization as a fallback
       if (error.code === 'PGRST116' || error.message.includes('relation "organizations" does not exist') || error.message.includes('schema cache')) {
-        return [{ id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'ECCTUR', createdAt: new Date().toISOString() }];
+        return [{ id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'GuestReview.ai', createdAt: new Date().toISOString() }];
       }
       throw error;
     }
 
     if (!data || data.length === 0) {
-      return [{ id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'ECCTUR', createdAt: new Date().toISOString() }];
+      return [{ id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'GuestReview.ai', createdAt: new Date().toISOString() }];
     }
 
     return data.map((item: any) => ({

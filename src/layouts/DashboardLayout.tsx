@@ -70,7 +70,7 @@ export default function DashboardLayout() {
   const [currentHotelId, setCurrentHotelId] = useState<string>(
     localStorage.getItem('saas_selected_hotel_id') || ''
   );
-  const [currentOrg, setCurrentOrg] = useState<any>({ name: 'ECCTUR AI', logoUrl: '' });
+  const [currentOrg, setCurrentOrg] = useState<any>({ name: 'GuestReview AI', logoUrl: '' });
   
   const location = useLocation();
 
@@ -278,12 +278,10 @@ export default function DashboardLayout() {
                 {currentOrg.logoUrl ? (
                   <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5" />
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
-                    E
-                  </div>
+                  <img src="/branding/logo.png" alt="GuestReview.ai Logo" className="h-8 object-contain" />
                 )}
                 <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent truncate max-w-[140px]">
-                  {currentOrg.name || 'ECCTUR AI'}
+                  {currentOrg.name || 'GuestReview AI'}
                 </span>
               </div>
               <button 
@@ -333,7 +331,7 @@ export default function DashboardLayout() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate capitalize">{role || 'User'}</p>
-                    <p className="text-xs text-slate-500 truncate">ECCTUR Partner</p>
+                    <p className="text-xs text-slate-500 truncate">GuestReview Platform</p>
                   </div>
                 </div>
                 <button
@@ -368,12 +366,10 @@ export default function DashboardLayout() {
                 {currentOrg.logoUrl ? (
                   <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5" />
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
-                    E
-                  </div>
+                  <img src="/branding/logo.png" alt="GuestReview.ai Logo" className="h-8 object-contain" />
                 )}
                 <span className="font-semibold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent truncate max-w-[140px]">
-                  {currentOrg.name || 'ECCTUR AI'}
+                  {currentOrg.name || 'GuestReview AI'}
                 </span>
               </motion.div>
             )}
@@ -382,9 +378,7 @@ export default function DashboardLayout() {
             currentOrg.logoUrl ? (
               <img src={currentOrg.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5 mx-auto" />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white mx-auto">
-                E
-              </div>
+              <img src="/branding/logo.png" alt="Logo" className="w-8 h-8 object-cover object-left rounded-lg bg-white/5 p-0.5 mx-auto" />
             )
           )}
           <button 
@@ -444,7 +438,7 @@ export default function DashboardLayout() {
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate capitalize">{role || 'User'}</p>
-                  <p className="text-xs text-slate-500 truncate">ECCTUR Partner</p>
+                  <p className="text-xs text-slate-500 truncate">GuestReview Platform</p>
                 </div>
               )}
             </div>

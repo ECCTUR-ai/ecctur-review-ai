@@ -172,7 +172,7 @@ export function ReviewDetailPanel({
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 font-mono mt-1">
                 <span className="flex items-center gap-1">
                   <Building size={12} className="text-slate-400" />
-                  {review.hotel || 'ECCTUR Deluxe Resort'}
+                  {review.hotel || 'Demo Hotel'}
                 </span>
                 <span>&bull;</span>
                 <span>Channel: {review.source}</span>

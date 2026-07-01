@@ -16,7 +16,7 @@ export function mapReview(item: any): Review {
     respondedAt: item.responded_at || item.respondedAt || item.updated_at || '',
     sentiment: (item.sentiment || 'neutral').toLowerCase() as Sentiment,
     departments: item.departments || [],
-    hotel: item.hotel_name || item.hotel || 'ECCTUR Demo Hotel',
+    hotel: item.hotel_name || item.hotel || 'Demo Hotel',
     managerNotes: item.notes || item.manager_notes || item.managerNotes || '',
     internalNotes: item.internal_notes || item.internalNotes || '',
     hotelId: item.hotel_id || item.hotelId,

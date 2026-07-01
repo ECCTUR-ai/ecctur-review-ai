@@ -334,7 +334,7 @@ export default function Admin() {
   console.log('[Admin Page] Loaded roles data:', roles);
 
   // Current Organization
-  const currentOrg = orgs?.[0] || { id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'ECCTUR', createdAt: '' };
+  const currentOrg = orgs?.[0] || { id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'GuestReview.ai', createdAt: '' };
 
   // Form States - User
   const [isAddingUser, setIsAddingUser] = useState(false);
@@ -730,7 +730,7 @@ export default function Admin() {
                         required
                         value={userEmail}
                         onChange={(e) => setUserEmail(e.target.value)}
-                        placeholder="email@ecctur.ai"
+                        placeholder="email@guestreview.ai"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
                       />
                     </div>
@@ -1120,7 +1120,7 @@ export default function Admin() {
                         required
                         value={hotelName}
                         onChange={(e) => setHotelName(e.target.value)}
-                        placeholder="ECCTUR Deluxe Resort"
+                        placeholder="Demo Hotel"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
                       />
                     </div>
@@ -1201,7 +1201,7 @@ export default function Admin() {
                           <td className="p-4 pl-6 font-semibold">{h.name}</td>
                           <td className="p-4 font-mono text-[10px] text-slate-500">{h.id}</td>
                           <td className="p-4">
-                            {orgs?.find(o => o.id === h.organizationId)?.name || 'ECCTUR'}
+                            {orgs?.find(o => o.id === h.organizationId)?.name || 'GuestReview.ai'}
                           </td>
                           <td className="p-4">
                             <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
@@ -1580,7 +1580,7 @@ export default function Admin() {
                         required
                         value={onboardOrgName}
                         onChange={(e) => setOnboardOrgName(e.target.value)}
-                        placeholder="Örn. ECCTUR Group"
+                        placeholder="Örn. GuestReview.ai Group"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
@@ -1611,7 +1611,7 @@ export default function Admin() {
                         required
                         value={onboardOrgEmail}
                         onChange={(e) => setOnboardOrgEmail(e.target.value)}
-                        placeholder="info@ecctur.com"
+                        placeholder="info@guestreview.ai"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>
@@ -1834,7 +1834,7 @@ export default function Admin() {
                         type="email"
                         value={onboardEmailIntegration}
                         onChange={(e) => setOnboardEmailIntegration(e.target.value)}
-                        placeholder="feedback@ecctur.ai"
+                        placeholder="feedback@guestreview.ai"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       />
                     </div>

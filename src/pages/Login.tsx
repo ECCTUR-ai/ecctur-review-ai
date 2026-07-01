@@ -15,7 +15,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   const [orgLogo, setOrgLogo] = useState<string | null>(null);
-  const [orgName, setOrgName] = useState<string>('ECCTUR REVIEW AI');
+  const [orgName, setOrgName] = useState<string>('GuestReview.ai');
 
   useEffect(() => {
     supabase
@@ -24,7 +24,7 @@ export default function Login() {
       .limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
-          setOrgName(data[0].name || 'ECCTUR REVIEW AI');
+          setOrgName(data[0].name || 'GuestReview.ai');
           setOrgLogo(data[0].logo_url || null);
         }
       });
@@ -118,9 +118,7 @@ export default function Login() {
           {orgLogo ? (
             <img src={orgLogo} alt="Logo" className="w-16 h-16 rounded-2xl object-contain mx-auto shadow-lg bg-white/5 p-1" />
           ) : (
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 mx-auto">
-              E
-            </div>
+            <img src="/branding/logo.png" alt="GuestReview.ai Logo" className="h-10 object-contain mx-auto" />
           )}
           <h2 className="text-2xl font-bold tracking-tight text-slate-100 uppercase">{orgName}</h2>
           <p className="text-xs text-slate-400">
@@ -166,7 +164,7 @@ export default function Login() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@ecctur.ai"
+                    placeholder="email@guestreview.ai"
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
                   />
                 </div>
@@ -200,7 +198,7 @@ export default function Login() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@ecctur.ai"
+                    placeholder="admin@guestreview.ai"
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-white/[0.06] text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-600"
                   />
                 </div>

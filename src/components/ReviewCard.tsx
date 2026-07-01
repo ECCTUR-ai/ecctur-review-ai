@@ -95,7 +95,7 @@ export function ReviewCard({ review, isSelected, onClick }: ReviewCardProps) {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500 mt-2 font-mono">
             <span className="flex items-center gap-1">
               <Building size={11} className="text-slate-600" />
-              {review.hotel || 'ECCTUR Deluxe Resort'}
+              {review.hotel || 'Demo Hotel'}
             </span>
             <span>&bull;</span>
             <span className="flex items-center gap-1">

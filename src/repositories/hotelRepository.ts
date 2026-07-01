@@ -17,7 +17,7 @@ export const hotelRepository = {
           {
             id: '00c00000-0000-0000-0000-000000000001',
             organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
-            name: 'ECCTUR Demo Hotel',
+            name: 'Demo Hotel',
             createdAt: new Date().toISOString(),
             connectionStatus: 'connected'
           },
@@ -45,7 +45,7 @@ export const hotelRepository = {
         {
           id: '00c00000-0000-0000-0000-000000000001',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
-          name: 'ECCTUR Demo Hotel',
+          name: 'Demo Hotel',
           createdAt: new Date().toISOString(),
           connectionStatus: 'connected'
         },
