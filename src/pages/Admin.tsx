@@ -531,17 +531,17 @@ export default function Admin() {
     setIsAddingHotel(false);
     setHotelName(h.name);
     setHotelOrgId(h.organizationId);
-    setHotelGoogleMapsLink(h.googleMapsLink || '');
+    setHotelGoogleMapsLink(h.googleMapsUrl || h.googleMapsLink || '');
   };
 
   const handleSaveHotel = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isAddingHotel) {
-        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsLink: hotelGoogleMapsLink });
+        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink });
         triggerToast('Hotel added successfully');
       } else if (editingHotel) {
-        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId, googleMapsLink: hotelGoogleMapsLink });
+        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink });
         triggerToast('Hotel updated successfully');
       }
 

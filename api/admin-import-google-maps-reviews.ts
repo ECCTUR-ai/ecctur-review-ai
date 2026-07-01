@@ -96,10 +96,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const orgId = hotelData.organization_id;
 
-    // 3. Trigger Playwright Scraper
-    console.log(`[Google Maps Scraper API] Starting scrape for hotel: ${hotelData.name} (${hotelId})`);
+    // 3. Trigger Apify Scraper
+    console.log(`[Google Maps Scraper API] Starting Apify scrape for hotel: ${hotelData.name} (${hotelId})`);
     const scrapedReviews = await scrapeGoogleMapsReviews(googleMapsUrl);
-    console.log(`[Google Maps Scraper API] Scraped ${scrapedReviews.length} reviews`);
+    console.log(`[Google Maps Scraper API] Scraped ${scrapedReviews.length} reviews from Apify`);
 
     let importedCount = 0;
     let duplicateCount = 0;
@@ -162,27 +162,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     const errMsg = err.message || '';
     
-    // Check if we are running in Vercel or if Playwright launch failed
-    const isPlaywrightLaunchFailure = 
-      process.env.VERCEL || 
-      errMsg.includes('launch') || 
-      errMsg.includes('executable') || 
-      errMsg.includes('scraper_failed') || 
-      String(err).includes('chromium') || 
-      String(err).includes('Playwright');
-
-    if (isPlaywrightLaunchFailure) {
-      return res.status(500).json({
+    if (errMsg === 'apify_token_missing') {
+      return res.status(400).json({
         success: false,
-        error: 'playwright_not_supported_on_vercel',
-        message: 'Playwright is not natively supported on Vercel Serverless Functions due to execution environment limits. Alternatives: playwright-core + @sparticuz/chromium, external workers, or Browserless/Apify.'
+        error: 'apify_token_missing',
+        message: 'Vercel Environment Variables içine APIFY_TOKEN eklenmeli.'
       });
     }
 
-    if (['invalid_url', 'captcha_or_blocked', 'no_reviews_found'].includes(errMsg)) {
-      return res.status(500).json({ success: false, error: errMsg });
+    if (errMsg === 'apify_actor_failed') {
+      return res.status(500).json({
+        success: false,
+        error: 'apify_actor_failed',
+        message: 'Apify actor execution failed.',
+        rawError: err.rawError || String(err)
+      });
     }
 
-    return res.status(500).json({ success: false, error: 'scraper_failed', details: errMsg });
+    if (errMsg === 'no_reviews_found') {
+      return res.status(404).json({
+        success: false,
+        error: 'no_reviews_found',
+        message: 'Bu Google Maps linkinden yorum bulunamadı.'
+      });
+    }
+
+    if (errMsg === 'invalid_url') {
+      return res.status(400).json({
+        success: false,
+        error: 'invalid_google_maps_url',
+        message: 'Lütfen geçerli bir Google Maps işletme linki girin.'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'scraper_failed',
+      message: errMsg || String(err),
+      rawError: err.rawError || String(err)
+    });
   }
 }

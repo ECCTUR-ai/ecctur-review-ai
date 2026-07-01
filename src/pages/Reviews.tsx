@@ -263,8 +263,17 @@ export default function Reviews() {
       }
 
       if (!response.ok) {
-        if (res.error === 'playwright_not_supported_on_vercel') {
-          throw new Error(`Platform Uyumsuzluğu: Vercel üzerinde Playwright çalıştırılamıyor. Alternatif çözümler: Apify/Browserless veya harici worker kullanımı. Detay: ${res.message}`);
+        if (res.error === 'apify_token_missing') {
+          throw new Error('Apify Token Eksik: Vercel Environment Variables içerisine APIFY_TOKEN tanımlanmalıdır.');
+        }
+        if (res.error === 'apify_actor_failed') {
+          throw new Error(`Apify Actor Hatası: Google Maps Actor çalıştırılamadı. Detay: ${res.message || ''} | Raw: ${res.rawError || ''}`);
+        }
+        if (res.error === 'no_reviews_found') {
+          throw new Error('Yorum Bulunamadı: Bu Google Maps linkinden yorum çekilemedi veya çekilen yorumlar boş döndü.');
+        }
+        if (res.error === 'invalid_google_maps_url') {
+          throw new Error('Geçersiz Google Maps Linki: Lütfen otel detaylarında geçerli bir Google Maps bağlantısı tanımladığınızdan emin olun.');
         }
         throw new Error(res.error || 'İçe aktarım başarısız oldu.');
       }
