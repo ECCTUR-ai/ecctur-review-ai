@@ -161,43 +161,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Inspect and print actual hotels table columns for debugging (Requirement 9 / startup debugging)
+    // Inspect and print actual table columns for debugging (Requirement 9 / startup debugging)
     const { data: sampleRows } = await supabaseAdmin.from('hotels').select('*').limit(1);
     const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : ['id', 'organization_id', 'name', 'created_at'];
     console.log('ACTUAL_HOTELS_COLUMNS:', actualHotelCols);
 
-    // Dynamic schema validation (Requirement 6)
-    let hasGoogleMapsLink = false;
-    let hasGooglePlaceId = false;
+    const { data: sampleSettings } = await supabaseAdmin.from('integration_settings').select('*').limit(1);
+    const actualSettingsCols = sampleSettings && sampleSettings.length > 0 ? Object.keys(sampleSettings[0]) : ['id', 'name', 'status', 'updated_at'];
+    console.log('ACTUAL_SETTINGS_COLUMNS:', actualSettingsCols);
 
-    const { error: mapsLinkErr } = await supabaseAdmin.from('hotels').select('google_maps_link').limit(1);
-    if (!mapsLinkErr) {
-      hasGoogleMapsLink = true;
-    }
+    let googleLocationId: string | null = null;
+    let googleMapsUrl: string | null = null;
 
-    const { error: placeIdErr } = await supabaseAdmin.from('hotels').select('google_place_id').limit(1);
-    if (!placeIdErr) {
-      hasGooglePlaceId = true;
-    }
+    // Build hotels select fields dynamically based on schema presence
+    let hotelSelectFields = 'organization_id, name';
+    if (actualHotelCols.includes('google_location_id')) hotelSelectFields += ', google_location_id';
+    if (actualHotelCols.includes('google_place_id')) hotelSelectFields += ', google_place_id';
+    if (actualHotelCols.includes('google_maps_url')) hotelSelectFields += ', google_maps_url';
+    if (actualHotelCols.includes('google_maps_link')) hotelSelectFields += ', google_maps_link';
 
-    // Determine query fields
-    let selectFields = 'organization_id, name';
-    if (hasGoogleMapsLink) {
-      selectFields += ', google_maps_link';
-    } else if (hasGooglePlaceId) {
-      selectFields += ', google_place_id';
-    } else {
-      return res.status(400).json({
-        success: false,
-        error: 'Hotel has no Google Business mapping configured.',
-        details: 'The hotels table schema is missing both google_maps_link and google_place_id columns.'
-      });
-    }
-
-    // Get organization associated with hotel safely
+    // Get organization and mapping values from hotels table (hotels.google_location_id first)
     const { data: hotelData, error: hotelErr } = await supabaseAdmin
       .from('hotels')
-      .select(selectFields)
+      .select(hotelSelectFields)
       .eq('id', hotelId)
       .single();
 
@@ -208,26 +194,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const orgId = hotelData.organization_id;
     orgIdForLog = orgId;
 
-    // Verify hotel mapping is actually configured
-    const mappingValue = (hotelData as any).google_maps_link || (hotelData as any).google_place_id;
-    if (!mappingValue) {
+    // Read Google mapping from hotels table first (Requirement 3)
+    if (hotelData.google_location_id) {
+      googleLocationId = hotelData.google_location_id;
+    } else if (hotelData.google_place_id) {
+      googleLocationId = hotelData.google_place_id;
+    }
+
+    if (hotelData.google_maps_url) {
+      googleMapsUrl = hotelData.google_maps_url;
+    } else if ((hotelData as any).google_maps_link) {
+      googleMapsUrl = (hotelData as any).google_maps_link;
+    }
+
+    // Fallback to integration_settings.config->>'google_location_id' (Requirement 3)
+    if (!googleLocationId) {
+      let settingsQuery = supabaseAdmin.from('integration_settings').select('*');
+      if (actualSettingsCols.includes('hotel_id')) {
+        settingsQuery = settingsQuery.eq('hotel_id', hotelId);
+      } else if (actualSettingsCols.includes('organization_id')) {
+        settingsQuery = settingsQuery.eq('organization_id', orgId);
+      } else {
+        settingsQuery = settingsQuery.eq('id', 'google_business');
+      }
+
+      const { data: settingsData } = await settingsQuery;
+      const gSetting = settingsData?.find((s: any) => s.id === 'google_business' || s.provider === 'google');
+      if (gSetting && actualSettingsCols.includes('config') && gSetting.config) {
+        const configObj = typeof gSetting.config === 'string' ? JSON.parse(gSetting.config) : gSetting.config;
+        if (configObj && configObj.google_location_id) {
+          googleLocationId = configObj.google_location_id;
+        }
+      }
+    }
+
+    // Evaluate USE_MOCK_GOOGLE_PROVIDER environment flag (Requirement 5 & 6)
+    const useMockEnv = process.env.USE_MOCK_GOOGLE_PROVIDER;
+    let isMock = false;
+    if (useMockEnv === 'true') {
+      isMock = true;
+    } else if (useMockEnv === 'false') {
+      isMock = false;
+    } else {
+      // Default: use mock provider only when google_location_id does not exist
+      isMock = !googleLocationId;
+    }
+
+    // Verify mapping configured (Requirement 4 & 7)
+    if (!googleLocationId) {
+      if (isMock && googleMapsUrl) {
+        console.log('[Import] Using hotels.google_maps_url fallback for mock/demo mode:', googleMapsUrl);
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'Hotel has no Google Business mapping configured',
+          details: 'Please configure hotels.google_location_id or integration_settings.config.google_location_id. Fallback google_maps_url is only allowed in mock/demo mode.'
+        });
+      }
+    }
+
+    // If real provider is expected but no googleReviews array payload is provided, return configuration warning
+    if (!isMock && googleReviews.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Hotel has no Google Business mapping configured.',
-        details: `The selected hotel exists but has empty values for ${hasGoogleMapsLink ? 'google_maps_link' : 'google_place_id'}.`
+        error: 'Google Business Profile API integration is not completed.',
+        details: 'The real Google provider is active, but no googleReviews payload was provided in the request body, and direct Google API fetch credentials are not configured.'
       });
     }
 
-    // Check if real Google provider is requested but configuration is missing (Requirement 8)
-    if (req.body.provider === 'real' && isMock) {
-      return res.status(400).json({
-        success: false,
-        error: 'Google Business Profile API configuration is missing.',
-        details: 'To use the real Google provider, you must configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_BUSINESS_REFRESH_TOKEN environment variables in your deployment.'
-      });
-    }
-
-    // If using mock provider and no input reviews are provided, return mock reviews correctly (Requirement 6 & 7)
+    // If using mock provider and no input reviews are provided, return mock reviews correctly (Requirement 5 & 7)
     if (isMock && googleReviews.length === 0) {
       googleReviews = [
         {
@@ -248,7 +283,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         {
           name: `accounts/12345/locations/67890/reviews/mock-${hotelId}-203`,
-          reviewId: `mock-${hotelId}-203`,
           reviewer: { displayName: 'David Beckham' },
           starRating: 'FIVE',
           comment: '', // Empty comment to test Requirement 5
@@ -270,6 +304,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Map Google review payloads
     const mappedReviews: any[] = [];
+    const mappingValue = googleLocationId || googleMapsUrl;
+
     for (let raw of googleReviews) {
       const mapped = mapGoogleReview(raw, hotelId, orgId);
       if (mapped) {
