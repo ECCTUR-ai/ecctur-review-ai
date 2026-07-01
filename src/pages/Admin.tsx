@@ -131,8 +131,13 @@ export default function Admin() {
       });
 
       const data = await res.json();
+      console.log('[Google Locations API Response]', data);
+      
       if (!res.ok) {
-        throw new Error(data.error || 'Lokasyonlar yüklenemedi.');
+        const errorMsg = data.reason
+          ? `${data.error || 'Hata'} (Hata Nedeni: ${data.reason})`
+          : (data.error || 'Lokasyonlar yüklenemedi.');
+        throw new Error(errorMsg);
       }
 
       setGoogleLocations(data.locations || []);

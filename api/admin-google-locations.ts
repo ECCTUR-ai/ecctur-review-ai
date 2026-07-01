@@ -81,40 +81,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ success: false, error: 'Forbidden: Admin permissions required' });
     }
 
-    // Check mock mode
-    const isMock = process.env.USE_MOCK_GOOGLE_PROVIDER === 'true' || 
-                   (!process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_BUSINESS_REFRESH_TOKEN);
-
-    if (isMock) {
-      console.log('[Google Locations] Running in Mock Mode');
-      return res.status(200).json({
-        success: true,
-        locations: [
-          {
-            accountId: '1122334455',
-            locationId: 'loc-istanbul-001',
-            businessName: 'ECCTUR Seyahat Acentesi - Merkez',
-            address: 'Caddebostan Mah. Bağdat Cad. No:123 Kadıköy, İstanbul',
-            reviewsCount: 154
-          },
-          {
-            accountId: '1122334455',
-            locationId: 'loc-antalya-002',
-            businessName: 'ECCTUR Seyahat Acentesi - Antalya Ofisi',
-            address: 'Liman Mah. Atatürk Bulvarı No:45 Konyaaltı, Antalya',
-            reviewsCount: 86
-          },
-          {
-            accountId: '1122334455',
-            locationId: 'loc-bodrum-003',
-            businessName: 'ECCTUR Seyahat Acentesi - Bodrum Ofisi',
-            address: 'Çarşı Mah. Neyzen Tevfik Cad. No:78 Bodrum, Muğla',
-            reviewsCount: 42
-          }
-        ]
-      });
-    }
-
     // Real API implementation
     const googleAccessToken = await getGoogleAccessToken();
     console.log('[Google Locations] Access Token refreshed successfully.');
@@ -131,6 +97,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const accountsData = await accountsRes.json();
     const accounts = accountsData.accounts || [];
+
+    if (accounts.length === 0) {
+      throw new Error('Google Business accounts list is empty. No accounts found.');
+    }
 
     const allLocations: any[] = [];
 
@@ -172,9 +142,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (err: any) {
     console.error('Google locations lookup failed:', err);
+
+    // Diagnose error reason as requested
+    let reason = 'unknown';
+    const errMsg = err.message || '';
+    const errStr = String(err);
+
+    if (errMsg.includes('configured in the environment')) {
+      reason = 'environment_missing';
+    } else if (
+      errMsg.includes('Failed to refresh Google access token') || 
+      errMsg.includes('invalid_grant') || 
+      errMsg.includes('refresh token')
+    ) {
+      reason = 'refresh_token';
+    } else if (
+      errMsg.includes('401') || 
+      errMsg.includes('Unauthorized') || 
+      errMsg.includes('invalid_token') || 
+      errMsg.includes('access_token')
+    ) {
+      reason = 'access_token';
+    } else if (
+      errMsg.includes('scope') || 
+      errStr.toLowerCase().includes('scope')
+    ) {
+      reason = 'OAuth scope';
+    } else if (
+      errMsg.includes('accounts list is empty') || 
+      errMsg.includes('No accounts found') ||
+      errMsg.includes('Business Account')
+    ) {
+      reason = 'Business Account';
+    } else if (
+      errMsg.includes('403') || 
+      errMsg.includes('permission') || 
+      errMsg.includes('PERMISSION_DENIED') || 
+      errMsg.includes('forbidden')
+    ) {
+      reason = 'location permission';
+    }
+
     return res.status(500).json({
       success: false,
       error: err.message || 'Failed to retrieve Google locations',
+      reason,
       details: err.stack || String(err)
     });
   }
