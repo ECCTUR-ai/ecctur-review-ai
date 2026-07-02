@@ -150,6 +150,73 @@ function parseRelativeDate(relative: string): string {
   return now.toISOString();
 }
 
+async function translateText(text: string, targetLang: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+  const langNames: Record<string, string> = {
+    tr: 'Turkish',
+    en: 'English',
+    ru: 'Russian'
+  };
+  const targetLangName = langNames[targetLang] || 'Turkish';
+
+  if (apiKey) {
+    try {
+      console.log(`[Translate API] Translating via OpenAI to ${targetLangName}...`);
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional hotel feedback translator. Translate the given guest review comment into ${targetLangName}. Keep the tone and original meaning exactly same. Only return the translated text without any explanation, markdown, or intro.`
+            },
+            {
+              role: 'user',
+              content: text
+            }
+          ],
+          temperature: 0.3
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const translated = data.choices?.[0]?.message?.content?.trim();
+        if (translated) return translated;
+      } else {
+        const errText = await response.text();
+        console.warn('[Translate API] OpenAI translation failed, falling back to MyMemory:', errText);
+      }
+    } catch (e) {
+      console.warn('[Translate API] OpenAI exception, falling back to MyMemory:', e);
+    }
+  }
+
+  // Fallback to MyMemory translation API
+  try {
+    console.log(`[Translate API] Translating via MyMemory to ${targetLang}...`);
+    const encodedText = encodeURIComponent(text);
+    const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=auto|${targetLang}`;
+    const response = await fetch(url);
+    if (response.ok) {
+      const data = await response.json();
+      const translated = data.matches?.[0]?.translation || data.responseData?.translatedText;
+      if (translated) {
+        return translated;
+      }
+    }
+  } catch (err) {
+    console.error('[Translate API] MyMemory translation error:', err);
+  }
+
+  throw new Error('Translation failed');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -174,6 +241,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (authError || !user) {
     return res.status(401).json({ success: false, error: 'Invalid authentication token' });
+  }
+
+  // -------------------------------------------------------------
+  // Action: translate-review
+  // -------------------------------------------------------------
+  if (action === 'translate-review') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    const { text, targetLanguage } = req.body;
+    if (!text || !targetLanguage) {
+      return res.status(400).json({ success: false, error: 'Missing text or targetLanguage parameter in request body.' });
+    }
+
+    try {
+      const translatedText = await translateText(text, targetLanguage);
+      return res.status(200).json({ success: true, translatedText });
+    } catch (err: any) {
+      console.error('[API translate-review] Failure:', err);
+      return res.status(500).json({ success: false, error: 'Translation failed', details: err.message || String(err) });
+    }
   }
 
   // -------------------------------------------------------------

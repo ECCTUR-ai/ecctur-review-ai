@@ -95,6 +95,105 @@ export const reviewService = {
     return await reviewRepository.getReviewById(id);
   },
 
+  detectLanguage(text: string): 'tr' | 'en' | 'de' | 'ru' {
+    const commentLower = (text || '').toLowerCase();
+    
+    // A. Kiril karakter kontrolü (Rusça için en kesin belirteç)
+    const cyrillicRegex = /[\u0400-\u04FF]/;
+    if (cyrillicRegex.test(text || '')) {
+      return 'ru';
+    }
+
+    // B. Türkçe karakter kontrolü (ş, ı, ğ, ç, ö, ü)
+    const turkishSpecialRegex = /[şığç]/;
+    if (turkishSpecialRegex.test(commentLower)) {
+      return 'tr';
+    }
+
+    // C. Almanca karakter kontrolü (ä, ß)
+    const germanSpecialRegex = /[äß]/;
+    if (germanSpecialRegex.test(commentLower)) {
+      return 'de';
+    }
+
+    // D. Kelime bazlı puanlama
+    const trWords = ["çok", "iyi", "otel", "personel", "harika", "oda", "temiz", "güzel", "yemek", "konum", "memnun", "tavsiye", "değil", "ama", "ancak", "servis", "memnuniyet", "banyo", "konfor", "havuz", "spa", "rezervasyon"];
+    const deWords = ["sehr", "gut", "hotel", "zimmer", "freundlich", "sauber", "schön", "essen", "lage", "zufrieden", "empfehlen", "nicht", "aber", "service", "frühstück", "bad", "komfort", "pool", "wellness", "buchung", "und", "der", "die", "das", "ist", "in", "mit"];
+    const ruWords = ["очень", "хорошо", "отель", "номер", "персонал", "чисто", "красиво", "еда", "расположение", "доволен", "рекомендую", "не", "но", "сервис", "бассейн", "бронирование"];
+    const enWords = ["very", "good", "hotel", "room", "friendly", "clean", "nice", "food", "location", "happy", "recommend", "not", "but", "service", "breakfast", "pool", "spa", "staff", "booking", "and", "the", "with", "was", "for", "stay"];
+
+    let trScore = 0;
+    let deScore = 0;
+    let ruScore = 0;
+    let enScore = 0;
+
+    trWords.forEach(w => {
+      const regex = new RegExp(`\\b${w}\\b`, 'g');
+      const matches = commentLower.match(regex);
+      if (matches) trScore += matches.length;
+    });
+
+    deWords.forEach(w => {
+      const regex = new RegExp(`\\b${w}\\b`, 'g');
+      const matches = commentLower.match(regex);
+      if (matches) deScore += matches.length;
+    });
+
+    ruWords.forEach(w => {
+      const regex = new RegExp(`\\b${w}\\b`, 'g');
+      const matches = commentLower.match(regex);
+      if (matches) ruScore += matches.length;
+    });
+
+    enWords.forEach(w => {
+      const regex = new RegExp(`\\b${w}\\b`, 'g');
+      const matches = commentLower.match(regex);
+      if (matches) enScore += matches.length;
+    });
+
+    if (trScore === 0 && deScore === 0 && ruScore === 0 && enScore === 0) {
+      if (/[öü]/i.test(commentLower)) {
+        if (/\b(und|ist|in|die|der|das)\b/i.test(commentLower)) {
+          return 'de';
+        }
+        return 'tr';
+      }
+    }
+
+    const maxScore = Math.max(trScore, deScore, ruScore, enScore);
+    if (maxScore > 0) {
+      if (maxScore === trScore) return 'tr';
+      if (maxScore === deScore) return 'de';
+      if (maxScore === ruScore) return 'ru';
+      return 'en';
+    }
+
+    return 'en';
+  },
+
+  async translateReview(text: string, targetLanguage: 'tr' | 'en' | 'ru'): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/reviews?action=translate-review', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ text, targetLanguage })
+    });
+
+    if (!response.ok) {
+      const errRes = await response.json().catch(() => ({ error: 'Translation failed' }));
+      throw new Error(errRes.error || 'Translation failed');
+    }
+
+    const data = await response.json();
+    return data.translatedText;
+  },
+
   async generateAiResponse(id: string): Promise<{ response: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('generate-response', {
@@ -135,85 +234,7 @@ export const reviewService = {
       }
 
       // 1. Detect Guest Language
-      const detectLanguage = (text: string): 'tr' | 'en' | 'de' | 'ru' => {
-        const commentLower = text.toLowerCase();
-        
-        // A. Kiril karakter kontrolü (Rusça için en kesin belirteç)
-        const cyrillicRegex = /[\u0400-\u04FF]/;
-        if (cyrillicRegex.test(text)) {
-          return 'ru';
-        }
-
-        // B. Türkçe karakter kontrolü (ş, ı, ğ, ç, ö, ü)
-        // Not: ö ve ü Almancada da var, bu yüzden ş, ı, ğ, ç daha belirgin
-        const turkishSpecialRegex = /[şığç]/;
-        if (turkishSpecialRegex.test(commentLower)) {
-          return 'tr';
-        }
-
-        // C. Almanca karakter kontrolü (ä, ß)
-        const germanSpecialRegex = /[äß]/;
-        if (germanSpecialRegex.test(commentLower)) {
-          return 'de';
-        }
-
-        // D. Kelime bazlı puanlama
-        const trWords = ["çok", "iyi", "otel", "personel", "harika", "oda", "temiz", "güzel", "yemek", "konum", "memnun", "tavsiye", "değil", "ama", "ancak", "servis", "memnuniyet", "banyo", "konfor", "havuz", "spa", "rezervasyon"];
-        const deWords = ["sehr", "gut", "hotel", "zimmer", "freundlich", "sauber", "schön", "essen", "lage", "zufrieden", "empfehlen", "nicht", "aber", "service", "frühstück", "bad", "komfort", "pool", "wellness", "buchung", "und", "der", "die", "das", "ist", "in", "mit"];
-        const ruWords = ["очень", "хорошо", "отель", "номер", "персонал", "чисто", "красиво", "еда", "расположение", "доволен", "рекомендую", "не", "но", "сервис", "бассейн", "бронирование"];
-        const enWords = ["very", "good", "hotel", "room", "friendly", "clean", "nice", "food", "location", "happy", "recommend", "not", "but", "service", "breakfast", "pool", "spa", "staff", "booking", "and", "the", "with", "was", "for", "stay"];
-
-        let trScore = 0;
-        let deScore = 0;
-        let ruScore = 0;
-        let enScore = 0;
-
-        trWords.forEach(w => {
-          const regex = new RegExp(`\\b${w}\\b`, 'g');
-          const matches = commentLower.match(regex);
-          if (matches) trScore += matches.length;
-        });
-
-        deWords.forEach(w => {
-          const regex = new RegExp(`\\b${w}\\b`, 'g');
-          const matches = commentLower.match(regex);
-          if (matches) deScore += matches.length;
-        });
-
-        ruWords.forEach(w => {
-          const regex = new RegExp(`\\b${w}\\b`, 'g');
-          const matches = commentLower.match(regex);
-          if (matches) ruScore += matches.length;
-        });
-
-        enWords.forEach(w => {
-          const regex = new RegExp(`\\b${w}\\b`, 'g');
-          const matches = commentLower.match(regex);
-          if (matches) enScore += matches.length;
-        });
-
-        // Kararsız kalma durumlarında ek karakter analizleri
-        if (trScore === 0 && deScore === 0 && ruScore === 0 && enScore === 0) {
-          if (/[öü]/i.test(commentLower)) {
-            if (/\b(und|ist|in|die|der|das)\b/i.test(commentLower)) {
-              return 'de';
-            }
-            return 'tr';
-          }
-        }
-
-        const maxScore = Math.max(trScore, deScore, ruScore, enScore);
-        if (maxScore > 0) {
-          if (maxScore === trScore) return 'tr';
-          if (maxScore === deScore) return 'de';
-          if (maxScore === ruScore) return 'ru';
-          return 'en';
-        }
-
-        return 'en';
-      };
-      
-      const guestLang = detectLanguage(reviewObj.comment || '');
+      const guestLang = this.detectLanguage(reviewObj.comment || '');
 
       // 2. Extract specific praises or complaints from comment keywords
       const extractDetails = (comment: string, lang: 'tr' | 'en' | 'de' | 'ru', rating: number) => {
@@ -1110,7 +1131,7 @@ export const reviewService = {
           .replace(/\[ComplaintDetails\]/g, complaintStr);
 
         // Dil doğrulama kontrolü: Oluşan cevabın dili, algılanan misafir diliyle eşleşmelidir
-        const replyLang = detectLanguage(reply);
+        const replyLang = this.detectLanguage(reply);
         if (replyLang !== guestLang && attempt < 9) {
           continue; // Diller uyuşmuyorsa bu aday cevabı atla ve yeniden üret
         }

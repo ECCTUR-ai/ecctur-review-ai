@@ -20,9 +20,12 @@ import {
   FileText,
   Copy,
   Share2,
-  Building
+  Building,
+  Languages,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from './AuthGuard';
+import { reviewService } from '@/services/reviewService';
 
 interface ReviewDetailPanelProps {
   review: Review;
@@ -64,10 +67,20 @@ export function ReviewDetailPanel({
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [taskCreatedToast, setTaskCreatedToast] = useState(false);
 
+  // Translation local states
+  const [selectedLang, setSelectedLang] = useState<'tr' | 'en' | 'ru' | null>(null);
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translating, setTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+
   useEffect(() => {
     setResponseVal(review.response || '');
     setManagerNotes(review.managerNotes || '');
     setInternalNotes(review.internalNotes || '');
+    setSelectedLang(null);
+    setTranslations({});
+    setTranslationError(null);
+    setTranslating(false);
     
     // Reset task form default values
     setTaskTitle(`Eylem Gerekiyor: ${review.guestName} tarafından yorum`);
@@ -80,6 +93,31 @@ export function ReviewDetailPanel({
     setTaskPriority(review.priority);
     setShowTaskForm(false);
   }, [review]);
+
+  const handleTranslate = async (lang: 'tr' | 'en' | 'ru') => {
+    if (selectedLang === lang) {
+      setSelectedLang(null);
+      return;
+    }
+    
+    setSelectedLang(lang);
+    setTranslationError(null);
+
+    if (translations[lang]) {
+      return;
+    }
+
+    setTranslating(true);
+    try {
+      const translated = await reviewService.translateReview(review.comment || '', lang);
+      setTranslations(prev => ({ ...prev, [lang]: translated }));
+    } catch (err: any) {
+      console.error('Translation failed:', err);
+      setTranslationError('Çeviri yapılamadı.');
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   const handleGenerateReply = async () => {
     setIsGenerating(true);
@@ -191,14 +229,65 @@ export function ReviewDetailPanel({
 
         {/* 2. Guest Review Comment */}
         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
-          <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <FileText size={11} className="text-slate-400" />
-            MİSAFİR YORUMU
-          </h4>
+          <div className="flex justify-between items-center">
+            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText size={11} className="text-slate-400" />
+              MİSAFİR YORUMU
+            </h4>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-slate-500 font-semibold bg-white border border-slate-200 rounded-md px-1.5 py-0.5 shadow-sm">
+                Orijinal Dil: {reviewService.detectLanguage(review.comment || '').toUpperCase()}
+              </span>
+              <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                {(['tr', 'en', 'ru'] as const).map(lang => (
+                  <button
+                    key={lang}
+                    onClick={() => handleTranslate(lang)}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider transition-all ${
+                      selectedLang === lang
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    {lang.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           <div className="p-3.5 rounded-xl bg-white border border-slate-200/60">
             <p className="text-xs text-slate-700 leading-relaxed italic">
               "{review.comment}"
             </p>
+
+            {/* Translating State */}
+            {translating && (
+              <div className="mt-3.5 pt-3.5 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400 font-semibold">
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-t-blue-500 border-slate-100 animate-spin" />
+                <span>Çevriliyor...</span>
+              </div>
+            )}
+
+            {/* Translation Error */}
+            {!translating && translationError && (
+              <div className="mt-3.5 pt-3.5 border-t border-slate-100 flex items-center gap-1.5 text-xs text-red-500 font-semibold">
+                <AlertTriangle size={12} />
+                <span>{translationError}</span>
+              </div>
+            )}
+
+            {/* Translated Output */}
+            {!translating && selectedLang && translations[selectedLang] && (
+              <div className="mt-3.5 pt-3.5 border-t border-slate-100 space-y-1.5">
+                <div className="flex items-center gap-1 text-[9px] text-blue-600 font-bold uppercase tracking-wider">
+                  <Languages size={10} />
+                  <span>Çeviri ({selectedLang.toUpperCase()}):</span>
+                </div>
+                <p className="text-xs text-slate-800 bg-blue-50/30 border border-blue-50/60 rounded-xl p-3 leading-relaxed italic">
+                  "{translations[selectedLang]}"
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

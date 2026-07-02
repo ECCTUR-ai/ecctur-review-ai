@@ -38,7 +38,8 @@ import {
   Meh, 
   Activity, 
   Compass, 
-  ArrowRight 
+  ArrowRight,
+  Languages
 } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#64748b'];
@@ -56,10 +57,53 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Translation local states
+  const [selectedLangs, setSelectedLangs] = useState<Record<string, 'tr' | 'en' | 'ru' | null>>({});
+  const [translationCache, setTranslationCache] = useState<Record<string, Record<string, string>>>({});
+  const [translatingStates, setTranslatingStates] = useState<Record<string, boolean>>({});
+  const [translationErrorStates, setTranslationErrorStates] = useState<Record<string, string | null>>({});
+
+  const handleTranslateReview = async (reviewId: string, text: string, lang: 'tr' | 'en' | 'ru') => {
+    const currentSelected = selectedLangs[reviewId];
+    if (currentSelected === lang) {
+      setSelectedLangs(prev => ({ ...prev, [reviewId]: null }));
+      return;
+    }
+
+    setSelectedLangs(prev => ({ ...prev, [reviewId]: lang }));
+    setTranslationErrorStates(prev => ({ ...prev, [reviewId]: null }));
+
+    if (translationCache[reviewId]?.[lang]) {
+      return;
+    }
+
+    setTranslatingStates(prev => ({ ...prev, [reviewId]: true }));
+    try {
+      const translated = await reviewService.translateReview(text, lang);
+      setTranslationCache(prev => ({
+        ...prev,
+        [reviewId]: {
+          ...(prev[reviewId] || {}),
+          [lang]: translated
+        }
+      }));
+    } catch (err) {
+      console.error('Translation failed:', err);
+      setTranslationErrorStates(prev => ({ ...prev, [reviewId]: 'Çeviri yapılamadı.' }));
+    } finally {
+      setTranslatingStates(prev => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
   // Fetch reviews when hotel changes
   const fetchReviews = async () => {
     if (!currentHotelId) return;
     setLoading(true);
+    // Clear translation states on hotel change
+    setSelectedLangs({});
+    setTranslationCache({});
+    setTranslatingStates({});
+    setTranslationErrorStates({});
     try {
       const result = await reviewService.getReviews({ hotelId: currentHotelId, limit: 1000 });
       setReviews(result.reviews || []);
@@ -709,11 +753,64 @@ export default function Reports() {
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-300">{r.guestName}</span>
-                        <span className="text-[10px] text-slate-500">{new Date(r.date).toLocaleDateString(isTr ? 'tr-TR' : 'en-US')}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[8px] text-slate-500 font-semibold bg-white/[0.04] border border-white/[0.08] rounded-md px-1 py-0.5">
+                            {reviewService.detectLanguage(r.comment || '').toUpperCase()}
+                          </span>
+                          <div className="flex gap-0.5 bg-white/[0.02] border border-white/[0.08] rounded-md p-0.5 shadow-sm">
+                            {(['tr', 'en', 'ru'] as const).map(lang => {
+                              const isSelected = selectedLangs[r.id] === lang;
+                              return (
+                                <button
+                                  key={lang}
+                                  onClick={() => handleTranslateReview(r.id, r.comment || '', lang)}
+                                  className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wider transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white shadow-sm'
+                                      : 'text-slate-400 hover:bg-white/[0.04]'
+                                  }`}
+                                >
+                                  {lang.toUpperCase()}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <span className="text-[10px] text-slate-500">{new Date(r.date).toLocaleDateString(isTr ? 'tr-TR' : 'en-US')}</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-400 line-clamp-2 italic">
+                      <p className="text-xs text-slate-400 italic">
                         "{r.comment || (isTr ? 'Yorum metni belirtilmemiş.' : 'No comment text provided.')}"
                       </p>
+
+                      {/* Translating loader */}
+                      {translatingStates[r.id] && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pt-1 font-semibold">
+                          <div className="w-3.5 h-3.5 rounded-full border border-t-blue-500 border-white/[0.08] animate-spin" />
+                          <span>Çevriliyor...</span>
+                        </div>
+                      )}
+
+                      {/* Translation Error */}
+                      {!translatingStates[r.id] && translationErrorStates[r.id] && (
+                        <div className="flex items-center gap-1 text-[10px] text-red-400 pt-1 font-semibold">
+                          <AlertTriangle size={10} />
+                          <span>{translationErrorStates[r.id]}</span>
+                        </div>
+                      )}
+
+                      {/* Translated text */}
+                      {!translatingStates[r.id] && selectedLangs[r.id] && translationCache[r.id]?.[selectedLangs[r.id]!] && (
+                        <div className="pt-2 border-t border-white/[0.04] space-y-1">
+                          <div className="flex items-center gap-1 text-[8px] text-blue-400 font-bold uppercase tracking-wider">
+                            <Languages size={9} />
+                            <span>Çeviri ({selectedLangs[r.id]?.toUpperCase()}):</span>
+                          </div>
+                          <p className="text-xs text-slate-200 bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 leading-relaxed italic">
+                            "{translationCache[r.id]?.[selectedLangs[r.id]!]}"
+                          </p>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-4 text-[10px] text-slate-500 pt-1">
                         <span>{isTr ? 'Kanal:' : 'Source:'} <strong className="text-slate-400">{r.source}</strong></span>
                         <span>{isTr ? 'Öncelik:' : 'Priority:'} <strong className="text-red-400 uppercase">{r.priority}</strong></span>
