@@ -184,7 +184,7 @@ export const userRepository = {
       .from('profiles')
       .select('*, user_roles(role_id, roles(name)), user_hotels(hotel_id)')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 

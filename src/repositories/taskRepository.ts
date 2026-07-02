@@ -57,7 +57,7 @@ export const taskRepository = {
   },
 
   async getTaskById(id: string): Promise<Task> {
-    const { data, error } = await supabase.from('tasks').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('tasks').select('*').eq('id', id).maybeSingle();
     if (error) throw error;
     return mapTaskRecord(data);
   },
@@ -80,7 +80,7 @@ export const taskRepository = {
         payload.hotel_id = task.hotelId;
         payload.organization_id = task.organizationId;
       }
-      return await supabase.from('tasks').insert(payload).select().single();
+      return await supabase.from('tasks').insert(payload).select().maybeSingle();
     };
 
     let response = await runInsert(true);
@@ -99,7 +99,7 @@ export const taskRepository = {
       .update({ status })
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return mapTaskRecord(data);

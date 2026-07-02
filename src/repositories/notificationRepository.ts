@@ -41,7 +41,7 @@ export const notificationRepository = {
       .update({ is_read: true })
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return mapNotificationRecord(data);
@@ -88,7 +88,7 @@ export const notificationRepository = {
       if (includeHotelFilter && notification.hotelId) {
         payload.hotel_id = notification.hotelId;
       }
-      return await supabase.from('notifications').insert(payload).select().single();
+      return await supabase.from('notifications').insert(payload).select().maybeSingle();
     };
 
     let response = await runInsert(true);

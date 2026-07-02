@@ -49,7 +49,7 @@ export const whatsappService = {
       .from('whatsapp_chats')
       .select('*, whatsapp_messages(*)')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
 
@@ -80,7 +80,7 @@ export const whatsappService = {
         time: new Date().toISOString()
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
 

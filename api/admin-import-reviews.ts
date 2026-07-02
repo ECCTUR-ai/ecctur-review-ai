@@ -185,7 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('hotels')
       .select(hotelSelectFields)
       .eq('id', hotelId)
-      .single();
+      .maybeSingle();
 
     if (hotelErr || !hotelData) {
       throw new Error(`Hotel lookup failed: ${hotelErr?.message || 'Hotel not found'}`);
@@ -372,7 +372,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('reviews')
           .insert(reviewRecord)
           .select()
-          .single();
+          .maybeSingle();
 
         if (insErr) {
           throw new Error(JSON.stringify({

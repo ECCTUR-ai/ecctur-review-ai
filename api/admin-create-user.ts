@@ -55,7 +55,7 @@ export default async function handler(req: any, res: any) {
       .from('profiles')
       .select('id, email, user_roles(roles(name))')
       .eq('email', userEmail)
-      .single();
+      .maybeSingle();
 
     let roleName: string | undefined;
 

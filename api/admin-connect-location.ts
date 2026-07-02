@@ -66,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('hotels')
       .select('organization_id')
       .eq('id', hotelId)
-      .single();
+      .maybeSingle();
 
     if (hotelErr || !hotelData) {
       throw new Error(`Hotel lookup failed: ${hotelErr?.message || 'Hotel not found'}`);

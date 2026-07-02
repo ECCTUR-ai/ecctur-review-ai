@@ -33,7 +33,7 @@ export const roleRepository = {
       .from('roles')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     if (error) {
       if (error.code === 'PGRST116') return null; // not found
       throw error;
@@ -41,7 +41,7 @@ export const roleRepository = {
     return data as Role;
   },
   async createRole(role: Omit<Role, 'id'>): Promise<Role> {
-    const { data, error } = await supabase.from('roles').insert(role).select().single();
+    const { data, error } = await supabase.from('roles').insert(role).select().maybeSingle();
     if (error) throw error;
     return data as Role;
   },

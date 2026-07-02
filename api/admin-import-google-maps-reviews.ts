@@ -92,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('hotels')
       .select('organization_id, name')
       .eq('id', hotelId)
-      .single();
+      .maybeSingle();
 
     if (hotelError || !hotelData) {
       return res.status(404).json({ success: false, error: 'Hotel not found' });

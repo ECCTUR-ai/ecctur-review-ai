@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created_at: new Date().toISOString()
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (orgError) {
       throw new Error(`Step 1 (Organization Creation) failed: ${orgError.message}`);
@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created_at: new Date().toISOString()
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (hotelError) {
       throw new Error(`Step 2 (Hotel Creation) failed: ${hotelError.message}`);

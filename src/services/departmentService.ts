@@ -26,7 +26,7 @@ export const departmentService = {
       .from('departments')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
 
