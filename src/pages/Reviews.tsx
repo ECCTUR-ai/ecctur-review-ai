@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { reviewService, testReviews } from '@/services/reviewService';
@@ -22,6 +22,8 @@ import { hotelRepository } from '@/repositories/hotelRepository';
 
 export default function Reviews() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const departmentParam = searchParams.get('department');
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
   // Query Filters state
@@ -200,6 +202,44 @@ export default function Reviews() {
         return r.comment.toLowerCase().includes(term) || r.guestName.toLowerCase().includes(term);
       }
       return true;
+    });
+  }
+
+  // Filter reviews by department query parameter if present
+  if (departmentParam) {
+    const deptKeywords: Record<string, string[]> = {
+      reception: ['resepsiyon', 'reception', 'check', 'giriş', 'personel', 'staff', 'lobby', 'lobi', 'karşılama'],
+      housekeeping: ['temiz', 'kirli', 'havlu', 'çarşaf', 'oda temizliği', 'clean', 'dirty', 'towel', 'sheet', 'dust'],
+      fb: ['yemek', 'kahvaltı', 'restoran', 'garson', 'açık büfe', 'food', 'breakfast', 'dinner', 'restaurant', 'buffet', 'drink', 'bar'],
+      technical: ['klima', 'tv', 'bozuk', 'çalışmıyor', 'kırık', 'su', 'wifi', 'wi-fi', 'internet', 'shower', 'ac', 'broken', 'hot water'],
+      spa: ['spa', 'havuz', 'masaj', 'hamam', 'sauna', 'pool', 'massage', 'wellness']
+    };
+
+    const targetKeywords = deptKeywords[departmentParam] || [];
+
+    reviews = reviews.filter(r => {
+      const text = (r.comment || '').toLowerCase();
+      // Match department_analysis
+      const deptAnalysis = (r as any).department_analysis || '';
+      if (deptAnalysis.toLowerCase().includes(departmentParam.toLowerCase())) {
+        return true;
+      }
+      // Match tag arrays
+      if (Array.isArray((r as any).tags) && (r as any).tags.some((t: string) => t.toLowerCase() === departmentParam.toLowerCase())) {
+        return true;
+      }
+      // Match keywords
+      if (targetKeywords.length > 0 && targetKeywords.some(k => text.includes(k))) {
+        return true;
+      }
+      // General category mismatch fallback
+      if (departmentParam === 'general') {
+        const isOther = Object.values(deptKeywords).some(keywordsList => 
+          keywordsList.some(k => text.includes(k))
+        );
+        return !isOther;
+      }
+      return false;
     });
   }
 
@@ -848,6 +888,32 @@ export default function Reviews() {
             </div>
           ) : (
             <div className="space-y-6">
+              {departmentParam && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-2.5 rounded-xl flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                    <span className="font-semibold">
+                      {departmentParam === 'reception' && 'Resepsiyon ile ilgili yorumlar'}
+                      {departmentParam === 'housekeeping' && 'Kat Hizmetleri ile ilgili yorumlar'}
+                      {departmentParam === 'fb' && 'Yiyecek & İçecek ile ilgili yorumlar'}
+                      {departmentParam === 'technical' && 'Teknik Servis ile ilgili yorumlar'}
+                      {departmentParam === 'spa' && 'Spa & Havuz ile ilgili yorumlar'}
+                      {departmentParam === 'general' && 'Genel / Tesis ile ilgili yorumlar'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.delete('department');
+                      setSearchParams(newParams);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-0.5 rounded transition-all text-[10px]"
+                  >
+                    Temizle
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {paginatedReviews.map((review) => (
                   <ReviewCard

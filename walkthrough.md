@@ -1,4 +1,4 @@
-# Walkthrough — AI Business Insights & 5 Critical Actions with Resolutions
+# Walkthrough — AI Business Insights & 5 Critical Actions with Global Resolutions
 
 Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights** and **5 Kritik Aksiyon Önerisi** (5 Critical Actions) sections with dynamic action resolutions, category icon mappings, priority badges, review counting, and update timestamps.
 
@@ -11,12 +11,13 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
   - Clicking the button prompts the user for confirmation: *"Bu aksiyon önerisini tamamlandı olarak işaretlemek istiyor musunuz?"*
   - On confirm, registers the action as completed in both a local state array (for immediate transition effects) and the Supabase database.
   - Displays a clean success toast alert: *"Aksiyon tamamlandı olarak işaretlendi."*
-- **Stable Resolution Keys**:
-  - Generates a unique, stable `action_key` using the `hotel_id`, normalized lowercase action title, category, and date range (`source_period`).
-  - Safe against duplicate registrations and allows the same topic to re-appear if it becomes a problem again under a different date range or period.
+- **Stable Resolution Keys (Global across Date Ranges)**:
+  - Generates a unique, stable `action_key` using the `hotel_id`, normalized lowercase action title, and category. **By omitting the source period, once an action is resolved in one date range, it is globally hidden across all other date filters (e.g. Today, 7D, 30D, This Month) for that hotel.**
+  - Safe against duplicate registrations.
 - **Supabase Integration & Fallback**:
   - Created a database migration file: **`supabase/migrations/20260702202000_create_action_resolutions.sql`** to establish the `action_resolutions` table.
-  - Before rendering, the reports component queries completed keys from the `action_resolutions` table matching the active hotel and date filter.
+  - Created a second migration file: **`supabase/migrations/20260702203000_update_action_resolutions_unique.sql`** to alter the unique constraint on `(hotel_id, action_key)`.
+  - Before rendering, the reports component queries completed keys from the `action_resolutions` table matching the active hotel.
   - **Graceful Fallback**: If the migration is not yet applied, the dashboard intercepts table exceptions, logs a console alert, and handles resolutions cleanly in memory (local state) without crashing.
 - **Priority Labels (ÖNCELİK 1 to ÖNCELİK 5)**:
   - Added clean visual badges (`Öncelik 1` to `Öncelik 5`) dynamically rendered on the right side of each action row container.
@@ -65,4 +66,4 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
   - Imported `Wifi`, `Building` and `CheckCircle` from `lucide-react`.
 
 ---
-Verified cleanly using `npm run build` and committed to main (`34f2361`).
+Verified cleanly using `npm run build` and committed to main (`a583c85`).

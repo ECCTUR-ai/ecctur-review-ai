@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { reviewService } from '@/services/reviewService';
@@ -47,6 +47,7 @@ import {
 const COLORS = ['#3b82f6', '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#64748b'];
 
 export default function Reports() {
+  const navigate = useNavigate();
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
   const { t, i18n } = useTranslation();
   const isTr = i18n.language === 'tr';
@@ -279,6 +280,7 @@ export default function Reports() {
     });
 
     return depts.map(d => ({
+      id: d.id,
       name: d.name,
       Yorum: d.count,
       Puan: d.count > 0 ? Number((d.sumRating / d.count).toFixed(1)) : 0
@@ -750,19 +752,43 @@ export default function Reports() {
             </div>
 
             {/* Department Performance */}
-            <div className="glass-panel p-6 rounded-2xl flex flex-col h-[380px]">
-              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-4">
+            <div className="glass-panel p-6 rounded-2xl flex flex-col h-[390px]">
+              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-1">
                 <Users size={16} className="text-blue-400" />
                 {isTr ? 'Departman Bazlı Sorun Analizi' : 'Department Operational Analysis'}
               </h3>
+              <p className="text-[10px] text-slate-500 mb-4 leading-relaxed">
+                {isTr 
+                  ? 'Departman sayıları, seçili tarih aralığında yorum metni ve AI analizine göre ilgili departmanla eşleşen yorum adedini gösterir.'
+                  : 'Department numbers display the count of reviews matching each operational department based on text keywords and AI analyses.'}
+              </p>
               <div className="flex-1 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={departmentStats} layout="vertical" margin={{ left: -10, right: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
                     <XAxis type="number" stroke="#64748b" fontSize={10} />
                     <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={10} width={80} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }} />
-                    <Bar dataKey="Yorum" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={12} />
+                    <Tooltip 
+                      cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                      contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                      formatter={(value, name, props) => {
+                        const deptName = props.payload.name;
+                        return [`${value} ${isTr ? 'ilgili yorum' : 'related reviews'}`, deptName];
+                      }}
+                      labelFormatter={() => ''}
+                    />
+                    <Bar 
+                      dataKey="Yorum" 
+                      fill="#3b82f6" 
+                      radius={[0, 4, 4, 0]} 
+                      barSize={12} 
+                      style={{ cursor: 'pointer' }}
+                      onClick={(data) => {
+                        if (data && data.id) {
+                          navigate(`/reviews?department=${data.id}`);
+                        }
+                      }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
