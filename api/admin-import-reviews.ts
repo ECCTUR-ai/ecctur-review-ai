@@ -191,20 +191,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error(`Hotel lookup failed: ${hotelErr?.message || 'Hotel not found'}`);
     }
 
-    const orgId = hotelData.organization_id;
+    const hotel = hotelData as any;
+    const orgId = hotel.organization_id;
     orgIdForLog = orgId;
 
     // Read Google mapping from hotels table first (Requirement 3)
-    if (hotelData.google_location_id) {
-      googleLocationId = hotelData.google_location_id;
-    } else if (hotelData.google_place_id) {
-      googleLocationId = hotelData.google_place_id;
+    if (hotel.google_location_id) {
+      googleLocationId = hotel.google_location_id;
+    } else if (hotel.google_place_id) {
+      googleLocationId = hotel.google_place_id;
     }
 
-    if (hotelData.google_maps_url) {
-      googleMapsUrl = hotelData.google_maps_url;
-    } else if ((hotelData as any).google_maps_link) {
-      googleMapsUrl = (hotelData as any).google_maps_link;
+    if (hotel.google_maps_url) {
+      googleMapsUrl = hotel.google_maps_url;
+    } else if (hotel.google_maps_link) {
+      googleMapsUrl = hotel.google_maps_link;
     }
 
     // Fallback to integration_settings.config->>'google_location_id' (Requirement 3)

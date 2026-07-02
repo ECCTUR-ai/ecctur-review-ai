@@ -204,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ];
 
     for (let item of integrations) {
-      await supabaseAdmin.from('integration_settings').upsert(item);
+      await supabaseAdmin.from('integration_settings').upsert(item as any);
     }
 
     // Step 5: Seed initial reviews to prepare the dashboard

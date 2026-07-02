@@ -47,7 +47,11 @@ export default async function handler(req: any, res: any) {
       .select('roles(name)')
       .eq('profile_id', user.id);
 
-    let callerRole = userRoles?.[0]?.roles?.name || 'staff';
+    const rolesObj = userRoles?.[0]?.roles;
+    const roleName = Array.isArray(rolesObj)
+      ? rolesObj[0]?.name
+      : (rolesObj as any)?.name;
+    let callerRole = roleName || 'staff';
 
     // Fallback for default admin emails if database records are empty/out-of-sync
     const userEmail = user.email || '';
