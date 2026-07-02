@@ -19,7 +19,19 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     startUrls: [
       { url: targetUrl }
     ],
-    maxReviews: 50
+    maxItems: 100,
+    maxReviews: 100,
+    limit: 100,
+    maxResults: 100,
+    reviewsLimit: 100,
+    maxReviewsCount: 100,
+    maxReviewsPerLocation: 100,
+    maxReviewsPerHotel: 100,
+    pageSize: 100,
+    language: 'all',
+    reviewsLanguages: ['all'],
+    getReviews: true,
+    getDetailedInformation: false
   };
 
   console.log(`[Tripadvisor Provider] Running actor: ${rawActorId} (encoded: ${encodedActorId})`);
