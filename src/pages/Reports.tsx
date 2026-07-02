@@ -3,6 +3,7 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { reviewService } from '@/services/reviewService';
+import { getDepartmentStats } from '@/utils/departmentMatcher';
 import { Review, Sentiment, ReviewPriority, ReviewSource } from '@/types';
 import { 
   ResponsiveContainer, 
@@ -249,42 +250,9 @@ export default function Reports() {
     ].filter(item => item.value > 0);
   }, [filteredReviews, isTr]);
 
-  // Department Issues Mapping (keyword search)
+  // Department Issues Mapping (calculated via utility matcher)
   const departmentStats = useMemo(() => {
-    const depts = [
-      { id: 'reception', name: isTr ? 'Resepsiyon' : 'Reception', keywords: ['resepsiyon', 'reception', 'check', 'giriş', 'personel', 'staff', 'lobby', 'lobi', 'karşılama'], count: 0, sumRating: 0 },
-      { id: 'housekeeping', name: isTr ? 'Kat Hizmetleri' : 'Housekeeping', keywords: ['temiz', 'kirli', 'havlu', 'çarşaf', 'oda temizliği', 'clean', 'dirty', 'towel', 'sheet', 'dust'], count: 0, sumRating: 0 },
-      { id: 'fb', name: isTr ? 'Yiyecek & İçecek' : 'Food & Beverage', keywords: ['yemek', 'kahvaltı', 'restoran', 'garson', 'açık büfe', 'food', 'breakfast', 'dinner', 'restaurant', 'buffet', 'drink', 'bar'], count: 0, sumRating: 0 },
-      { id: 'technical', name: isTr ? 'Teknik Servis' : 'Technical Service', keywords: ['klima', 'tv', 'bozuk', 'çalışmıyor', 'kırık', 'su', 'wifi', 'wi-fi', 'internet', 'shower', 'ac', 'broken', 'hot water'], count: 0, sumRating: 0 },
-      { id: 'spa', name: 'Spa & Havuz', keywords: ['spa', 'havuz', 'masaj', 'hamam', 'sauna', 'pool', 'massage', 'wellness'], count: 0, sumRating: 0 },
-      { id: 'general', name: isTr ? 'Genel / Tesis' : 'General / Facility', keywords: [], count: 0, sumRating: 0 }
-    ];
-
-    filteredReviews.forEach(r => {
-      const text = (r.comment || '').toLowerCase();
-      let matched = false;
-      
-      for (const d of depts) {
-        if (d.keywords.length === 0) continue;
-        if (d.keywords.some(k => text.includes(k))) {
-          d.count++;
-          d.sumRating += r.rating;
-          matched = true;
-        }
-      }
-
-      if (!matched) {
-        depts[depts.length - 1].count++;
-        depts[depts.length - 1].sumRating += r.rating;
-      }
-    });
-
-    return depts.map(d => ({
-      id: d.id,
-      name: d.name,
-      Yorum: d.count,
-      Puan: d.count > 0 ? Number((d.sumRating / d.count).toFixed(1)) : 0
-    })).filter(d => d.Yorum > 0);
+    return getDepartmentStats(filteredReviews, isTr);
   }, [filteredReviews, isTr]);
 
   // Critical 10 Unreplied Reviews
@@ -335,6 +303,32 @@ export default function Reports() {
       console.warn('[Database] Exception loading action resolutions:', e);
     }
     return [];
+  };
+
+  // Get active date range values for URL redirects
+  const getActiveDateRange = () => {
+    const now = new Date();
+    let startCutoff = new Date(0); // Epoch start
+    let endCutoff = new Date();
+
+    if (dateFilter === 'today') {
+      startCutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (dateFilter === '7d') {
+      startCutoff = new Date();
+      startCutoff.setDate(now.getDate() - 7);
+    } else if (dateFilter === '30d') {
+      startCutoff = new Date();
+      startCutoff.setDate(now.getDate() - 30);
+    } else if (dateFilter === 'month') {
+      startCutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+      endCutoff = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (dateFilter === 'custom') {
+      if (startDate) startCutoff = new Date(startDate);
+      if (endDate) endCutoff = new Date(endDate);
+    }
+
+    const toYMD = (d: Date) => d.toISOString().split('T')[0];
+    return { from: toYMD(startCutoff), to: toYMD(endCutoff) };
   };
 
   useEffect(() => {
@@ -785,7 +779,8 @@ export default function Reports() {
                       style={{ cursor: 'pointer' }}
                       onClick={(data) => {
                         if (data && data.id) {
-                          navigate(`/reviews?department=${data.id}`);
+                          const range = getActiveDateRange();
+                          navigate(`/reviews?department=${data.id}&from=${range.from}&to=${range.to}`);
                         }
                       }}
                     />

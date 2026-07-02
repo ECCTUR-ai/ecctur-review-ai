@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { reviewService, testReviews } from '@/services/reviewService';
+import { matchesDepartment } from '@/utils/departmentMatcher';
 import { ReviewCard } from '@/components/ReviewCard';
 import { ReviewFilters } from '@/components/ReviewFilters';
 import { ReviewDetailPanel } from '@/components/ReviewDetailPanel';
@@ -24,6 +25,8 @@ export default function Reviews() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const departmentParam = searchParams.get('department');
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
   // Query Filters state
@@ -205,42 +208,23 @@ export default function Reviews() {
     });
   }
 
-  // Filter reviews by department query parameter if present
-  if (departmentParam) {
-    const deptKeywords: Record<string, string[]> = {
-      reception: ['resepsiyon', 'reception', 'check', 'giriş', 'personel', 'staff', 'lobby', 'lobi', 'karşılama'],
-      housekeeping: ['temiz', 'kirli', 'havlu', 'çarşaf', 'oda temizliği', 'clean', 'dirty', 'towel', 'sheet', 'dust'],
-      fb: ['yemek', 'kahvaltı', 'restoran', 'garson', 'açık büfe', 'food', 'breakfast', 'dinner', 'restaurant', 'buffet', 'drink', 'bar'],
-      technical: ['klima', 'tv', 'bozuk', 'çalışmıyor', 'kırık', 'su', 'wifi', 'wi-fi', 'internet', 'shower', 'ac', 'broken', 'hot water'],
-      spa: ['spa', 'havuz', 'masaj', 'hamam', 'sauna', 'pool', 'massage', 'wellness']
-    };
-
-    const targetKeywords = deptKeywords[departmentParam] || [];
+  // Filter reviews by date query parameters if present (passed from Reports dashboard click)
+  if (fromParam || toParam) {
+    const startLimit = fromParam ? new Date(fromParam) : new Date(0);
+    const endLimit = toParam ? new Date(toParam) : new Date();
+    // Set to 23:59:59 to capture all reviews from the last day
+    endLimit.setHours(23, 59, 59);
 
     reviews = reviews.filter(r => {
-      const text = (r.comment || '').toLowerCase();
-      // Match department_analysis
-      const deptAnalysis = (r as any).department_analysis || '';
-      if (deptAnalysis.toLowerCase().includes(departmentParam.toLowerCase())) {
-        return true;
-      }
-      // Match tag arrays
-      if (Array.isArray((r as any).tags) && (r as any).tags.some((t: string) => t.toLowerCase() === departmentParam.toLowerCase())) {
-        return true;
-      }
-      // Match keywords
-      if (targetKeywords.length > 0 && targetKeywords.some(k => text.includes(k))) {
-        return true;
-      }
-      // General category mismatch fallback
-      if (departmentParam === 'general') {
-        const isOther = Object.values(deptKeywords).some(keywordsList => 
-          keywordsList.some(k => text.includes(k))
-        );
-        return !isOther;
-      }
-      return false;
+      if (!r.date) return false;
+      const rDate = new Date(r.date);
+      return rDate >= startLimit && rDate <= endLimit;
     });
+  }
+
+  // Filter reviews by department query parameter if present using utility matchesDepartment
+  if (departmentParam) {
+    reviews = reviews.filter(r => matchesDepartment(r, departmentParam));
   }
 
   const totalReviews = reviews.length;
@@ -893,18 +877,20 @@ export default function Reviews() {
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                     <span className="font-semibold">
-                      {departmentParam === 'reception' && 'Resepsiyon ile ilgili yorumlar'}
-                      {departmentParam === 'housekeeping' && 'Kat Hizmetleri ile ilgili yorumlar'}
-                      {departmentParam === 'fb' && 'Yiyecek & İçecek ile ilgili yorumlar'}
-                      {departmentParam === 'technical' && 'Teknik Servis ile ilgili yorumlar'}
-                      {departmentParam === 'spa' && 'Spa & Havuz ile ilgili yorumlar'}
-                      {departmentParam === 'general' && 'Genel / Tesis ile ilgili yorumlar'}
+                      {departmentParam === 'reception' && `Resepsiyon ile ilgili ${reviews.length} yorum`}
+                      {departmentParam === 'housekeeping' && `Kat Hizmetleri ile ilgili ${reviews.length} yorum`}
+                      {departmentParam === 'fb' && `Yiyecek & İçecek ile ilgili ${reviews.length} yorum`}
+                      {departmentParam === 'technical' && `Teknik Servis ile ilgili ${reviews.length} yorum`}
+                      {departmentParam === 'spa' && `Spa & Havuz ile ilgili ${reviews.length} yorum`}
+                      {departmentParam === 'general' && `Genel / Tesis ile ilgili ${reviews.length} yorum`}
                     </span>
                   </div>
                   <button
                     onClick={() => {
                       const newParams = new URLSearchParams(searchParams);
                       newParams.delete('department');
+                      newParams.delete('from');
+                      newParams.delete('to');
                       setSearchParams(newParams);
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-0.5 rounded transition-all text-[10px]"
