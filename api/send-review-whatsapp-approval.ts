@@ -53,7 +53,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log(`[API send-review-whatsapp-approval] Triggering WhatsApp notification for review: ${reviewId}`);
-    const result = await whatsappService.sendReviewApprovalMessage(reviewId);
+    const result = await whatsappService.sendReviewApprovalMessage(reviewId, {
+      whatsappApiUrl: process.env.WHATSAPP_API_URL,
+      whatsappToken: process.env.WHATSAPP_TOKEN,
+      whatsappPhone: process.env.WHATSAPP_PHONE_NUMBER,
+      appUrl: process.env.APP_URL
+    });
 
     return res.status(200).json(result);
   } catch (error: any) {

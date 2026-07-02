@@ -106,11 +106,19 @@ export const whatsappService = {
     return { success: true };
   },
 
-  async sendReviewApprovalMessage(reviewId: string): Promise<{ success: boolean; mock: boolean; message?: string }> {
-    // 1. Resolve environment variables
-    const whatsappApiUrl = (typeof process !== 'undefined' && process.env && process.env.WHATSAPP_API_URL) || '';
-    const whatsappToken = (typeof process !== 'undefined' && process.env && process.env.WHATSAPP_TOKEN) || '';
-    const whatsappPhone = (typeof process !== 'undefined' && process.env && process.env.WHATSAPP_PHONE_NUMBER) || '';
+  async sendReviewApprovalMessage(
+    reviewId: string,
+    env?: {
+      whatsappApiUrl?: string;
+      whatsappToken?: string;
+      whatsappPhone?: string;
+      appUrl?: string;
+    }
+  ): Promise<{ success: boolean; mock: boolean; message?: string }> {
+    // 1. Resolve environment variables safely passed from server-side
+    const whatsappApiUrl = env?.whatsappApiUrl || '';
+    const whatsappToken = env?.whatsappToken || '';
+    const whatsappPhone = env?.whatsappPhone || '';
 
     // 2. Fetch review and hotel details from Supabase
     const client = getSupabaseClient();
@@ -144,7 +152,7 @@ export const whatsappService = {
     const aiReply = review.ai_reply || '(Cevap üretilmemiş)';
     
     // Approval link: dynamic host url (fallback to demo link)
-    const baseUrl = (typeof process !== 'undefined' && process.env && process.env.APP_URL) || 'https://ecctur-review-ai.vercel.app';
+    const baseUrl = env?.appUrl || 'https://ecctur-review-ai.vercel.app';
     const approvalLink = `${baseUrl}/reviews?reviewId=${reviewId}&approve=true`;
 
     const messageText = `🔔 *Yeni Yorum Onay Bekliyor* 🔔\n\n` +
