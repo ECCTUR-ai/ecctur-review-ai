@@ -401,14 +401,32 @@ export default function Reviews() {
       }
 
       if (!response.ok) {
-        throw new Error(res.error || 'İçe aktarım başarısız oldu.');
+        console.log('[DEBUG-TRIPADVISOR-IMPORT-RESPONSE-ERROR]', res);
+        const errDetails = [
+          `Hata: ${res.error || 'İçe aktarım başarısız oldu.'}`,
+          res.message ? `Mesaj: ${res.message}` : null,
+          res.apifyError ? `Apify Hatası: ${res.apifyError}` : null,
+          res.rawError ? `Raw: ${res.rawError}` : null
+        ].filter(Boolean).join('\n');
+        throw new Error(errDetails);
       }
 
-      setToastMessage(`TripAdvisor yorumları içe aktarıldı: ${res.importedCount} yeni yorum eklendi.`);
+      console.log('[DEBUG-TRIPADVISOR-IMPORT-RESPONSE-SUCCESS]', res);
+      
+      const rawCount = res.rawCount !== undefined ? res.rawCount : 'Bilinmiyor';
+      const normalizedCount = res.normalizedCount !== undefined ? res.normalizedCount : 'Bilinmiyor';
+      const insertedCount = res.insertedCount !== undefined ? res.insertedCount : res.importedCount;
+      const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 'Bilinmiyor';
+      const apifyErrorText = res.apifyError ? `\nError: ${res.apifyError}` : '';
+
+      const alertMsg = `TripAdvisor yorumları içe aktarıldı:\nYeni: ${insertedCount}\nRaw: ${rawCount}\nNormalized: ${normalizedCount}\nDuplicate: ${duplicateCount}${apifyErrorText}`;
+      
+      alert(alertMsg);
+      setToastMessage(alertMsg);
       refetch();
     } catch (err: any) {
       console.error(err);
-      alert(`Hata: ${err.message || 'İçe aktarım sırasında bir sorun oluştu.'}`);
+      alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
     } finally {
       setIsImportingTripadvisor(false);
     }
