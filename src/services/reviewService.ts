@@ -1216,7 +1216,7 @@ export const reviewService = {
     const token = session?.access_token;
     if (!token) throw new Error('Missing token');
 
-    const endpointUrl = '/api/admin-import-reviews';
+    const endpointUrl = '/api/reviews?action=import';
     const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
@@ -1271,7 +1271,7 @@ export const reviewService = {
     const token = session?.access_token;
     if (!token) throw new Error('Missing token');
 
-    const endpointUrl = '/api/admin-import-booking-reviews';
+    const endpointUrl = '/api/reviews?action=import-booking';
     const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {

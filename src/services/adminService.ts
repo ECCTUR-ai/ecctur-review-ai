@@ -77,7 +77,7 @@ export const adminService = {
     const token = session?.access_token;
     if (!token) throw new Error('Missing token');
 
-    const response = await fetch('/api/admin-onboard-customer', {
+    const response = await fetch('/api/onboarding?action=onboard', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

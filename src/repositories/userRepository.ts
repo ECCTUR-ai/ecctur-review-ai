@@ -13,7 +13,7 @@ export const userRepository = {
       return [];
     }
 
-    const response = await fetch('/api/admin-list-users', {
+    const response = await fetch('/api/admin?action=list-users', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -83,7 +83,7 @@ export const userRepository = {
     }
 
     // Invoke secure serverless API endpoint to create the user via Supabase Admin API
-    const response = await fetch('/api/admin-create-user', {
+    const response = await fetch('/api/admin?action=create-user', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -124,7 +124,7 @@ export default function Admin() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bilgisi bulunamadı.');
 
-      const res = await fetch('/api/admin-google-locations', {
+      const res = await fetch('/api/admin?action=google-locations', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -160,7 +160,7 @@ export default function Admin() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bilgisi bulunamadı.');
 
-      const res = await fetch('/api/admin-connect-location', {
+      const res = await fetch('/api/admin?action=connect-location', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

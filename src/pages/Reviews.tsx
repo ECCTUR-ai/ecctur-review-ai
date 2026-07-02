@@ -274,7 +274,7 @@ export default function Reviews() {
             type: 'SERVER_ERROR',
             message: err.message || 'İçe aktarım başarısız oldu',
             reviewId: 'Genel Sistem Hatası',
-            webhookUrl: '/api/admin-import-reviews',
+            webhookUrl: '/api/reviews?action=import',
             status: err.message?.match(/Status\s*(\d+)/i)?.[1] ? parseInt(err.message.match(/Status\s*(\d+)/i)[1], 10) : 500,
             responseBody: err.message || String(err)
           }
@@ -364,7 +364,7 @@ export default function Reviews() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bulunamadı.');
 
-      const response = await fetch('/api/admin-import-google-maps-reviews', {
+      const response = await fetch('/api/reviews?action=import-google-maps', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -437,7 +437,7 @@ export default function Reviews() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bulunamadı.');
 
-      const response = await fetch('/api/admin-import-tripadvisor-reviews', {
+      const response = await fetch('/api/reviews?action=import-tripadvisor', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -566,7 +566,7 @@ export default function Reviews() {
       // 1. Google
       if (googleMapsUrl) {
         try {
-          const response = await fetch('/api/admin-import-google-maps-reviews', {
+          const response = await fetch('/api/reviews?action=import-google-maps', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -588,7 +588,7 @@ export default function Reviews() {
       // 2. TripAdvisor
       if (tripadvisorUrl) {
         try {
-          const response = await fetch('/api/admin-import-tripadvisor-reviews', {
+          const response = await fetch('/api/reviews?action=import-tripadvisor', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -610,7 +610,7 @@ export default function Reviews() {
       // 3. Booking.com
       if (bookingPropertyId) {
         try {
-          const response = await fetch('/api/admin-import-booking-reviews', {
+          const response = await fetch('/api/reviews?action=import-booking', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -655,7 +655,7 @@ export default function Reviews() {
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            await fetch('/api/send-review-whatsapp-approval', {
+            await fetch('/api/whatsapp?action=send-approval', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
