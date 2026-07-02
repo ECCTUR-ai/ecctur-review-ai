@@ -197,24 +197,80 @@ async function translateText(text: string, targetLang: string): Promise<string> 
     }
   }
 
-  // Fallback to MyMemory translation API
-  try {
-    console.log(`[Translate API] Translating via MyMemory to ${targetLang}...`);
-    const encodedText = encodeURIComponent(text);
-    const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=auto|${targetLang}`;
-    const response = await fetch(url);
-    if (response.ok) {
-      const data = await response.json();
-      const translated = data.matches?.[0]?.translation || data.responseData?.translatedText;
-      if (translated) {
-        return translated;
+  // Helper to split text into chunks below character limit
+  function chunkText(str: string, maxLen: number = 400): string[] {
+    if (str.length <= maxLen) return [str];
+    const sentences = str.split(/(?<=[.!?])\s+/);
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      if ((currentChunk + ' ' + sentence).trim().length <= maxLen) {
+        currentChunk = (currentChunk + ' ' + sentence).trim();
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+        }
+        if (sentence.length > maxLen) {
+          const words = sentence.split(/\s+/);
+          let tempChunk = '';
+          for (const word of words) {
+            if ((tempChunk + ' ' + word).trim().length <= maxLen) {
+              tempChunk = (tempChunk + ' ' + word).trim();
+            } else {
+              if (tempChunk) chunks.push(tempChunk);
+              tempChunk = word;
+            }
+          }
+          currentChunk = tempChunk;
+        } else {
+          currentChunk = sentence;
+        }
       }
     }
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+    return chunks;
+  }
+
+  // Fallback to MyMemory translation API with chunking support
+  try {
+    console.log(`[Translate API] Translating via MyMemory chunks to ${targetLang}...`);
+    const chunks = chunkText(text, 400);
+    let successCount = 0;
+
+    const translatedChunks = await Promise.all(
+      chunks.map(async (chunk) => {
+        try {
+          const encodedText = encodeURIComponent(chunk);
+          const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=auto|${targetLang}`;
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            const translated = data.matches?.[0]?.translation || data.responseData?.translatedText;
+            if (translated && !translated.includes('MYMEMORY WARNING')) {
+              successCount++;
+              return translated;
+            }
+          }
+        } catch (e) {
+          console.warn('[Translate API] Chunk translation failed, returning original:', e);
+        }
+        return chunk; // Fallback to original chunk if translation failed
+      })
+    );
+
+    if (successCount === 0) {
+      return 'Çeviri yapılamadı.';
+    }
+
+    return translatedChunks.join(' ');
   } catch (err) {
     console.error('[Translate API] MyMemory translation error:', err);
   }
 
-  throw new Error('Translation failed');
+  return 'Çeviri yapılamadı.';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
