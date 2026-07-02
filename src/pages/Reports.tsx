@@ -306,24 +306,23 @@ export default function Reports() {
   const [resolvedKeys, setResolvedKeys] = useState<string[]>([]);
   const [localResolvedKeys, setLocalResolvedKeys] = useState<string[]>([]);
 
-  // Stable Action Key Generator Helper
-  const createActionKey = (act: { title: string; category: string }, hotelId: string, sourcePeriod: string): string => {
+  // Stable Action Key Generator Helper (excluding source period)
+  const createActionKey = (act: { title: string; category: string }, hotelId: string): string => {
     const normTitle = (act.title || '')
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]/g, '');
-    return `${hotelId}_${normTitle}_${act.category || 'general'}_${sourcePeriod}`;
+    return `${hotelId}_${normTitle}_${act.category || 'general'}`;
   };
 
-  // Reusable resolved actions reader
-  const loadResolutions = async (activePeriod: string): Promise<string[]> => {
+  // Reusable resolved actions reader (selecting by hotel_id only)
+  const loadResolutions = async (): Promise<string[]> => {
     if (!currentHotelId) return [];
     try {
       const { data, error } = await supabase
         .from('action_resolutions')
         .select('action_key')
-        .eq('hotel_id', currentHotelId)
-        .eq('source_period', activePeriod);
+        .eq('hotel_id', currentHotelId);
 
       if (error) {
         console.warn('[Database] action_resolutions table may not be migrated yet:', error.message);
@@ -338,7 +337,7 @@ export default function Reports() {
 
   useEffect(() => {
     setLocalResolvedKeys([]);
-  }, [currentHotelId, dateFilter, startDate, endDate]);
+  }, [currentHotelId]);
 
   useEffect(() => {
     if (filteredReviews.length === 0 || !currentHotelId) {
@@ -349,8 +348,7 @@ export default function Reports() {
     const loadInsightsAndResolutions = async () => {
       setInsightsLoading(true);
       try {
-        const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-        const dbResolved = await loadResolutions(activePeriod);
+        const dbResolved = await loadResolutions();
         setResolvedKeys(dbResolved);
 
         const payload = filteredReviews.map(r => ({
@@ -378,15 +376,13 @@ export default function Reports() {
 
   // Compute filtered unresolved actions sliced to exactly 5
   const unresolvedActions = useMemo(() => {
-    const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-
     return (insights.actions || [])
       .filter(act => {
-        const key = createActionKey(act, currentHotelId, activePeriod);
+        const key = createActionKey(act, currentHotelId);
         return !resolvedKeys.includes(key) && !localResolvedKeys.includes(key);
       })
       .slice(0, 5);
-  }, [insights.actions, resolvedKeys, localResolvedKeys, currentHotelId, dateFilter, startDate, endDate]);
+  }, [insights.actions, resolvedKeys, localResolvedKeys, currentHotelId]);
 
   // Click handler to mark action completed
   const handleResolveAction = async (act: { title: string; description: string; category: string }) => {
@@ -397,7 +393,7 @@ export default function Reports() {
     if (!window.confirm(confirmMessage)) return;
 
     const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-    const actionKey = createActionKey(act, currentHotelId, activePeriod);
+    const actionKey = createActionKey(act, currentHotelId);
 
     // Update local keys immediately for responsive rendering
     setLocalResolvedKeys(prev => [...prev, actionKey]);
@@ -406,7 +402,7 @@ export default function Reports() {
     // Dynamically filter it out from the raw insights data structure to trigger immediate re-render
     setInsights(prev => ({
       ...prev,
-      actions: (prev.actions || []).filter(a => createActionKey(a, currentHotelId, activePeriod) !== actionKey)
+      actions: (prev.actions || []).filter(a => createActionKey(a, currentHotelId) !== actionKey)
     }));
 
     try {
@@ -426,7 +422,7 @@ export default function Reports() {
       } else {
         console.log('[Database] Action resolution saved successfully.');
         // Optionally refresh data in the background from db
-        const dbResolved = await loadResolutions(activePeriod);
+        const dbResolved = await loadResolutions();
         if (dbResolved.length > 0) {
           setResolvedKeys(dbResolved);
         }
