@@ -145,7 +145,6 @@ export const reviewRepository = {
 
     const updateData: any = {
       ai_reply: responseText,
-      response: responseText,
       status: 'Published',
       publish_status: 'Published',
       published: 'Yes',
@@ -183,7 +182,6 @@ export const reviewRepository = {
 
     const updateData: any = {
       ai_reply: responseText,
-      response: responseText,
       status: 'Draft',
       publish_status: 'Not Published',
       published: 'No',

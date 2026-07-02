@@ -89,7 +89,6 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
       .from('reviews')
       .update({
         ai_reply: finalReplyText,
-        response: finalReplyText,
         updated_at: new Date().toISOString()
       })
       .eq('id', reviewId);
@@ -226,7 +225,6 @@ async function updateReviewDatabaseRecord(reviewId: string, replyText: string) {
   const updateData: any = {
     status: 'Published',
     published: 'Yes',
-    response: replyText,
     ai_reply: replyText,
     updated_at: new Date().toISOString()
   };
