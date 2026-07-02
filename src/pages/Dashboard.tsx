@@ -403,7 +403,7 @@ export default function Dashboard() {
 
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={trendData as any} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} tickLine={false} />
                 <YAxis stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
