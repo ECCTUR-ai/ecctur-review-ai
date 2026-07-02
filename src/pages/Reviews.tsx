@@ -39,6 +39,8 @@ export default function Reviews() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingGoogleMaps, setIsImportingGoogleMaps] = useState(false);
+  const [isImportingTripadvisor, setIsImportingTripadvisor] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
   const [importSummary, setImportSummary] = useState<{
     totalFetched: number;
@@ -301,6 +303,159 @@ export default function Reviews() {
     }
   };
 
+  const handleImportTripadvisorReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('id, name, tripadvisor_url')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error('[DEBUG] Direct Supabase query failed:', e);
+    }
+
+    const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
+
+    if (!tripadvisorUrl) {
+      alert('Bu otel için TripAdvisor işletme linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+      return;
+    }
+
+    setIsImportingTripadvisor(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      const response = await fetch('/api/admin-import-tripadvisor-reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl })
+      });
+
+      let res: any;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        res = await response.json();
+      } else {
+        const textError = await response.text();
+        throw new Error(textError || 'Bilinmeyen bir sunucu hatası oluştu.');
+      }
+
+      if (!response.ok) {
+        throw new Error(res.error || 'İçe aktarım başarısız oldu.');
+      }
+
+      setToastMessage(`TripAdvisor yorumları içe aktarıldı: ${res.importedCount} yeni yorum eklendi.`);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Hata: ${err.message || 'İçe aktarım sırasında bir sorun oluştu.'}`);
+    } finally {
+      setIsImportingTripadvisor(false);
+    }
+  };
+
+  const handleSyncAllPlatforms = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('google_maps_url, google_maps_link, tripadvisor_url')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error(e);
+    }
+
+    const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
+    const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
+
+    if (!googleMapsUrl && !tripadvisorUrl) {
+      alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
+      return;
+    }
+
+    setIsSyncingAll(true);
+    let results: string[] = [];
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      // 1. Google
+      if (googleMapsUrl) {
+        try {
+          const response = await fetch('/api/admin-import-google-maps-reviews', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
+          });
+          const res = await response.json();
+          if (response.ok) {
+            results.push(`Google: ${res.importedCount} yeni yorum`);
+          } else {
+            results.push(`Google: Hata (${res.error || 'İçe aktarılamadı'})`);
+          }
+        } catch (e: any) {
+          results.push(`Google: Hata (${e.message})`);
+        }
+      }
+
+      // 2. TripAdvisor
+      if (tripadvisorUrl) {
+        try {
+          const response = await fetch('/api/admin-import-tripadvisor-reviews', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl })
+          });
+          const res = await response.json();
+          if (response.ok) {
+            results.push(`Tripadvisor: ${res.importedCount} yeni yorum`);
+          } else {
+            results.push(`Tripadvisor: Hata (${res.error || 'İçe aktarılamadı'})`);
+          }
+        } catch (e: any) {
+          results.push(`Tripadvisor: Hata (${e.message})`);
+        }
+      }
+
+      setToastMessage(`Senkronizasyon tamamlandı:\n${results.join('\n')}`);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
+    } finally {
+      setIsSyncingAll(false);
+    }
+  };
+
   const handleUpdateStatus = async (id: string, newStatus: ReviewStatus) => {
     try {
       const updated = await reviewService.updateReviewStatus(id, newStatus);
@@ -372,41 +527,55 @@ export default function Reviews() {
             </select>
           </div>
 
-          <button
-            onClick={handleImport30DaysReviews}
-            disabled={isImporting}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 min-h-[36px] cursor-pointer"
-          >
-            <RefreshCw size={14} className={isImporting ? 'animate-spin' : ''} />
-            <span>{isImporting ? 'İçe Aktarılıyor...' : t('reviews.import30Days')}</span>
-          </button>
+          {(() => {
+            const selectedHotelObj = hotels?.find(h => h.id === currentHotelId);
+            const hasTripadvisor = !!(selectedHotelObj?.tripadvisorUrl);
+            const hasGoogle = !!(selectedHotelObj?.googleMapsLink || selectedHotelObj?.googleMapsUrl);
+            const hasAnyLink = hasGoogle || hasTripadvisor;
 
-          <button
-            onClick={handleImportGoogleMapsReviews}
-            disabled={isImportingGoogleMaps}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 min-h-[36px] cursor-pointer"
-          >
-            <RefreshCw size={14} className={isImportingGoogleMaps ? 'animate-spin' : ''} />
-            <span>{isImportingGoogleMaps ? 'Haritadan Çekiliyor...' : 'Google Maps Yorumlarını Çek'}</span>
-          </button>
+            return (
+              <>
+                <button
+                  onClick={handleImportGoogleMapsReviews}
+                  disabled={isImportingGoogleMaps || !hasGoogle}
+                  title={!hasGoogle ? "Bu otel için Google Maps linki tanımlanmamış." : "Google Maps yorumlarını çek"}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 min-h-[36px] cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isImportingGoogleMaps ? 'animate-spin' : ''} />
+                  <span>{isImportingGoogleMaps ? 'Google Çekiliyor...' : 'Google Maps Yorumlarını Çek'}</span>
+                </button>
 
-          <button
-            onClick={handleSyncReviews}
-            disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
-          >
-            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-            <span>{isSyncing ? 'Syncing...' : t('reviews.sync')}</span>
-          </button>
+                <button
+                  onClick={handleImportTripadvisorReviews}
+                  disabled={isImportingTripadvisor || !hasTripadvisor}
+                  title={!hasTripadvisor ? "Bu otel için TripAdvisor URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "TripAdvisor yorumlarını çek"}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-cyan-600 to-blue-500 hover:from-cyan-500 hover:to-blue-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 min-h-[36px] cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isImportingTripadvisor ? 'animate-spin' : ''} />
+                  <span>{isImportingTripadvisor ? 'TripAdvisor Çekiliyor...' : 'Tripadvisor Yorumlarını Çek'}</span>
+                </button>
 
-          <button
-            onClick={handleExportReviews}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
-          >
-            <Download size={14} className={isExporting ? 'animate-spin' : ''} />
-            <span>{isExporting ? 'Exporting...' : t('reviews.export')}</span>
-          </button>
+                <button
+                  onClick={handleSyncAllPlatforms}
+                  disabled={isSyncingAll || !hasAnyLink}
+                  title={!hasAnyLink ? "Bu otel için tanımlı hiçbir platform linki bulunamadı." : "Tüm platformları senkronize et"}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 min-h-[36px] cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isSyncingAll ? 'animate-spin' : ''} />
+                  <span>{isSyncingAll ? 'Senkronize Ediliyor...' : 'Tüm Platformları Senkronize Et'}</span>
+                </button>
+
+                <button
+                  onClick={handleExportReviews}
+                  disabled={isExporting}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
+                >
+                  <Download size={14} className={isExporting ? 'animate-spin' : ''} />
+                  <span>{isExporting ? 'Exporting...' : t('reviews.export')}</span>
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
 

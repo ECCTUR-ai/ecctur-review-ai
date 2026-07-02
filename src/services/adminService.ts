@@ -43,19 +43,21 @@ export const adminService = {
   },
 
   // Hotel Management
-  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string }): Promise<Hotel> {
     return await hotelRepository.addHotel({
       name: hotel.name,
       organizationId: hotel.organizationId,
-      googleMapsLink: hotel.googleMapsUrl || hotel.googleMapsLink
+      googleMapsLink: hotel.googleMapsUrl || hotel.googleMapsLink,
+      tripadvisorUrl: hotel.tripadvisorUrl
     });
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string }): Promise<Hotel> {
     return await hotelRepository.editHotel(id, {
       name: hotel.name,
       organizationId: hotel.organizationId,
-      googleMapsLink: hotel.googleMapsUrl || hotel.googleMapsLink
+      googleMapsLink: hotel.googleMapsUrl || hotel.googleMapsLink,
+      tripadvisorUrl: hotel.tripadvisorUrl
     });
   },
 

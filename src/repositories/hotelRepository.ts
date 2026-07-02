@@ -86,6 +86,7 @@ export const hotelRepository = {
       connectionStatus: 'connected',
       googleMapsLink: item.google_maps_url || item.google_maps_link,
       googleMapsUrl: item.google_maps_url || item.google_maps_link,
+      tripadvisorUrl: item.tripadvisor_url,
       address: item.address,
       phone: item.phone,
       website: item.website,
@@ -100,14 +101,15 @@ export const hotelRepository = {
     }));
   },
 
-  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string }): Promise<Hotel> {
     const { data, error } = await supabase
       .from('hotels')
       .insert({
         name: hotel.name,
         organization_id: hotel.organizationId,
         google_maps_link: hotel.googleMapsLink,
-        google_maps_url: hotel.googleMapsLink
+        google_maps_url: hotel.googleMapsLink,
+        tripadvisor_url: hotel.tripadvisorUrl
       })
       .select()
       .maybeSingle();
@@ -122,7 +124,8 @@ export const hotelRepository = {
           createdAt: new Date().toISOString(),
           connectionStatus: 'connected',
           googleMapsLink: hotel.googleMapsLink,
-          googleMapsUrl: hotel.googleMapsLink
+          googleMapsUrl: hotel.googleMapsLink,
+          tripadvisorUrl: hotel.tripadvisorUrl
         };
       }
       throw error;
@@ -134,7 +137,8 @@ export const hotelRepository = {
       name: hotel.name,
       created_at: new Date().toISOString(),
       google_maps_link: hotel.googleMapsLink,
-      google_maps_url: hotel.googleMapsLink
+      google_maps_url: hotel.googleMapsLink,
+      tripadvisor_url: hotel.tripadvisorUrl
     };
 
     return {
@@ -144,16 +148,18 @@ export const hotelRepository = {
       createdAt: resultRow.created_at || resultRow.createdAt,
       connectionStatus: 'connected',
       googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
-      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link
+      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
+      tripadvisorUrl: resultRow.tripadvisor_url
     };
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string }): Promise<Hotel> {
     console.log('[DEBUG-REPOSITORY-UPDATE] Supabase update payload:');
     console.log('  - id:', id);
     console.log('  - name:', hotel.name);
     console.log('  - google_maps_link:', hotel.googleMapsLink);
     console.log('  - google_maps_url:', hotel.googleMapsLink);
+    console.log('  - tripadvisor_url:', hotel.tripadvisorUrl);
 
     const { data, error } = await supabase
       .from('hotels')
@@ -161,7 +167,8 @@ export const hotelRepository = {
         name: hotel.name,
         organization_id: hotel.organizationId,
         google_maps_link: hotel.googleMapsLink,
-        google_maps_url: hotel.googleMapsLink
+        google_maps_url: hotel.googleMapsLink,
+        tripadvisor_url: hotel.tripadvisorUrl
       })
       .eq('id', id)
       .select()
@@ -177,7 +184,8 @@ export const hotelRepository = {
           createdAt: new Date().toISOString(),
           connectionStatus: 'connected',
           googleMapsLink: hotel.googleMapsLink,
-          googleMapsUrl: hotel.googleMapsLink
+          googleMapsUrl: hotel.googleMapsLink,
+          tripadvisorUrl: hotel.tripadvisorUrl
         };
       }
       throw error;
@@ -189,7 +197,8 @@ export const hotelRepository = {
       name: hotel.name,
       created_at: new Date().toISOString(),
       google_maps_link: hotel.googleMapsLink,
-      google_maps_url: hotel.googleMapsLink
+      google_maps_url: hotel.googleMapsLink,
+      tripadvisor_url: hotel.tripadvisorUrl
     };
 
     return {
@@ -199,7 +208,8 @@ export const hotelRepository = {
       createdAt: resultRow.created_at || resultRow.createdAt,
       connectionStatus: 'connected',
       googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
-      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link
+      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
+      tripadvisorUrl: resultRow.tripadvisor_url
     };
   }
 };

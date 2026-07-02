@@ -16,7 +16,6 @@ function parseRelativeDate(relative: string): string {
   const now = new Date();
   const lower = relative.toLowerCase();
   
-  // Handlers for common English patterns
   const match = lower.match(/(\d+)\s+(minute|hour|day|week|month|year)/);
   if (match) {
     const val = parseInt(match[1], 10);
@@ -38,7 +37,6 @@ function parseRelativeDate(relative: string): string {
     return now.toISOString();
   }
 
-  // Handlers for common Turkish patterns
   const trMatch = lower.match(/(\d+)\s+(dakika|saat|gün|hafta|ay|yıl)/);
   if (trMatch) {
     const val = parseInt(trMatch[1], 10);
@@ -61,12 +59,10 @@ function parseRelativeDate(relative: string): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Allow POST requests
     if (req.method !== 'POST') {
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    // 1. Authorization check
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
@@ -78,16 +74,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ success: false, error: 'Invalid authentication token' });
     }
 
-    const { hotelId, googleMapsUrl } = req.body;
-    console.log('[DEBUG-ENDPOINT-RECEIVED] Received body parameters:');
+    const { hotelId, tripadvisorUrl } = req.body;
+    console.log('[DEBUG-ENDPOINT-TRIPADVISOR] Received body parameters:');
     console.log('  - req.body.hotelId:', hotelId);
-    console.log('  - req.body.googleMapsUrl:', googleMapsUrl);
+    console.log('  - req.body.tripadvisorUrl:', tripadvisorUrl);
 
-    if (!hotelId || !googleMapsUrl) {
-      return res.status(400).json({ success: false, error: 'Missing hotelId or googleMapsUrl parameter' });
+    if (!hotelId || !tripadvisorUrl) {
+      return res.status(400).json({ success: false, error: 'Missing hotelId or tripadvisorUrl parameter' });
     }
 
-    // 2. Load hotel information to assert organization mapping
     const { data: hotelData, error: hotelError } = await supabaseAdmin
       .from('hotels')
       .select('organization_id, name')
@@ -100,28 +95,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const orgId = hotelData.organization_id;
 
-    // 3. Trigger generic Import Service
-    console.log(`[Google Maps Scraper API] Starting import service scrape for hotel: ${hotelData.name} (${hotelId})`);
-    const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl);
-    console.log(`[Google Maps Scraper API] Scraped ${scrapedReviews.length} reviews from import service`);
+    console.log(`[Tripadvisor Scraper API] Starting import service scrape for hotel: ${hotelData.name} (${hotelId})`);
+    const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl);
+    console.log(`[Tripadvisor Scraper API] Scraped ${scrapedReviews.length} reviews from import service`);
 
     let importedCount = 0;
     let duplicateCount = 0;
 
-    // 4. Duplicate checks and insert
     for (const r of scrapedReviews) {
       const { data: existingReview, error: lookupError } = await supabaseAdmin
         .from('reviews')
         .select('id')
         .eq('hotel_id', hotelId)
-        .eq('platform', 'Google')
+        .eq('platform', 'Tripadvisor')
         .eq('guest_name', r.guestName)
         .eq('review_text', r.reviewText)
         .eq('rating', r.rating)
         .limit(1);
 
       if (lookupError) {
-        console.error('[Google Maps Scraper API] Database lookup failure:', lookupError);
+        console.error('[Tripadvisor Scraper API] Database lookup failure:', lookupError);
         continue;
       }
 
@@ -140,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           guest_name: r.guestName,
           rating: r.rating,
           review_text: r.reviewText,
-          platform: 'Google',
+          platform: 'Tripadvisor',
           sentiment,
           status: 'draft',
           published: 'No',
@@ -148,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
       if (insertError) {
-        console.error('[Google Maps Scraper API] Insert failure:', insertError);
+        console.error('[Tripadvisor Scraper API] Insert failure:', insertError);
       } else {
         importedCount++;
       }
@@ -162,8 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (err: any) {
-    console.error('[Google Maps Scraper API] Handler failure:', err);
-    
+    console.error('[Tripadvisor Scraper API] Handler failure:', err);
     const errMsg = err.message || '';
     
     if (errMsg === 'apify_token_missing') {
@@ -187,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({
         success: false,
         error: 'no_reviews_found',
-        message: 'Bu Google Maps linkinden yorum bulunamadı.'
+        message: 'Bu TripAdvisor linkinden yorum bulunamadı.'
       });
     }
 

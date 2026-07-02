@@ -362,6 +362,7 @@ export default function Admin() {
   const [hotelName, setHotelName] = useState('');
   const [hotelOrgId, setHotelOrgId] = useState(currentOrg.id);
   const [hotelGoogleMapsLink, setHotelGoogleMapsLink] = useState('');
+  const [hotelTripadvisorLink, setHotelTripadvisorLink] = useState('');
 
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
@@ -524,6 +525,7 @@ export default function Admin() {
     setHotelName('');
     setHotelOrgId(currentOrg.id);
     setHotelGoogleMapsLink('');
+    setHotelTripadvisorLink('');
   };
 
   const handleOpenEditHotel = (h: Hotel) => {
@@ -532,6 +534,7 @@ export default function Admin() {
     setHotelName(h.name);
     setHotelOrgId(h.organizationId);
     setHotelGoogleMapsLink(h.googleMapsUrl || h.googleMapsLink || '');
+    setHotelTripadvisorLink(h.tripadvisorUrl || '');
   };
 
   const handleSaveHotel = async (e: React.FormEvent) => {
@@ -539,19 +542,20 @@ export default function Admin() {
     try {
       console.log('[DEBUG-ADMIN-SAVE] Saving hotel values:');
       console.log('  - State hotelGoogleMapsLink:', hotelGoogleMapsLink);
-      console.log('  - Parameter googleMapsUrl sent to adminService:', hotelGoogleMapsLink);
+      console.log('  - State hotelTripadvisorLink:', hotelTripadvisorLink);
 
       if (isAddingHotel) {
-        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink });
+        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink, tripadvisorUrl: hotelTripadvisorLink });
         triggerToast('Hotel added successfully');
       } else if (editingHotel) {
-        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink });
+        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink, tripadvisorUrl: hotelTripadvisorLink });
         triggerToast('Hotel updated successfully');
       }
 
       setIsAddingHotel(false);
       setEditingHotel(null);
       setHotelGoogleMapsLink('');
+      setHotelTripadvisorLink('');
       refetchHotels();
     } catch (err: any) {
       console.error(err);
@@ -1156,6 +1160,17 @@ export default function Admin() {
                       value={hotelGoogleMapsLink}
                       onChange={(e) => setHotelGoogleMapsLink(e.target.value)}
                       placeholder="https://www.google.com/maps/place/..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tripadvisor URL</label>
+                    <input
+                      type="url"
+                      value={hotelTripadvisorLink}
+                      onChange={(e) => setHotelTripadvisorLink(e.target.value)}
+                      placeholder="https://www.tripadvisor.com/Hotel_Review-..."
                       className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                     />
                   </div>
