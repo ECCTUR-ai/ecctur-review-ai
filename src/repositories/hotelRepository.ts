@@ -97,17 +97,19 @@ export const hotelRepository = {
       googleAccountId: item.google_account_id,
       googleLocationId: item.google_location_id,
       googleBusinessName: item.google_business_name,
-      googleBusinessConnected: item.google_business_connected
+      googleBusinessConnected: item.google_business_connected,
+      bookingPropertyId: item.booking_property_id
     }));
   },
 
-  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string }): Promise<Hotel> {
     const insertData = {
       name: hotel.name,
       organization_id: hotel.organizationId,
       google_maps_link: hotel.googleMapsLink || null,
       google_maps_url: hotel.googleMapsLink || null,
-      tripadvisor_url: hotel.tripadvisorUrl || null
+      tripadvisor_url: hotel.tripadvisorUrl || null,
+      booking_property_id: hotel.bookingPropertyId || null
     };
     console.log('[SUPABASE INSERT]', insertData);
 
@@ -131,7 +133,8 @@ export const hotelRepository = {
           connectionStatus: 'connected',
           googleMapsLink: hotel.googleMapsLink,
           googleMapsUrl: hotel.googleMapsLink,
-          tripadvisorUrl: hotel.tripadvisorUrl
+          tripadvisorUrl: hotel.tripadvisorUrl,
+          bookingPropertyId: hotel.bookingPropertyId
         };
       }
       throw error;
@@ -144,7 +147,8 @@ export const hotelRepository = {
       created_at: new Date().toISOString(),
       google_maps_link: hotel.googleMapsLink,
       google_maps_url: hotel.googleMapsLink,
-      tripadvisor_url: hotel.tripadvisorUrl
+      tripadvisor_url: hotel.tripadvisorUrl,
+      booking_property_id: hotel.bookingPropertyId
     };
 
     console.log('[SUPABASE INSERT RESOLVED ROW]', resultRow);
@@ -157,17 +161,19 @@ export const hotelRepository = {
       connectionStatus: 'connected',
       googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
       googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
-      tripadvisorUrl: resultRow.tripadvisor_url || ''
+      tripadvisorUrl: resultRow.tripadvisor_url || '',
+      bookingPropertyId: resultRow.booking_property_id || ''
     };
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string }): Promise<Hotel> {
     const updateData = {
       name: hotel.name,
       organization_id: hotel.organizationId,
       google_maps_link: hotel.googleMapsLink || null,
       google_maps_url: hotel.googleMapsLink || null,
-      tripadvisor_url: hotel.tripadvisorUrl || null
+      tripadvisor_url: hotel.tripadvisorUrl || null,
+      booking_property_id: hotel.bookingPropertyId || null
     };
     console.log('[SUPABASE UPDATE]', updateData);
 
@@ -192,7 +198,8 @@ export const hotelRepository = {
           connectionStatus: 'connected',
           googleMapsLink: hotel.googleMapsLink,
           googleMapsUrl: hotel.googleMapsLink,
-          tripadvisorUrl: hotel.tripadvisorUrl
+          tripadvisorUrl: hotel.tripadvisorUrl,
+          bookingPropertyId: hotel.bookingPropertyId
         };
       }
       throw error;
@@ -205,7 +212,8 @@ export const hotelRepository = {
       created_at: new Date().toISOString(),
       google_maps_link: hotel.googleMapsLink,
       google_maps_url: hotel.googleMapsLink,
-      tripadvisor_url: hotel.tripadvisorUrl
+      tripadvisor_url: hotel.tripadvisorUrl,
+      booking_property_id: hotel.bookingPropertyId
     };
 
     console.log('[SUPABASE UPDATE RESOLVED ROW]', resultRow);
@@ -218,7 +226,8 @@ export const hotelRepository = {
       connectionStatus: 'connected',
       googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
       googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
-      tripadvisorUrl: resultRow.tripadvisor_url || ''
+      tripadvisorUrl: resultRow.tripadvisor_url || '',
+      bookingPropertyId: resultRow.booking_property_id || ''
     };
   }
 };

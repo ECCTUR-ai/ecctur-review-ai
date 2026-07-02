@@ -1226,5 +1226,60 @@ export const reviewService = {
     }
 
     return result;
+  },
+
+  async importBookingReviews(hotelId: string, range: string = '365'): Promise<{
+    importedCount: number;
+    duplicateCount: number;
+    failedCount: number;
+    totalFetched: number;
+    detailedErrors?: any[];
+    importDetails?: any[];
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const endpointUrl = '/api/admin-import-booking-reviews';
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ hotelId, range })
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const rawText = await response.text();
+
+    let result: any;
+    let parseErrorOccurred = false;
+    try {
+      result = JSON.parse(rawText);
+    } catch (parseError: any) {
+      parseErrorOccurred = true;
+      console.error('Booking Import Response JSON Parse Failure Log:', {
+        endpointUrl,
+        status: response.status,
+        contentType,
+        rawText,
+        parseError: parseError.message || String(parseError)
+      });
+    }
+
+    if (!response.ok) {
+      if (parseErrorOccurred) {
+        throw new Error(`Server Error (${response.status}): ${rawText}`);
+      } else {
+        throw new Error(result?.error || result?.message || `Import failed with status ${response.status}`);
+      }
+    }
+
+    if (parseErrorOccurred) {
+      throw new Error(`Server Error (${response.status}): Unexpected plain text response. Text: ${rawText}`);
+    }
+
+    return result;
   }
 };

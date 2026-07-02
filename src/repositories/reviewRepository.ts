@@ -9,7 +9,10 @@ export function mapReview(item: any): Review {
     rating: item.rating,
     comment: item.review_text || item.comment || '',
     date: item.review_date || item.date || item.created_at || '',
-    source: (item.platform || item.source || 'Google') as ReviewSource,
+    source: (item.platform?.toLowerCase() === 'booking' ? 'Booking' :
+             item.platform?.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' :
+             item.platform?.toLowerCase() === 'google' ? 'Google' :
+             item.platform || item.source || 'Google') as ReviewSource,
     status: (item.status || 'draft').toLowerCase() as ReviewStatus,
     priority: (item.priority || 'low').toLowerCase() as ReviewPriority,
     response: item.ai_reply || item.response || '',
@@ -54,7 +57,15 @@ export const reviewRepository = {
           query = query.eq('hotel_id', params.hotelId);
         }
         if (params.source) {
-          query = query.eq('platform', params.source);
+          if (params.source.toLowerCase() === 'booking') {
+            query = query.or('platform.eq.booking,platform.eq.Booking');
+          } else if (params.source.toLowerCase() === 'tripadvisor') {
+            query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
+          } else if (params.source.toLowerCase() === 'google') {
+            query = query.or('platform.eq.google,platform.eq.Google');
+          } else {
+            query = query.eq('platform', params.source);
+          }
         }
         if (params.sentiment) {
           query = query.eq('sentiment', params.sentiment);

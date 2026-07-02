@@ -152,6 +152,7 @@ export interface Hotel {
   googleLocationId?: string;
   googleBusinessName?: string;
   googleBusinessConnected?: boolean;
+  bookingPropertyId?: string;
 }
 
 export interface UserProfile {

@@ -40,6 +40,7 @@ export default function Reviews() {
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingGoogleMaps, setIsImportingGoogleMaps] = useState(false);
   const [isImportingTripadvisor, setIsImportingTripadvisor] = useState(false);
+  const [isImportingBooking, setIsImportingBooking] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
   
@@ -141,6 +142,7 @@ export default function Reviews() {
             googleMapsLink: data.google_maps_url || data.google_maps_link || '',
             googleMapsUrl: data.google_maps_url || data.google_maps_link || '',
             tripadvisorUrl: data.tripadvisor_url || '',
+            bookingPropertyId: data.booking_property_id || '',
             address: data.address || '',
             phone: data.phone || '',
             website: data.website || ''
@@ -485,6 +487,46 @@ export default function Reviews() {
     }
   };
 
+  const handleImportBookingReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    // Load hotel to verify property ID exists
+    const { data: dbRow } = await supabase
+      .from('hotels')
+      .select('id, name, booking_property_id')
+      .eq('id', currentHotelId)
+      .maybeSingle();
+
+    const bookingPropertyId = currentHotel?.bookingPropertyId || dbRow?.booking_property_id;
+    if (!bookingPropertyId) {
+      alert('Bu otel için Booking.com Property ID tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+      return;
+    }
+
+    setIsImportingBooking(true);
+    try {
+      const res = await reviewService.importBookingReviews(currentHotelId, importRange);
+      console.log('[DEBUG-BOOKING-IMPORT-RESPONSE-SUCCESS]', res);
+
+      const insertedCount = res.importedCount;
+      const duplicateCount = res.duplicateCount;
+
+      const alertMsg = `Booking.com yorumları içe aktarıldı:\nYeni: ${insertedCount}\nDuplicate: ${duplicateCount}`;
+      
+      alert(alertMsg);
+      setToastMessage(alertMsg);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
+    } finally {
+      setIsImportingBooking(false);
+    }
+  };
+
   const handleSyncAllPlatforms = async () => {
     if (!currentHotelId) {
       alert('Lütfen bir otel seçin.');
@@ -496,7 +538,7 @@ export default function Reviews() {
     try {
       const { data } = await supabase
         .from('hotels')
-        .select('google_maps_url, google_maps_link, tripadvisor_url')
+        .select('google_maps_url, google_maps_link, tripadvisor_url, booking_property_id')
         .eq('id', currentHotelId)
         .maybeSingle();
       dbRow = data;
@@ -506,8 +548,9 @@ export default function Reviews() {
 
     const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
     const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
+    const bookingPropertyId = currentHotel?.bookingPropertyId || dbRow?.booking_property_id;
 
-    if (!googleMapsUrl && !tripadvisorUrl) {
+    if (!googleMapsUrl && !tripadvisorUrl && !bookingPropertyId) {
       alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
       return;
     }
@@ -561,6 +604,28 @@ export default function Reviews() {
           }
         } catch (e: any) {
           results.push(`Tripadvisor: Hata (${e.message})`);
+        }
+      }
+
+      // 3. Booking.com
+      if (bookingPropertyId) {
+        try {
+          const response = await fetch('/api/admin-import-booking-reviews', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ hotelId: currentHotelId, range: importRange })
+          });
+          const res = await response.json();
+          if (response.ok) {
+            results.push(`Booking.com: ${res.importedCount} yeni yorum`);
+          } else {
+            results.push(`Booking.com: Hata (${res.error || 'İçe aktarılamadı'})`);
+          }
+        } catch (e: any) {
+          results.push(`Booking.com: Hata (${e.message})`);
         }
       }
 
@@ -648,7 +713,8 @@ export default function Reviews() {
           {(() => {
             const hasTripadvisor = !!(currentHotel?.tripadvisorUrl);
             const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
-            const hasAnyLink = hasGoogle || hasTripadvisor;
+            const hasBooking = !!(currentHotel?.bookingPropertyId);
+            const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking;
 
             return (
               <>
@@ -670,6 +736,16 @@ export default function Reviews() {
                 >
                   <RefreshCw size={14} className={isImportingTripadvisor ? 'animate-spin' : ''} />
                   <span>{isImportingTripadvisor ? 'TripAdvisor Çekiliyor...' : 'Tripadvisor Yorumlarını Çek'}</span>
+                </button>
+
+                <button
+                  onClick={handleImportBookingReviews}
+                  disabled={isImportingBooking || !hasBooking}
+                  title={!hasBooking ? "Bu otel için Booking.com Property ID tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Booking.com yorumlarını çek"}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-orange-500/10 min-h-[36px] cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isImportingBooking ? 'animate-spin' : ''} />
+                  <span>{isImportingBooking ? 'Booking Çekiliyor...' : 'Booking.com Yorumlarını Çek'}</span>
                 </button>
 
                 <button
