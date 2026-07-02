@@ -194,6 +194,33 @@ export const reviewService = {
     return data.translatedText;
   },
 
+  async generateInsights(reviews: Array<{ comment: string; rating: number; sentiment: string }>): Promise<{
+    issues: Array<{ title: string; description: string; category: string }>;
+    highlights: Array<{ title: string; description: string; category: string }>;
+    actions: string[];
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/reviews?action=generate-insights', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ reviews })
+    });
+
+    if (!response.ok) {
+      const errRes = await response.json().catch(() => ({ error: 'Insights generation failed' }));
+      throw new Error(errRes.error || 'Insights generation failed');
+    }
+
+    const data = await response.json();
+    return data.insights;
+  },
+
   async generateAiResponse(id: string): Promise<{ response: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('generate-response', {

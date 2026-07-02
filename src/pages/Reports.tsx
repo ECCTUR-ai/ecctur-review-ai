@@ -39,7 +39,9 @@ import {
   Activity, 
   Compass, 
   ArrowRight,
-  Languages
+  Languages,
+  Wifi,
+  Building
 } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#64748b'];
@@ -291,73 +293,75 @@ export default function Reports() {
       .slice(0, 10);
   }, [filteredReviews]);
 
-  // Dynamic AI Business Insights Scraper
-  const aiInsights = useMemo(() => {
-    const textCorpus = filteredReviews.map(r => (r.comment || '').toLowerCase()).join(' ');
+  // Dynamic AI Business Insights States
+  const [insights, setInsights] = useState<{
+    issues: Array<{ title: string; description: string; category: string }>;
+    highlights: Array<{ title: string; description: string; category: string }>;
+    actions: string[];
+  }>({ issues: [], highlights: [], actions: [] });
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('');
 
-    // Detect complaints
-    const issues: string[] = [];
-    if (textCorpus.includes('klima') || textCorpus.includes('ac ') || textCorpus.includes('klima çalışmıyor')) {
-      issues.push(isTr ? 'Odalardaki klimaların soğutma performansı yetersiz.' : 'AC cooling performance is insufficient in rooms.');
-    }
-    if (textCorpus.includes('temiz') && (textCorpus.includes('kirli') || textCorpus.includes('toz') || textCorpus.includes('havlu'))) {
-      issues.push(isTr ? 'Kat hizmetleri departmanında havlu ve banyo temizliği aksamaları.' : 'Housekeeping delays in bath and towel cleaning.');
-    }
-    if (textCorpus.includes('resepsiyon') || textCorpus.includes('check-in') || textCorpus.includes('check in')) {
-      issues.push(isTr ? 'Giriş-çıkış (check-in) işlemlerinde yoğun saatlerde kuyruk oluşumu.' : 'Front-desk check-in delays during peak hours.');
-    }
-    if (textCorpus.includes('yemek') || textCorpus.includes('kahvaltı') || textCorpus.includes('açık büfe')) {
-      issues.push(isTr ? 'Açık büfe kahvaltısında sıcak ürün çeşitliliğinin az olması.' : 'Lack of hot food varieties in breakfast buffet.');
-    }
-    if (textCorpus.includes('wifi') || textCorpus.includes('wi-fi') || textCorpus.includes('internet')) {
-      issues.push(isTr ? 'Wi-Fi bağlantısında kopmalar ve hız düşüklüğü şikayetleri.' : 'Wi-Fi connectivity drops and slow speed issues.');
+  useEffect(() => {
+    if (filteredReviews.length === 0) {
+      setInsights({ issues: [], highlights: [], actions: [] });
+      return;
     }
 
-    // Default fallbacks if empty
-    while (issues.length < 3) {
-      const idx = issues.length;
-      if (idx === 0) issues.push(isTr ? 'Giriş ve karşılama süreçlerinde yavaşlık.' : 'Reception welcome process delays.');
-      else if (idx === 1) issues.push(isTr ? 'Oda havlularının yıpranmış olduğuna dair geri dönüşler.' : 'Old or worn-out bath towels warnings.');
-      else issues.push(isTr ? 'Gürültü ve dış ses yalıtımı şikayetleri.' : 'Soundproofing / outside noise complaints.');
-    }
-
-    // Detect highlights
-    const highlights: string[] = [];
-    if (textCorpus.includes('personel') || textCorpus.includes('çalışanlar') || textCorpus.includes('ilgili') || textCorpus.includes('güler yüzlü')) {
-      highlights.push(isTr ? 'Personelin güler yüzlü, yardımsever ve çözüm odaklı tutumu.' : 'Friendly, helpful and solution-oriented staff.');
-    }
-    if (textCorpus.includes('konum') || textCorpus.includes('merkez') || textCorpus.includes('manzara')) {
-      highlights.push(isTr ? 'Otelin merkezi konumu ve eşsiz manzarası.' : 'Central location and outstanding view of the hotel.');
-    }
-    if (textCorpus.includes('yatak') || textCorpus.includes('konfor') || textCorpus.includes('geniş')) {
-      highlights.push(isTr ? 'Yatak konforu ve oda genişliğinin misafirlerce beğenilmesi.' : 'Bed comfort and room spaciousness high satisfaction.');
-    }
-    if (textCorpus.includes('yemek') || textCorpus.includes('lezzet') || textCorpus.includes('tatlı')) {
-      highlights.push(isTr ? 'Restoran akşam yemeklerindeki zengin lezzet kalitesi.' : 'Dinner main course flavor and rich food quality.');
-    }
-
-    while (highlights.length < 3) {
-      const idx = highlights.length;
-      if (idx === 0) highlights.push(isTr ? 'Otel bahçesi ve ortak alanların peyzaj kalitesi.' : 'High landscape quality of gardens and common areas.');
-      else if (idx === 1) highlights.push(isTr ? 'Genel oda tasarımı ve mobilyaların modernliği.' : 'Modern interior design and room furnishing.');
-      else highlights.push(isTr ? 'Hızlı ve sorunsuz oda kartı teslimatı.' : 'Fast and seamless key card assignment.');
-    }
-
-    // Recommendations
-    const actions: string[] = [
-      isTr ? 'Resepsiyon personeline yoğun saat yönetimi eğitimi verilmeli.' : 'Provide peak-hour management training to reception desk.',
-      isTr ? 'Kat hizmetleri banyo temizlik kontrol listesi (checklist) revize edilmeli.' : 'Revise the bathroom cleaning checklists for housekeeping.',
-      isTr ? 'Klimaların periyodik filtre temizliği ve gaz bakımları erkene çekilmeli.' : 'Schedule immediate filter cleaning and gas maintenance for AC systems.',
-      isTr ? 'Wi-Fi erişim noktalarının (AP) kapsama alanları teknik olarak denetlenmeli.' : 'Audit wireless access points coverage areas and signal power.',
-      isTr ? 'Açık büfeye vegan ve glütensiz alternatif ürünler eklenmeli.' : 'Introduce gluten-free and vegan alternatives to the buffet.'
-    ];
-
-    return {
-      issues: issues.slice(0, 3),
-      highlights: highlights.slice(0, 3),
-      actions
+    const loadInsights = async () => {
+      setInsightsLoading(true);
+      try {
+        const payload = filteredReviews.map(r => ({
+          comment: r.comment || '',
+          rating: r.rating || 5,
+          sentiment: r.sentiment || 'neutral'
+        }));
+        const res = await reviewService.generateInsights(payload);
+        setInsights(res || { issues: [], highlights: [], actions: [] });
+        
+        // Format timestamp: DD.MM.YYYY HH:MM
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const formatted = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        setLastUpdated(formatted);
+      } catch (err) {
+        console.error('Failed to load insights:', err);
+      } finally {
+        setInsightsLoading(false);
+      }
     };
-  }, [filteredReviews, isTr]);
+
+    loadInsights();
+  }, [filteredReviews]);
+
+  // Category to Lucide Icon Mapper
+  const getCategoryIcon = (category: string) => {
+    const cat = (category || '').toLowerCase();
+    switch (cat) {
+      case 'reception':
+        return <Users size={14} className="text-blue-400 shrink-0" />;
+      case 'housekeeping':
+      case 'cleaning':
+        return <Sparkles size={14} className="text-emerald-400 shrink-0" />;
+      case 'wifi':
+      case 'internet':
+        return <Wifi size={14} className="text-purple-400 shrink-0" />;
+      case 'room':
+        return <Building size={14} className="text-amber-400 shrink-0" />;
+      case 'restaurant':
+      case 'food':
+      case 'breakfast':
+        return <Compass size={14} className="text-rose-400 shrink-0" />;
+      case 'spa':
+      case 'pool':
+        return <Activity size={14} className="text-teal-400 shrink-0" />;
+      case 'location':
+        return <TrendingUp size={14} className="text-sky-400 shrink-0" />;
+      case 'staff':
+      default:
+        return <Smile size={14} className="text-indigo-400 shrink-0" />;
+    }
+  };
 
   const showToast = (message: string) => {
     setToast(message);
@@ -672,55 +676,96 @@ export default function Reports() {
               AI Business Insights
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Complaints / Issues */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-red-400 tracking-wider uppercase flex items-center gap-1.5">
-                  <Frown size={14} />
-                  {isTr ? 'Öne Çıkan 3 Sorun' : 'Top 3 Issue Areas'}
-                </h4>
-                <ul className="space-y-2.5">
-                  {aiInsights.issues.map((issue, idx) => (
-                    <li key={idx} className="flex gap-2 text-xs text-slate-400">
-                      <span className="text-red-500/60 font-semibold">{idx + 1}.</span>
-                      <span>{issue}</span>
-                    </li>
-                  ))}
-                </ul>
+            {insightsLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 space-y-3">
+                <div className="w-8 h-8 rounded-full border-2 border-t-indigo-500 border-white/[0.04] animate-spin" />
+                <span className="text-xs text-slate-500 font-semibold">
+                  {isTr ? 'Yorum verileri analiz ediliyor...' : 'Analyzing review data insights...'}
+                </span>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Complaints / Issues */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-red-400 tracking-wider uppercase flex items-center gap-1.5">
+                      <Frown size={14} />
+                      {isTr ? 'Öne Çıkan 5 Sorun' : 'Top 5 Issue Areas'}
+                    </h4>
+                    <ul className="space-y-4">
+                      {insights.issues.map((issue, idx) => (
+                        <li key={idx} className="flex gap-2 text-xs text-slate-400">
+                          <span className="text-red-500/60 font-bold text-[11px] shrink-0 mt-0.5">{idx + 1}.</span>
+                          <div className="flex items-start gap-2 min-w-0">
+                            <div className="mt-0.5 bg-slate-900 border border-white/[0.06] rounded-md p-1 shrink-0">
+                              {getCategoryIcon(issue.category)}
+                            </div>
+                            <div className="space-y-0.5">
+                              <strong className="text-slate-200 block text-xs font-semibold">{issue.title}</strong>
+                              <span className="text-[11px] text-slate-500 block leading-relaxed">{issue.description}</span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-              {/* Highlights */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
-                  <Smile size={14} />
-                  {isTr ? 'Memnuniyet Duyulan 3 Konu' : 'Top 3 Highlights'}
-                </h4>
-                <ul className="space-y-2.5">
-                  {aiInsights.highlights.map((highlight, idx) => (
-                    <li key={idx} className="flex gap-2 text-xs text-slate-400">
-                      <span className="text-emerald-500/60 font-semibold">{idx + 1}.</span>
-                      <span>{highlight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                  {/* Highlights */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
+                      <Smile size={14} />
+                      {isTr ? 'Memnuniyet Duyulan 5 Konu' : 'Top 5 Highlights'}
+                    </h4>
+                    <ul className="space-y-4">
+                      {insights.highlights.map((highlight, idx) => (
+                        <li key={idx} className="flex gap-2 text-xs text-slate-400">
+                          <span className="text-emerald-500/60 font-bold text-[11px] shrink-0 mt-0.5">{idx + 1}.</span>
+                          <div className="flex items-start gap-2 min-w-0">
+                            <div className="mt-0.5 bg-slate-900 border border-white/[0.06] rounded-md p-1 shrink-0">
+                              {getCategoryIcon(highlight.category)}
+                            </div>
+                            <div className="space-y-0.5">
+                              <strong className="text-slate-200 block text-xs font-semibold">{highlight.title}</strong>
+                              <span className="text-[11px] text-slate-500 block leading-relaxed">{highlight.description}</span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-              {/* Action Recommendations */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-indigo-400 tracking-wider uppercase flex items-center gap-1.5">
-                  <Sparkles size={14} />
-                  {isTr ? '5 Kritik Aksiyon Önerisi' : '5 Action Recommendations'}
-                </h4>
-                <ul className="space-y-2.5">
-                  {aiInsights.actions.map((act, idx) => (
-                    <li key={idx} className="flex gap-2 text-xs text-slate-400">
-                      <span className="text-indigo-500/60 font-semibold">{idx + 1}.</span>
-                      <span>{act}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+                  {/* Action Recommendations */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-indigo-400 tracking-wider uppercase flex items-center gap-1.5">
+                      <Sparkles size={14} />
+                      {isTr ? '5 Kritik Aksiyon Önerisi' : '5 Action Recommendations'}
+                    </h4>
+                    <ul className="space-y-4">
+                      {insights.actions.map((act, idx) => (
+                        <li key={idx} className="flex gap-2 text-xs text-slate-400">
+                          <span className="text-indigo-500/60 font-bold text-[11px] shrink-0 mt-0.5">{idx + 1}.</span>
+                          <span className="leading-relaxed text-slate-400 text-xs">{act}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Bottom metadata row */}
+                <div className="border-t border-white/[0.04] pt-4 mt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-[10px] text-slate-500 font-semibold">
+                  <span>
+                    {isTr 
+                      ? `Bu analiz seçilen tarih aralığında incelenen ${stats.total} yorum üzerinden AI tarafından oluşturulmuştur.`
+                      : `This analysis was compiled by AI based on ${stats.total} reviews within the selected date scope.`}
+                  </span>
+                  {lastUpdated && (
+                    <span>
+                      {isTr ? 'Son Güncelleme:' : 'Last Updated:'} {lastUpdated}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Critical 10 Unreplied Reviews List */}

@@ -354,6 +354,152 @@ async function translateText(text: string, targetLang: string): Promise<string> 
   return 'Çeviri yapılamadı.';
 }
 
+function compileLocalInsights(reviews: Array<{ comment: string; rating: number; sentiment: string }>) {
+  const categories = [
+    { id: 'reception', name: 'Resepsiyon ve Giriş', keywords: ['resepsiyon', 'reception', 'check-in', 'check in', 'lobby', 'lobi', 'karşılama', 'giriş', 'bekleme', 'front desk'] },
+    { id: 'housekeeping', name: 'Temizlik ve Düzen', keywords: ['temiz', 'kirli', 'havlu', 'çarşaf', 'oda temizliği', 'clean', 'dirty', 'towel', 'sheet', 'dust', 'hijyen'] },
+    { id: 'wifi', name: 'Wi-Fi ve Bağlantı', keywords: ['wifi', 'wi-fi', 'internet', 'bağlantı', 'yavaş', 'çekmiyor', 'connection'] },
+    { id: 'room', name: 'Oda Konforu ve Klima', keywords: ['oda', 'yatak', 'banyo', 'klima', 'soğuk', 'sıcak', 'ses', 'gürültü', 'noise', 'ac', 'tv'] },
+    { id: 'food', name: 'Restoran ve Kahvaltı', keywords: ['yemek', 'kahvaltı', 'restoran', 'lezzet', 'açık büfe', 'garson', 'mutfak', 'food', 'breakfast', 'dinner', 'buffet'] },
+    { id: 'spa', name: 'Havuz ve Spa', keywords: ['spa', 'havuz', 'masaj', 'hamam', 'sauna', 'pool', 'massage', 'wellness'] },
+    { id: 'location', name: 'Konum ve Çevre', keywords: ['konum', 'merkez', 'yakın', 'manzara', 'plaj', 'deniz', 'location', 'view'] },
+    { id: 'staff', name: 'Hizmet Standartları', keywords: ['personel', 'çalışan', 'ilgi', 'güler yüz', 'yardımsever', 'ekip', 'recep', 'garson', 'staff', 'friendly'] }
+  ];
+
+  const negativeCounts: Record<string, number> = {};
+  const positiveCounts: Record<string, number> = {};
+  categories.forEach(c => {
+    negativeCounts[c.id] = 0;
+    positiveCounts[c.id] = 0;
+  });
+
+  reviews.forEach(r => {
+    const text = (r.comment || '').toLowerCase();
+    const isNeg = r.rating <= 3 || r.sentiment === 'negative';
+    const isPos = r.rating >= 4 || r.sentiment === 'positive';
+
+    categories.forEach(c => {
+      if (c.keywords.some(k => text.includes(k))) {
+        if (isNeg) negativeCounts[c.id]++;
+        if (isPos) positiveCounts[c.id]++;
+      }
+    });
+  });
+
+  const sortedNegatives = Object.entries(negativeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id);
+
+  const sortedPositives = Object.entries(positiveCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id);
+
+  const issueTemplates: Record<string, { title: string; description: string }> = {
+    reception: {
+      title: 'Resepsiyon Yoğunluğu ve Karşılama',
+      description: 'Misafirler pik saatlerde giriş ve karşılama süreçlerindeki bekleme sürelerinden şikayetçi olup operasyonel yavaşlık bildirmektedir.'
+    },
+    housekeeping: {
+      title: 'Kat Hizmetleri ve Oda Hijyeni',
+      description: 'Odalarda banyo temizliği, tozlanma ve havlu değişimlerindeki gecikmeler misafirlerin konaklama konforunu olumsuz etkilemektedir.'
+    },
+    wifi: {
+      title: 'Wi-Fi Altyapı Hızı ve Bağlantı',
+      description: 'Odalar ve genel alanlardaki kablosuz ağın yavaşlığı ve sık sık kopması iş seyahati ve dijital kullanım yapan misafirlerde memnuniyetsizlik yaratmaktadır.'
+    },
+    room: {
+      title: 'Oda Donanımı ve Ses Yalıtımı',
+      description: 'Klima soğutma yetersizliği ve yan odalardan gelen gürültüler misafirlerin gece dinlenme kalitesini düşürmektedir.'
+    },
+    food: {
+      title: 'Açık Büfe Çeşitliliği ve Hizmet',
+      description: 'Özellikle uzun süreli konaklayan misafirlerde açık büfe kahvaltı çeşitliliğinin azlığı ve restorandaki servis hızı eleştirilmektedir.'
+    },
+    spa: {
+      title: 'Havuz Temizliği ve Spa Bakımı',
+      description: 'Havuz sıcaklık ayarları, şezlong yetersizliği ve spa alanlarındaki hijyen standartları iyileştirme bekleyen alanlar arasında yer almaktadır.'
+    },
+    location: {
+      title: 'Gürültü ve Dış Çevre Faktörleri',
+      description: 'Tesis çevresindeki ses yalıtım yetersizliği ve ulaşım gürültüleri misafirlerin oda dinlenme konforunu zedelemektedir.'
+    },
+    staff: {
+      title: 'Hizmet Standartları ve İletişim',
+      description: 'Yoğun dönemlerde personelin ilgisi ve sipariş süreçlerindeki aksaklıklar misafirlerin hizmet deneyimi algısını düşürmektedir.'
+    }
+  };
+
+  const highlightTemplates: Record<string, { title: string; description: string }> = {
+    staff: {
+      title: 'Personel İlgisi ve Misafirperverlik',
+      description: 'Misafirlerimiz tüm departmanlardaki çalışanların güler yüzlü, samimi ve proaktif yardımlarını memnuniyetle dile getirmektedir.'
+    },
+    location: {
+      title: 'Konum Avantajı ve Manzara',
+      description: 'Otelin merkezi yerleşimi, plaja ve turistik noktalara olan elverişli mesafesi tatil konforunu artıran en önemli unsurlardan biri olmuştur.'
+    },
+    food: {
+      title: 'Yemek Kalitesi ve Sunum Zenginliği',
+      description: 'Açık büfe akşam yemeklerindeki lezzet zenginliği ve sunum kalitesi misafirlerden son derece pozitif yorumlar almaktadır.'
+    },
+    room: {
+      title: 'Oda Konforu ve Manzara',
+      description: 'Misafirler odaların genişliğini, yatakların konforunu ve oda balkonlarından sunulan manzarayı beğeniyle vurgulamaktadır.'
+    },
+    reception: {
+      title: 'Hızlı ve Sorunsuz Giriş İşlemleri',
+      description: 'Resepsiyondaki hızlı check-in prosedürü ve ikramlı karşılama, misafirlerin otele girişteki olumlu izlenimini pekiştirmektedir.'
+    },
+    spa: {
+      title: 'Spa Deneyimi ve Havuz Konforu',
+      description: 'Misafirlerimiz masaj terapistlerinin kalitesini, spa alanlarındaki sakinliği ve havuz konforunu sıklıkla övmektedir.'
+    },
+    housekeeping: {
+      title: 'Genel Temizlik ve Oda Hijyeni',
+      description: 'Odalarda ve ortak alanlarda sergilenen üst düzey temizlik standartları misafirlerin kendilerini güvende hissetmelerini sağlamaktadır.'
+    },
+    location_view: {
+      title: 'Tesis Peyzajı ve Bahçe Bakımı',
+      description: 'Ortak alanların peyzaj kalitesi, yemyeşil bahçeler ve yürüme yolları misafirlerin huzurlu zaman geçirmesine olanak tanımaktadır.'
+    }
+  };
+
+  const issues = sortedNegatives.slice(0, 5).map(id => {
+    const template = issueTemplates[id] || { title: 'Tesis Operasyonu', description: 'Operasyonel detaylar ve genel iyileştirme yapılması önerilen alanlar.' };
+    return {
+      title: template.title,
+      description: template.description,
+      category: id
+    };
+  });
+
+  const highlights = sortedPositives.slice(0, 5).map(id => {
+    const template = highlightTemplates[id] || { title: 'Tesis Konforu', description: 'Genel tesis konsepti ve misafirlerin beğendiği detaylar.' };
+    return {
+      title: template.title,
+      description: template.description,
+      category: id
+    };
+  });
+
+  const allActionTemplates: Record<string, string> = {
+    reception: 'Giriş yoğunluğunu engellemek adına resepsiyonda pik saatler için ek nöbetçi personel görevlendirilmeli.',
+    housekeeping: 'Kat hizmetleri departmanında banyo temizliği kontrol listeleri (checklist) ve denetim sıklığı revize edilmeli.',
+    wifi: 'Oda katlarındaki Wi-Fi erişim noktalarının (AP) sinyal gücü ve bant genişliği teknik olarak test edilmeli.',
+    room: 'Klimaların periyodik filtre temizliği, kompresör gaz bakımları ve kapı fitillerinin ses yalıtımı denetlenmeli.',
+    food: 'Açık büfede alternatif sıcak ürün çeşitliliği artırılmalı ve yoğun saatlerde garson sipariş koordinasyonu geliştirilmeli.',
+    spa: 'Havuz sıcaklık ve klor ölçümleri daha sık izlenerek spa alanında genel dezenfeksiyon takvimi sıklaştırılmalı.',
+    location: 'Dış çevre ses yalıtımı için pencerelerin fitil bakımları yapılmalı ve ses yalıtımlı cam uygulamaları değerlendirilmeli.',
+    staff: 'Personelin servis içi iletişim standartları ve problem çözme yetkinlikleri üzerine hizmet içi eğitim planlanmalı.'
+  };
+
+  const actions = sortedNegatives.slice(0, 5).map(id => {
+    return allActionTemplates[id] || 'Misafir memnuniyetini artırmaya yönelik periyodik denetim süreçleri sıklaştırılmalı.';
+  });
+
+  return { issues, highlights, actions };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -399,6 +545,106 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
       console.error('[API translate-review] Failure:', err);
       return res.status(500).json({ success: false, error: 'Translation failed', details: err.message || String(err) });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: generate-insights (AI Business Insights Compiler)
+  // -------------------------------------------------------------
+  if (action === 'generate-insights') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    const { reviews = [] } = req.body;
+    const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+
+    if (apiKey && reviews.length > 0) {
+      try {
+        console.log(`[Insights API] Generating business insights via OpenAI for ${reviews.length} reviews...`);
+        
+        const reviewsSample = reviews.slice(0, 100).map((r: any) => ({
+          comment: r.comment || '',
+          rating: r.rating || 5,
+          sentiment: r.sentiment || 'neutral'
+        }));
+
+        const prompt = `
+You are a hospitality Business Intelligence expert. Analyze the following guest reviews for a hotel.
+Identify the top 5 operational issues/complaints and top 5 positive highlights/praises, and provide exactly 5 strategic action recommendations.
+
+Combine similar reviews into single topics (e.g., check-in, queue, lobi waiting should be merged into "Check-in Yoğunluğu").
+Write the descriptions using professional Business Intelligence insights phrasing. Make it sound like advice to a hotel board, not just a complaint list.
+For example, instead of "Kahvaltı kötü", write "Açık büfe kahvaltıdaki sıcak ürün çeşitliliğinin az olması, özellikle uzun konaklayan misafirlerde memnuniyet kaybına neden oluyor."
+
+Respond ONLY with a JSON object in this format (no markdown, no code block backticks, no extra text):
+{
+  "issues": [
+    { "title": "Check-in Süreçleri", "description": "Öğleden sonraki giriş saatlerinde resepsiyonda yaşanan yoğunluklar misafir karşılama deneyimini zedelemektedir.", "category": "reception" },
+    ... (exactly 5 items, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff)
+  ],
+  "highlights": [
+    { "title": "Çalışan Tutumu ve İlgi", "description": "Resepsiyon ve restoran ekiplerinin güler yüzlü ve proaktif hizmet anlayışı misafir memnuniyetine büyük katkı sunmaktadır.", "category": "staff" },
+    ... (exactly 5 items, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff)
+  ],
+  "actions": [
+    "Pik giriş saatlerinde resepsiyon kadrosunu desteklemek için esnek vardiya planı uygulanmalı.",
+    ... (exactly 5 items)
+  ]
+}
+
+Reviews to analyze:
+${JSON.stringify(reviewsSample)}
+`;
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an AI Business Intelligence hospitality expert. You strictly return JSON without backticks.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: 0.3
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content) {
+            const cleaned = content.replace(/^```json/, '').replace(/```$/, '').trim();
+            const parsed = JSON.parse(cleaned);
+            if (parsed.issues && parsed.highlights && parsed.actions) {
+              return res.status(200).json({ success: true, insights: parsed });
+            }
+          }
+        } else {
+          const errText = await response.text();
+          console.warn('[Insights API] OpenAI failed, falling back to local compiler:', errText);
+        }
+      } catch (e) {
+        console.warn('[Insights API] OpenAI exception, falling back to local compiler:', e);
+      }
+    }
+
+    try {
+      console.log(`[Insights API] Compiling local rules-based insights for ${reviews.length} reviews...`);
+      const insights = compileLocalInsights(reviews);
+      return res.status(200).json({ success: true, insights });
+    } catch (err: any) {
+      console.error('[API generate-insights] Local compile failure:', err);
+      return res.status(500).json({ success: false, error: 'Insights compilation failed' });
     }
   }
 
