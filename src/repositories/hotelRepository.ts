@@ -149,6 +149,12 @@ export const hotelRepository = {
   },
 
   async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string }): Promise<Hotel> {
+    console.log('[DEBUG-REPOSITORY-UPDATE] Supabase update payload:');
+    console.log('  - id:', id);
+    console.log('  - name:', hotel.name);
+    console.log('  - google_maps_link:', hotel.googleMapsLink);
+    console.log('  - google_maps_url:', hotel.googleMapsLink);
+
     const { data, error } = await supabase
       .from('hotels')
       .update({

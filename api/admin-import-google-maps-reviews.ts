@@ -79,6 +79,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { hotelId, googleMapsUrl } = req.body;
+    console.log('[DEBUG-ENDPOINT-RECEIVED] Received body parameters:');
+    console.log('  - req.body.hotelId:', hotelId);
+    console.log('  - req.body.googleMapsUrl:', googleMapsUrl);
+
     if (!hotelId || !googleMapsUrl) {
       return res.status(400).json({ success: false, error: 'Missing hotelId or googleMapsUrl parameter' });
     }

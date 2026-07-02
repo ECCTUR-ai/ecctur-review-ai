@@ -41,6 +41,13 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<Sc
     reviewsSort: 'newest'
   };
 
+  console.log('========================================================================');
+  console.log('[DEBUG-APIFY-PAYLOAD] Preparing Apify request:');
+  console.log('  - Target URL parameter passed to scraper:', targetUrl);
+  console.log('  - Normalized cleanUrl:', cleanUrl);
+  console.log('  - Payload startUrls:', JSON.stringify(payload.startUrls));
+  console.log('========================================================================');
+
   console.log(`[Apify Scraper] Running actor: ${rawActorId} (encoded: ${encodedActorId})`);
   console.log('[Apify Scraper] Sending payload (token hidden):', JSON.stringify(payload, null, 2));
 

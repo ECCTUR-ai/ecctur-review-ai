@@ -537,6 +537,10 @@ export default function Admin() {
   const handleSaveHotel = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      console.log('[DEBUG-ADMIN-SAVE] Saving hotel values:');
+      console.log('  - State hotelGoogleMapsLink:', hotelGoogleMapsLink);
+      console.log('  - Parameter googleMapsUrl sent to adminService:', hotelGoogleMapsLink);
+
       if (isAddingHotel) {
         await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink });
         triggerToast('Hotel added successfully');

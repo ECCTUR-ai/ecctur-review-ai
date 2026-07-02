@@ -196,15 +196,47 @@ export default function Reviews() {
     }
 
     const currentHotel = hotels?.find(h => h.id === currentHotelId);
-    console.log('[DEBUG] currentHotel object in Reviews:', currentHotel);
-    if (currentHotel) {
-      console.log('[DEBUG] currentHotel.id:', currentHotel.id);
-      console.log('[DEBUG] currentHotel.name:', currentHotel.name);
-      console.log('[DEBUG] currentHotel.googleMapsUrl:', currentHotel.googleMapsUrl);
-      console.log('[DEBUG] currentHotel.googleMapsLink:', currentHotel.googleMapsLink);
-    } else {
-      console.log('[DEBUG] currentHotel not found for ID:', currentHotelId, 'Hotels list:', hotels);
+    
+    // Direct Supabase query to get direct record columns for comparison
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('id, name, google_maps_url, google_maps_link')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error('[DEBUG] Direct Supabase query failed:', e);
     }
+
+    const googleMapsUrlFromLink = currentHotel?.googleMapsLink;
+    const googleMapsUrlFromUrl = currentHotel?.googleMapsUrl;
+    const directMapsLinkCol = dbRow?.google_maps_link;
+    const directMapsUrlCol = dbRow?.google_maps_url;
+    const finalUrlToSend = googleMapsUrlFromLink || googleMapsUrlFromUrl || directMapsLinkCol || directMapsUrlCol;
+
+    console.log('========================================================================');
+    console.log('[DEBUG-REVIEWS-READ] Reading selected hotel link properties:');
+    console.log('  - currentHotelId:', currentHotelId);
+    console.log('  - currentHotel.googleMapsLink:', googleMapsUrlFromLink);
+    console.log('  - currentHotel.googleMapsUrl:', googleMapsUrlFromUrl);
+    console.log('  - DB Row google_maps_link:', directMapsLinkCol);
+    console.log('  - DB Row google_maps_url:', directMapsUrlCol);
+    console.log('  - Final URL to be sent in POST body:', finalUrlToSend);
+    console.log('========================================================================');
+    
+    console.log('========================================================================');
+    console.log('DEBUG TRACE TABLE:');
+    console.table([
+      { Step: '1. Admin Input', Value: googleMapsUrlFromUrl || googleMapsUrlFromLink },
+      { Step: '2. Supabase Record (google_maps_url)', Value: directMapsUrlCol },
+      { Step: '3. Supabase Record (google_maps_link)', Value: directMapsLinkCol },
+      { Step: '4. Repository Output (googleMapsUrl)', Value: googleMapsUrlFromUrl },
+      { Step: '5. Repository Output (googleMapsLink)', Value: googleMapsUrlFromLink },
+      { Step: '6. POST Body Parameter (googleMapsUrl)', Value: finalUrlToSend }
+    ]);
+    console.log('========================================================================');
 
     // Log hotelRepository.getHotels() result
     try {
@@ -214,24 +246,7 @@ export default function Reviews() {
       console.error('[DEBUG] hotelRepository.getHotels() failed:', e);
     }
 
-    // Direct Supabase query for selected hotel columns
-    try {
-      const { data: dbRow, error: dbErr } = await supabase
-        .from('hotels')
-        .select('id, name, google_maps_url, google_maps_link')
-        .eq('id', currentHotelId)
-        .maybeSingle();
-
-      if (dbErr) {
-        console.error('[DEBUG] Direct Supabase hotel query failed:', dbErr);
-      } else {
-        console.log('[DEBUG] Direct Supabase query response:', dbRow);
-      }
-    } catch (e) {
-      console.error('[DEBUG] Direct Supabase query exception:', e);
-    }
-
-    const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || (currentHotel as any)?.google_maps_link || (currentHotel as any)?.google_maps_url;
+    const googleMapsUrl = finalUrlToSend;
 
     if (!googleMapsUrl) {
       alert('Bu otel için Google Maps işletme linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
