@@ -131,7 +131,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (isDuplicate) {
           const { data: listUsers } = await supabaseAdmin.auth.admin.listUsers();
-          const existingUser = listUsers?.users.find(usr => usr.email?.toLowerCase() === u.email.toLowerCase());
+          const authUsers = (listUsers?.users || []) as any[];
+          const existingUser = authUsers.find(usr => usr.email?.toLowerCase() === u.email.toLowerCase());
           if (existingUser) {
             targetUserId = existingUser.id;
           } else {
