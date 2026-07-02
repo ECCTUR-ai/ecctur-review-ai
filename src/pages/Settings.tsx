@@ -16,7 +16,7 @@ import {
 
 export default function Settings() {
   const { t } = useTranslation();
-  const [tone, setTone] = useState<'professional' | 'warm' | 'formal'>('professional');
+  const [tone, setTone] = useState<'professional' | 'warm' | 'luxury' | 'concise'>('professional');
   const [autoRespond, setAutoRespond] = useState(false);
   const [minRatingAutoRespond, setMinRatingAutoRespond] = useState(4);
   const [whatsappAlerts, setWhatsappAlerts] = useState(true);
@@ -80,7 +80,8 @@ export default function Settings() {
               >
                 <option value="professional">Professional & Objective</option>
                 <option value="warm">Warm & Welcoming</option>
-                <option value="formal">Formal & Executive</option>
+                <option value="luxury">Luxury & Premium</option>
+                <option value="concise">Concise & Direct</option>
               </select>
             </div>
 

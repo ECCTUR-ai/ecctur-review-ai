@@ -74,7 +74,7 @@ export interface WhatsAppLog {
 }
 
 export interface AISettings {
-  tone: 'professional' | 'warm' | 'formal';
+  tone: 'professional' | 'warm' | 'luxury' | 'concise';
   autoRespond: boolean;
   minRatingAutoRespond: number;
   whatsappAlerts: boolean;
