@@ -107,7 +107,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rolesListResult = await supabaseAdmin.from('roles').select('id, name');
     const dbRoles = rolesListResult.data || [];
 
-    for (let u of users) {
+    const usersList = (users || []) as any[];
+    for (let u of usersList) {
       const matchingRole = dbRoles.find(r => r.name.toLowerCase() === u.role.toLowerCase());
       const roleId = matchingRole ? matchingRole.id : null;
 

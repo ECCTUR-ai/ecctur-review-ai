@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { sendReviewApprovalMessage } from './services/whatsappService';
+import { sendReviewApprovalMessage } from './services/whatsappService.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS handling
