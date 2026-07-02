@@ -178,7 +178,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         success: false,
         error: 'apify_actor_failed',
         message: 'Apify actor execution failed.',
-        rawError: err.rawError || String(err)
+        rawError: err.rawError || String(err),
+        apifyError: err.rawError || String(err)
       });
     }
 
@@ -194,7 +195,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: false,
       error: 'scraper_failed',
       message: errMsg || String(err),
-      rawError: err.rawError || String(err)
+      rawError: err.rawError || String(err),
+      apifyError: err.rawError || String(err)
     });
   }
 }

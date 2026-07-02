@@ -19,19 +19,7 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     startUrls: [
       { url: targetUrl }
     ],
-    maxItems: 100,
-    maxReviews: 100,
-    limit: 100,
-    maxResults: 100,
-    reviewsLimit: 100,
-    maxReviewsCount: 100,
-    maxReviewsPerLocation: 100,
-    maxReviewsPerHotel: 100,
-    pageSize: 100,
-    language: 'all',
-    reviewsLanguages: ['all'],
-    getReviews: true,
-    getDetailedInformation: false
+    maxItems: 100
   };
 
   console.log(`[Tripadvisor Provider] Running actor: ${rawActorId} (encoded: ${encodedActorId})`);
@@ -54,6 +42,13 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'No error response body');
     console.error(`[Tripadvisor Provider] HTTP ${response.status} Error:`, errorText);
+    console.error('[Tripadvisor Provider] Apify Run Failed:');
+    console.error('  - actorId:', rawActorId);
+    console.log('  - payload:', JSON.stringify(payload, null, 2));
+    console.error('  - run status:', response.status);
+    console.error('  - fail reason:', response.statusText);
+    console.error('  - error message:', errorText);
+
     const errorObj = new Error('apify_actor_failed') as any;
     errorObj.rawError = errorText;
     errorObj.status = response.status;
