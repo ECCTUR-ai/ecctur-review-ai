@@ -61,16 +61,67 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     throw new Error('no_reviews_found');
   }
 
+  // 1. Apify'dan dönen ham dataset item sayısını logla
+  console.log('[TRIPADVISOR RAW ITEMS COUNT]', items.length);
+
+  // 2. İlk 3 raw item'ı token/sensitive bilgi olmadan logla
+  const samples = items.slice(0, 3).map((item: any) => {
+    const copy = { ...item };
+    delete copy.token;
+    delete copy.apifyToken;
+    delete copy.cookie;
+    delete copy.cookies;
+    return copy;
+  });
+  console.log('[TRIPADVISOR RAW SAMPLE]', JSON.stringify(samples, null, 2));
+
   if (items.length === 0) {
     throw new Error('no_reviews_found');
   }
 
-  // Normalize TripAdvisor items
-  return items.map((item: any) => {
-    const guestName = item.title || item.user?.username || item.authorName || 'Tripadvisor Guest';
-    const rating = item.rating || item.ratingRange || 5;
-    const reviewText = item.text || item.comment || '';
-    const reviewDate = item.publishedDate || item.date || 'recently';
+  // 3. Normalize TripAdvisor items with robust key mapping
+  const normalized = items.map((item: any) => {
+    const guestName = 
+      item.reviewerName || 
+      item.userName || 
+      item.user?.username || 
+      item.user?.name || 
+      item.authorName || 
+      item.reviewer?.name || 
+      item.title || 
+      'Tripadvisor Guest';
+
+    let rawRating = item.rating || item.reviewRating || item.ratingRange || item.ratingScore || item.stars || 5;
+    if (typeof rawRating === 'string') {
+      rawRating = parseFloat(rawRating);
+    }
+    if (rawRating > 5) {
+      rawRating = rawRating / 10;
+    }
+    const rating = Math.max(1, Math.min(5, Math.round(rawRating)));
+
+    const reviewText = 
+      item.text || 
+      item.reviewText || 
+      item.textReview || 
+      item.comment || 
+      item.commentReview || 
+      item.description || 
+      '';
+
+    const reviewDate = 
+      item.publishedDate || 
+      item.date || 
+      item.datePublished || 
+      item.publishDate || 
+      item.created || 
+      'recently';
+
+    const externalId = 
+      item.id || 
+      item.reviewId || 
+      item.url || 
+      `${guestName}_${rating}_${reviewText.substring(0, 50)}`;
 
     return {
       platform: 'Tripadvisor',
@@ -78,7 +129,12 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
       rating: Number(rating),
       reviewText: String(reviewText).trim(),
       reviewDate: String(reviewDate).trim(),
-      externalId: item.id || `${guestName}_${rating}_${reviewText.substring(0, 50)}`
+      externalId: String(externalId).trim()
     };
   });
+
+  // 4. Normalize edilen sonuç sayısını logla
+  console.log('[TRIPADVISOR NORMALIZED COUNT]', normalized.length);
+
+  return normalized;
 }

@@ -147,11 +147,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Log diagnostic counts
+    console.log('[TRIPADVISOR DUPLICATE COUNT]', duplicateCount);
+    console.log('[TRIPADVISOR INSERTED COUNT]', importedCount);
+
     return res.status(200).json({
       success: true,
       totalFetched: scrapedReviews.length,
       importedCount,
-      duplicateCount
+      duplicateCount,
+      rawCount: scrapedReviews.length,
+      normalizedCount: scrapedReviews.length,
+      insertedCount: importedCount
     });
 
   } catch (err: any) {
