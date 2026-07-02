@@ -1223,7 +1223,7 @@ ${JSON.stringify(reviewsSample)}
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    const { reviewId } = req.body;
+    const { reviewId, replyText } = req.body;
     if (!reviewId) {
       return res.status(400).json({ success: false, error: 'Missing reviewId parameter' });
     }
@@ -1239,6 +1239,14 @@ ${JSON.stringify(reviewsSample)}
       if (rErr || !review) {
         return res.status(404).json({ success: false, error: 'Yorum bulunamadı.' });
       }
+
+      console.log('========================================================================');
+      console.log('[DEBUG-PUBLISH-ENDPOINT] Received publish-google-reply request:');
+      console.log('  - reviewId:', reviewId);
+      console.log('  - replyText parameter length:', replyText ? String(replyText).length : 'undefined/null');
+      console.log('  - review.ai_reply field length:', review?.ai_reply ? String(review.ai_reply).length : 'undefined/null');
+      console.log('  - review.response field length:', review?.response ? String(review.response).length : 'undefined/null');
+      console.log('========================================================================');
 
       const hotelId = review.hotel_id;
 
@@ -1259,7 +1267,7 @@ ${JSON.stringify(reviewsSample)}
 
       // 3. Call publish service
       const { publishGoogleReply } = await import('../api-services/googleReplyService.js');
-      const publishRes = await publishGoogleReply(reviewId);
+      const publishRes = await publishGoogleReply(reviewId, replyText);
 
       // 4. Fetch the updated review to return it
       const { data: updatedReview } = await supabaseAdmin

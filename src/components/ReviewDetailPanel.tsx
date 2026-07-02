@@ -34,7 +34,7 @@ interface ReviewDetailPanelProps {
   onSaveDraft: (id: string, response: string) => void;
   onGenerateAiReply: (id: string) => Promise<string>;
   onUpdateNotes: (id: string, managerNotes: string, internalNotes: string) => void;
-  onPublishGoogleReply?: (id: string) => Promise<void>;
+  onPublishGoogleReply?: (id: string, replyText: string) => Promise<void>;
 }
 
 export function ReviewDetailPanel({
@@ -159,13 +159,21 @@ export function ReviewDetailPanel({
   };
 
   const handlePublishGoogleClick = async () => {
-    if (!responseVal || !onPublishGoogleReply) return;
+    const rawText = responseVal || review.response || (review as any).owner_reply_text || '';
+    const trimmedText = rawText.trim();
+    
+    if (!trimmedText) {
+      alert("Cevap metni boş olamaz.");
+      return;
+    }
+
+    if (!onPublishGoogleReply) return;
     const confirmPublish = window.confirm("Bu cevabı Google yorumuna işletmeci yanıtı olarak yayınlamak istiyor musunuz?");
     if (!confirmPublish) return;
 
     setIsPublishing(true);
     try {
-      await onPublishGoogleReply(review.id);
+      await onPublishGoogleReply(review.id, trimmedText);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Yayınlama sırasında bir hata oluştu.');
@@ -454,7 +462,7 @@ export function ReviewDetailPanel({
                       {review.source === 'Google' && (
                         <button
                           type="button"
-                          disabled={!responseVal || isPublishing}
+                          disabled={!(responseVal.trim() || review.response || (review as any).owner_reply_text) || isPublishing}
                           onClick={handlePublishGoogleClick}
                           className="px-3.5 py-1.5 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500 disabled:opacity-50 text-[10px] font-bold text-white transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10 cursor-pointer disabled:cursor-not-allowed"
                         >

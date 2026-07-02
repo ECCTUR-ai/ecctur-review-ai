@@ -34,7 +34,7 @@ async function refreshGoogleAccessToken(clientId: string, clientSecret: string, 
   return data.access_token;
 }
 
-export async function publishGoogleReply(reviewId: string): Promise<{ success: boolean; mock: boolean; message?: string }> {
+export async function publishGoogleReply(reviewId: string, replyText?: string): Promise<{ success: boolean; mock: boolean; message?: string }> {
   if (!supabaseAdmin) {
     throw new Error('Supabase admin client not initialized on server-side.');
   }
@@ -61,9 +61,40 @@ export async function publishGoogleReply(reviewId: string): Promise<{ success: b
     throw new Error(`Hotel not found for review: ${hError?.message || 'Empty result'}`);
   }
 
-  const replyText = review.ai_reply || review.response || '';
-  if (!replyText.trim()) {
+  // Prioritized reply text selection: param, ai_reply, response, owner_reply_text
+  let finalReplyText = (replyText || '').trim();
+  if (!finalReplyText) {
+    finalReplyText = (review.ai_reply || review.response || '').trim();
+  }
+  if (!finalReplyText) {
+    finalReplyText = (review.owner_reply_text || '').trim();
+  }
+
+  console.log('========================================================================');
+  console.log('[DEBUG-PUBLISH-SERVICE] Resolving reply text:');
+  console.log('  - reviewId:', reviewId);
+  console.log('  - passed replyText param length:', replyText ? String(replyText).length : 'undefined/null');
+  console.log('  - review.ai_reply field length:', review.ai_reply ? String(review.ai_reply).length : 'undefined/null');
+  console.log('  - review.response field length:', review.response ? String(review.response).length : 'undefined/null');
+  console.log('  - resolved finalReplyText length:', finalReplyText.length);
+  console.log('========================================================================');
+
+  if (!finalReplyText) {
     throw new Error('Cevap metni boş olamaz.');
+  }
+
+  // Pre-save draft to protect edits in case publication fails
+  try {
+    await supabaseAdmin
+      .from('reviews')
+      .update({
+        ai_reply: finalReplyText,
+        response: finalReplyText,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reviewId);
+  } catch (draftErr) {
+    console.warn('[GoogleReplyService] Warning: pre-saving draft failed:', draftErr);
   }
 
   // 3. Fetch Google integration settings for access/refresh tokens
@@ -101,10 +132,10 @@ export async function publishGoogleReply(reviewId: string): Promise<{ success: b
     console.log(`External Review ID: ${externalReviewId}`);
     console.log(`Google Location ID: ${googleLocationId || 'MockLocationId'}`);
     console.log(`Google Account ID: ${googleAccountId || 'MockAccountId'}`);
-    console.log(`Reply Content:\n${replyText}`);
+    console.log(`Reply Content:\n${finalReplyText}`);
     console.log('----------------------------------------------------');
 
-    await updateReviewDatabaseRecord(reviewId, replyText);
+    await updateReviewDatabaseRecord(reviewId, finalReplyText);
 
     return {
       success: true,
@@ -133,7 +164,7 @@ export async function publishGoogleReply(reviewId: string): Promise<{ success: b
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        comment: replyText
+        comment: finalReplyText
       })
     });
 
@@ -183,7 +214,7 @@ export async function publishGoogleReply(reviewId: string): Promise<{ success: b
     throw apiErr;
   }
 
-  await updateReviewDatabaseRecord(reviewId, replyText);
+  await updateReviewDatabaseRecord(reviewId, finalReplyText);
 
   return {
     success: true,

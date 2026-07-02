@@ -1362,7 +1362,7 @@ export const reviewService = {
     return result;
   },
 
-  async publishGoogleReply(reviewId: string): Promise<{ success: boolean; review: Review }> {
+  async publishGoogleReply(reviewId: string, replyText: string): Promise<{ success: boolean; review: Review }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Missing token');
@@ -1373,7 +1373,7 @@ export const reviewService = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ reviewId })
+      body: JSON.stringify({ reviewId, replyText })
     });
 
     if (!response.ok) {

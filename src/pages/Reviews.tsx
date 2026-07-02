@@ -713,9 +713,9 @@ export default function Reviews() {
     }
   };
 
-  const handlePublishGoogleReply = async (id: string) => {
+  const handlePublishGoogleReply = async (id: string, replyText: string) => {
     try {
-      const res = await reviewService.publishGoogleReply(id);
+      const res = await reviewService.publishGoogleReply(id, replyText);
       if (res.success) {
         setToastMessage("Cevap Google Business Profile üzerinden başarıyla yayınlandı.");
         if (res.review && res.review.id) {
