@@ -59,17 +59,16 @@ export const analyticsRepository = {
     ];
   },
 
-  async getTrends(range: '7d' | '30d' | '90d', hotelId?: string): Promise<AnalyticsTrend[]> {
+  async getTrends(range: '7d' | '30d' | '90d', hotelId?: string): Promise<any[]> {
     const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
     const cutOffDate = new Date();
     cutOffDate.setDate(cutOffDate.getDate() - days);
     const dateStr = cutOffDate.toISOString().split('T')[0];
 
     const runQuery = async (useHotelFilter: boolean) => {
-      // Map 'date' select to 'created_at' and 'review_date' as 'date' doesn't exist in database
       let query = supabase
         .from('reviews')
-        .select('created_at, review_date, rating, sentiment')
+        .select('created_at, review_date, rating, sentiment, platform')
         .gte('created_at', dateStr);
 
       if (useHotelFilter && hotelId) {
@@ -87,18 +86,20 @@ export const analyticsRepository = {
     if (response.error) throw response.error;
 
     const records = response.data || [];
-    const dailyMap: Record<string, { count: number; sumRating: number; positive: number; neutral: number; negative: number }> = {};
+    const dailyMap: Record<string, { date: string; count: number; sumRating: number; positive: number; neutral: number; negative: number; [platform: string]: any }> = {};
 
     records.forEach((r) => {
       // Format date part from created_at or review_date
       const dateVal = r.review_date || r.created_at || '';
       const date = dateVal ? dateVal.split('T')[0] : 'N/A';
+      const platform = r.platform || 'Other';
       
       if (!dailyMap[date]) {
-        dailyMap[date] = { count: 0, sumRating: 0, positive: 0, neutral: 0, negative: 0 };
+        dailyMap[date] = { date, count: 0, sumRating: 0, positive: 0, neutral: 0, negative: 0 };
       }
       dailyMap[date].count += 1;
       dailyMap[date].sumRating += r.rating || 0;
+      dailyMap[date][platform] = (dailyMap[date][platform] || 0) + 1;
       
       const sentiment = (r.sentiment || 'neutral').toLowerCase();
       if (sentiment === 'positive') dailyMap[date].positive += 1;
@@ -106,16 +107,7 @@ export const analyticsRepository = {
       else dailyMap[date].neutral += 1;
     });
 
-    return Object.entries(dailyMap)
-      .map(([date, val]) => ({
-        date,
-        rating: Number((val.sumRating / val.count).toFixed(2)),
-        count: val.count,
-        positive: val.positive,
-        neutral: val.neutral,
-        negative: val.negative
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    return Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
   },
 
   async getPlatformShare(hotelId?: string): Promise<{ source: string; count: number; rating: number }[]> {

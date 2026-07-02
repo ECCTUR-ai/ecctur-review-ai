@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { analyticsService } from '@/services/analyticsService';
 import { reviewService } from '@/services/reviewService';
+import { supabase } from '@/lib/supabase';
 import {
   TrendingUp,
   Star,
@@ -11,9 +12,7 @@ import {
   Clock,
   CheckCircle,
   Sparkles,
-  ArrowUpRight,
-  ArrowUp,
-  ArrowDown
+  ArrowUpRight
 } from 'lucide-react';
 import {
   LineChart,
@@ -47,21 +46,44 @@ export default function Dashboard() {
     hotels: any[];
   }>();
 
-  // Load backend metrics
+  // 1. Load backend metrics
   const {
     data: metrics,
     loading: metricsLoading,
-    error: metricsError,
     refetch: refetchMetrics
   } = useFetch(() => analyticsService.getMetrics(currentHotelId || undefined), [currentHotelId]);
 
-  // Load recent reviews
+  // 2. Load recent reviews
   const {
     data: recentReviewsData,
     loading: reviewsLoading,
-    error: reviewsError,
     refetch: refetchReviews
   } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: currentHotelId || undefined }), [currentHotelId]);
+
+  // 3. Load trends
+  const {
+    data: trends,
+    loading: trendsLoading,
+  } = useFetch(() => analyticsService.getTrends('30d', currentHotelId || undefined), [currentHotelId]);
+
+  // 4. Load platform share
+  const {
+    data: platformShare,
+    loading: platformLoading,
+  } = useFetch(() => analyticsService.getPlatformShare(currentHotelId || undefined), [currentHotelId]);
+
+  // 5. Load rating distribution raw values to calculate star rating counts
+  const {
+    data: ratingsDistributionRaw,
+    loading: ratingsLoading,
+  } = useFetch(async () => {
+    let query = supabase.from('reviews').select('rating');
+    if (currentHotelId) {
+      query = query.eq('hotel_id', currentHotelId);
+    }
+    const { data } = await query;
+    return data || [];
+  }, [currentHotelId]);
 
   // Set API status indicator
   useEffect(() => {
@@ -72,39 +94,47 @@ export default function Dashboard() {
     }
   }, [metrics, recentReviewsData, setIsApiOnline]);
 
-  // Extract dynamic values with safe fallback to screenshot values
-  let totalReviews = 1248;
-  let avgRating = 4.6;
-  let aiResponseRate = 78;
-  let draftReviews = 7;
-  let publishedReviews = 942;
+  // Compute metrics with default fallbacks
+  let totalReviews = 0;
+  let avgRating = 0;
+  let aiResponseRate = 0;
+  let draftReviews = 0;
+  let publishedReviews = 0;
 
   if (metrics && metrics.length > 0) {
     const rawTotal = metrics.find(m => m.title === 'Total Reviews')?.value;
-    if (rawTotal && Number(rawTotal) > 0) {
-      totalReviews = Number(rawTotal);
+    if (rawTotal !== undefined) totalReviews = Number(rawTotal);
 
-      const rawAvg = metrics.find(m => m.title === 'Average Rating')?.value;
-      if (rawAvg) {
-        const parsedAvg = parseFloat(String(rawAvg).split('/')[0]);
-        if (!isNaN(parsedAvg) && parsedAvg > 0) avgRating = Number(parsedAvg.toFixed(1));
-      }
-
-      const rawAi = metrics.find(m => m.title === 'AI Response Rate')?.value;
-      if (rawAi) {
-        const parsedAi = parseInt(String(rawAi).replace('%', ''), 10);
-        if (!isNaN(parsedAi)) aiResponseRate = parsedAi;
-      }
-
-      const rawDraft = metrics.find(m => m.title === 'Draft Reviews')?.value;
-      if (rawDraft !== undefined) draftReviews = Number(rawDraft);
-
-      const rawPub = metrics.find(m => m.title === 'Published Reviews')?.value;
-      if (rawPub !== undefined) publishedReviews = Number(rawPub);
+    const rawAvg = metrics.find(m => m.title === 'Average Rating')?.value;
+    if (rawAvg) {
+      const parsedAvg = parseFloat(String(rawAvg).split('/')[0]);
+      if (!isNaN(parsedAvg)) avgRating = Number(parsedAvg.toFixed(1));
     }
+
+    const rawAi = metrics.find(m => m.title === 'AI Response Rate')?.value;
+    if (rawAi) {
+      const parsedAi = parseInt(String(rawAi).replace('%', ''), 10);
+      if (!isNaN(parsedAi)) aiResponseRate = parsedAi;
+    }
+
+    const rawDraft = metrics.find(m => m.title === 'Draft Reviews')?.value;
+    if (rawDraft !== undefined) draftReviews = Number(rawDraft);
+
+    const rawPub = metrics.find(m => m.title === 'Published Reviews')?.value;
+    if (rawPub !== undefined) publishedReviews = Number(rawPub);
   }
 
-  // Trend Chart mock dataset matching the screenshot
+  // Determine if using demo data (0 real database records)
+  const isDemoData = totalReviews === 0;
+
+  // Hardcoded Demo Values mapping
+  const finalTotalReviews = isDemoData ? 1248 : totalReviews;
+  const finalAvgRating = isDemoData ? 4.6 : avgRating;
+  const finalAiResponseRate = isDemoData ? 78 : aiResponseRate;
+  const finalDraftReviews = isDemoData ? 7 : draftReviews;
+  const finalPublishedReviews = isDemoData ? 942 : publishedReviews;
+
+  // Trend Chart datasets
   const trendDataMock = [
     { date: '1 Haz', Google: 42, Tripadvisor: 23 },
     { date: '4 Haz', Google: 60, Tripadvisor: 28 },
@@ -117,20 +147,58 @@ export default function Dashboard() {
     { date: '29 Haz', Google: 80, Tripadvisor: 28 },
   ];
 
-  // Donut Chart breakdown matching the screenshot
-  const distributionData = [
-    { name: 'Mükemmel (5★)', value: Math.round(totalReviews * 0.522) || 652, percentage: '52.2%', color: '#10b981' },
-    { name: 'İyi (4★)', value: Math.round(totalReviews * 0.306) || 382, percentage: '30.6%', color: '#3b82f6' },
-    { name: 'Orta (3★)', value: Math.round(totalReviews * 0.109) || 136, percentage: '10.9%', color: '#f59e0b' },
-    { name: 'Kötü (2★)', value: Math.round(totalReviews * 0.038) || 48, percentage: '3.8%', color: '#f97316' },
-    { name: 'Çok Kötü (1★)', value: Math.round(totalReviews * 0.025) || 30, percentage: '2.5%', color: '#ef4444' },
-  ];
+  const trendData = isDemoData ? trendDataMock : (trends || []);
+
+  // Unique platforms for trend lines
+  const trendPlatforms = new Set<string>();
+  if (trends && !isDemoData) {
+    trends.forEach((t: any) => {
+      Object.keys(t).forEach(k => {
+        if (k !== 'date' && k !== 'count' && k !== 'sumRating' && k !== 'positive' && k !== 'neutral' && k !== 'negative') {
+          trendPlatforms.add(k);
+        }
+      });
+    });
+  }
+  const activePlatforms = isDemoData ? ['Google', 'Tripadvisor'] : Array.from(trendPlatforms);
+
+  // Donut Chart breakdown
+  const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  if (ratingsDistributionRaw && ratingsDistributionRaw.length > 0) {
+    ratingsDistributionRaw.forEach((r: any) => {
+      const val = Math.round(Number(r.rating || 5));
+      const rating = Math.max(1, Math.min(5, val)) as 5 | 4 | 3 | 2 | 1;
+      ratingCounts[rating]++;
+    });
+  }
+
+  const distributionData = isDemoData
+    ? [
+        { name: 'Mükemmel (5★)', value: 652, percentage: '52.2%', color: '#10b981' },
+        { name: 'İyi (4★)', value: 382, percentage: '30.6%', color: '#3b82f6' },
+        { name: 'Orta (3★)', value: 136, percentage: '10.9%', color: '#f59e0b' },
+        { name: 'Kötü (2★)', value: 48, percentage: '3.8%', color: '#f97316' },
+        { name: 'Çok Kötü (1★)', value: 30, percentage: '2.5%', color: '#ef4444' },
+      ]
+    : [
+        { name: 'Mükemmel (5★)', value: ratingCounts[5], percentage: finalTotalReviews > 0 ? `${((ratingCounts[5] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#10b981' },
+        { name: 'İyi (4★)', value: ratingCounts[4], percentage: finalTotalReviews > 0 ? `${((ratingCounts[4] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#3b82f6' },
+        { name: 'Orta (3★)', value: ratingCounts[3], percentage: finalTotalReviews > 0 ? `${((ratingCounts[3] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#f59e0b' },
+        { name: 'Kötü (2★)', value: ratingCounts[2], percentage: finalTotalReviews > 0 ? `${((ratingCounts[2] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#f97316' },
+        { name: 'Çok Kötü (1★)', value: ratingCounts[1], percentage: finalTotalReviews > 0 ? `${((ratingCounts[1] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#ef4444' },
+      ];
 
   // Platform Share stats
-  const googleShare = Math.round(totalReviews * 0.675) || 842;
-  const tripadvisorShare = Math.round(totalReviews * 0.229) || 286;
-  const bookingShare = Math.round(totalReviews * 0.067) || 84;
-  const otherShare = totalReviews - (googleShare + tripadvisorShare + bookingShare);
+  const googleItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'google');
+  const tripadvisorItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'tripadvisor');
+  const bookingItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'booking');
+
+  const googleShare = isDemoData ? 842 : (googleItem ? googleItem.count : 0);
+  const tripadvisorShare = isDemoData ? 286 : (tripadvisorItem ? tripadvisorItem.count : 0);
+  const bookingShare = isDemoData ? 84 : (bookingItem ? bookingItem.count : 0);
+
+  const totalMapped = googleShare + tripadvisorShare + bookingShare;
+  const otherShare = finalTotalReviews > totalMapped ? finalTotalReviews - totalMapped : 0;
 
   // Fallback Reviews list
   const fallbackReviews: ScrapedReview[] = [
@@ -166,28 +234,27 @@ export default function Dashboard() {
     }
   ];
 
-  // Map dynamic reviews if available
+  // Map dynamic reviews
   const displayReviews: ScrapedReview[] = (recentReviewsData?.reviews && recentReviewsData.reviews.length > 0)
-    ? recentReviewsData.reviews.slice(0, 3).map((r: any, idx: number) => {
+    ? recentReviewsData.reviews.slice(0, 5).map((r: any, idx: number) => {
         let statusStr = 'AI Yanıt Hazır';
         if (r.status === 'published') statusStr = 'Yayınlandı';
         else if (r.status === 'waiting_approval') statusStr = 'Onay Bekliyor';
 
-        // Find active hotel name from context list
         const hName = hotels?.find(h => h.id === r.hotelId)?.name || 'Demo Hotel';
 
         return {
           id: r.id || String(idx),
-          guestName: r.guestName || 'Guest',
-          comment: r.comment || 'No review comment text provided.',
+          guestName: r.guestName || 'Misafir',
+          comment: r.reviewText || r.comment || 'Detay açıklaması girilmemiş.',
           hotel: hName,
           rating: r.rating || 5,
-          source: r.source || 'Google',
+          source: r.source || r.platform || 'Google',
           status: statusStr,
           relativeDate: 'Şimdi'
         };
       })
-    : fallbackReviews;
+    : isDemoData ? fallbackReviews : [];
 
   const renderStars = (count: number) => {
     return (
@@ -206,9 +273,18 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 text-slate-800">
       {/* Title Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900 m-0">Dashboard</h1>
-        <p className="text-xs text-slate-500">Genel bakış ve önemli istatistikler</p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 m-0">Dashboard</h1>
+            {isDemoData && (
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700 tracking-wide uppercase">
+                Demo Veri
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500">Genel bakış ve önemli istatistikler</p>
+        </div>
       </div>
 
       {/* KPI Cards Row */}
@@ -218,7 +294,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-slate-500">Toplam Yorum</span>
-              <h3 className="text-2xl font-bold text-slate-950">{totalReviews.toLocaleString()}</h3>
+              <h3 className="text-2xl font-bold text-slate-950">{finalTotalReviews.toLocaleString()}</h3>
             </div>
             <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500 shrink-0">
               <MessageSquare size={18} />
@@ -235,7 +311,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-slate-500">Ortalama Puan</span>
-              <h3 className="text-2xl font-bold text-slate-950">{avgRating}</h3>
+              <h3 className="text-2xl font-bold text-slate-950">{finalAvgRating}</h3>
             </div>
             <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
               <Star size={18} />
@@ -252,7 +328,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-slate-500">AI Yanıt Oranı</span>
-              <h3 className="text-2xl font-bold text-slate-950">%{aiResponseRate}</h3>
+              <h3 className="text-2xl font-bold text-slate-950">%{finalAiResponseRate}</h3>
             </div>
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
               <Sparkles size={18} />
@@ -269,7 +345,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-slate-500">Onay Bekleyen</span>
-              <h3 className="text-2xl font-bold text-slate-950">{draftReviews}</h3>
+              <h3 className="text-2xl font-bold text-slate-950">{finalDraftReviews}</h3>
             </div>
             <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
               <Clock size={18} />
@@ -286,7 +362,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-slate-500">Yayınlanan Yanıt</span>
-              <h3 className="text-2xl font-bold text-slate-950">{publishedReviews}</h3>
+              <h3 className="text-2xl font-bold text-slate-950">{finalPublishedReviews}</h3>
             </div>
             <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center text-teal-500 shrink-0">
               <CheckCircle size={18} />
@@ -311,26 +387,23 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6] inline-block"></span>
-                  Google
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] inline-block"></span>
-                  Tripadvisor
-                </span>
+                {activePlatforms.map((platform, idx) => {
+                  const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f97316', '#ef4444'];
+                  const bulletColor = colors[idx % colors.length];
+                  return (
+                    <span key={platform} className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: bulletColor }}></span>
+                      {platform}
+                    </span>
+                  );
+                })}
               </div>
-              <select className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600 outline-none cursor-pointer">
-                <option>Son 30 Gün</option>
-                <option>Son 7 Gün</option>
-                <option>Son 90 Gün</option>
-              </select>
             </div>
           </div>
 
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendDataMock} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} tickLine={false} />
                 <YAxis stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
@@ -339,8 +412,21 @@ export default function Dashboard() {
                   labelStyle={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}
                   itemStyle={{ fontSize: 12, fontWeight: 500 }}
                 />
-                <Line type="monotone" dataKey="Google" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                <Line type="monotone" dataKey="Tripadvisor" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                {activePlatforms.map((platform, idx) => {
+                  const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f97316', '#ef4444'];
+                  const strokeColor = colors[idx % colors.length];
+                  return (
+                    <Line
+                      key={platform}
+                      type="monotone"
+                      dataKey={platform}
+                      stroke={strokeColor}
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: strokeColor, strokeWidth: 0 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -350,9 +436,6 @@ export default function Dashboard() {
         <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col h-[400px]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-slate-800">Yorum Dağılımı</h3>
-            <select className="px-3 py-1 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 outline-none cursor-pointer">
-              <option>Tüm Oteller</option>
-            </select>
           </div>
 
           <div className="relative w-full h-[150px] flex items-center justify-center">
@@ -376,7 +459,7 @@ export default function Dashboard() {
 
             {/* Total count inside donut */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold text-slate-900 leading-none">{totalReviews.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-slate-900 leading-none">{finalTotalReviews.toLocaleString()}</span>
               <span className="text-[10px] text-slate-400 font-semibold mt-1">Toplam</span>
             </div>
           </div>
@@ -413,11 +496,11 @@ export default function Dashboard() {
                   Google
                 </span>
                 <span className="text-slate-500 font-medium">
-                  {googleShare} <span className="text-slate-400 font-normal">({((googleShare / totalReviews) * 100).toFixed(1)}%)</span>
+                  {googleShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((googleShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
                 </span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-purple-500 h-full rounded-full" style={{ width: `${(googleShare / totalReviews) * 100}%` }}></div>
+                <div className="bg-purple-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (googleShare / finalTotalReviews) * 100 : 0}%` }}></div>
               </div>
             </div>
 
@@ -429,11 +512,11 @@ export default function Dashboard() {
                   Tripadvisor
                 </span>
                 <span className="text-slate-500 font-medium">
-                  {tripadvisorShare} <span className="text-slate-400 font-normal">({((tripadvisorShare / totalReviews) * 100).toFixed(1)}%)</span>
+                  {tripadvisorShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((tripadvisorShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
                 </span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-500 h-full rounded-full" style={{ width: `${(tripadvisorShare / totalReviews) * 100}%` }}></div>
+                <div className="bg-blue-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (tripadvisorShare / finalTotalReviews) * 100 : 0}%` }}></div>
               </div>
             </div>
 
@@ -445,11 +528,11 @@ export default function Dashboard() {
                   Booking.com
                 </span>
                 <span className="text-slate-500 font-medium">
-                  {bookingShare} <span className="text-slate-400 font-normal">({((bookingShare / totalReviews) * 100).toFixed(1)}%)</span>
+                  {bookingShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((bookingShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
                 </span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${(bookingShare / totalReviews) * 100}%` }}></div>
+                <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (bookingShare / finalTotalReviews) * 100 : 0}%` }}></div>
               </div>
             </div>
 
@@ -461,11 +544,11 @@ export default function Dashboard() {
                   Diğer
                 </span>
                 <span className="text-slate-500 font-medium">
-                  {otherShare} <span className="text-slate-400 font-normal">({((otherShare / totalReviews) * 100).toFixed(1)}%)</span>
+                  {otherShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((otherShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
                 </span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-slate-400 h-full rounded-full" style={{ width: `${(otherShare / totalReviews) * 100}%` }}></div>
+                <div className="bg-slate-400 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (otherShare / finalTotalReviews) * 100 : 0}%` }}></div>
               </div>
             </div>
           </div>
@@ -488,41 +571,49 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {displayReviews.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3">
-                        <div className="flex items-start gap-3 min-w-[200px]">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0">
-                            {r.guestName.split(' ').map(part => part[0]).join('').slice(0, 2)}
-                          </div>
-                          <div className="space-y-0.5">
-                            <div className="font-semibold text-slate-800">{r.guestName}</div>
-                            <div className="text-[10px] text-slate-400 leading-normal line-clamp-1">{r.comment}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 text-slate-500 font-medium">{r.hotel}</td>
-                      <td className="py-3">{renderStars(r.rating)}</td>
-                      <td className="py-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          r.source.toLowerCase() === 'google' 
-                            ? 'bg-red-50 text-red-500 border border-red-100' 
-                            : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                        }`}>
-                          {r.source}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          r.status === 'AI Yanıt Hazır' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                          r.status === 'Onay Bekliyor' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                          'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                        }`}>
-                          {r.status}
-                        </span>
+                  {displayReviews.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400">
+                        Henüz yorum bulunmamaktadır.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    displayReviews.map((r) => (
+                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3">
+                          <div className="flex items-start gap-3 min-w-[200px]">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0">
+                              {r.guestName.split(' ').map(part => part[0]).join('').slice(0, 2)}
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="font-semibold text-slate-800">{r.guestName}</div>
+                              <div className="text-[10px] text-slate-400 leading-normal line-clamp-1">{r.comment}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 text-slate-500 font-medium">{r.hotel}</td>
+                        <td className="py-3">{renderStars(r.rating)}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            r.source.toLowerCase() === 'google' 
+                              ? 'bg-red-50 text-red-500 border border-red-100' 
+                              : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          }`}>
+                            {r.source}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            r.status === 'AI Yanıt Hazır' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                            r.status === 'Onay Bekliyor' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                            'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
