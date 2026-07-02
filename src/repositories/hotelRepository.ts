@@ -86,7 +86,7 @@ export const hotelRepository = {
       connectionStatus: 'connected',
       googleMapsLink: item.google_maps_url || item.google_maps_link,
       googleMapsUrl: item.google_maps_url || item.google_maps_link,
-      tripadvisorUrl: item.tripadvisor_url,
+      tripadvisorUrl: item.tripadvisor_url || '',
       address: item.address,
       phone: item.phone,
       website: item.website,
@@ -107,9 +107,9 @@ export const hotelRepository = {
       .insert({
         name: hotel.name,
         organization_id: hotel.organizationId,
-        google_maps_link: hotel.googleMapsLink,
-        google_maps_url: hotel.googleMapsLink,
-        tripadvisor_url: hotel.tripadvisorUrl
+        google_maps_link: hotel.googleMapsLink || null,
+        google_maps_url: hotel.googleMapsLink || null,
+        tripadvisor_url: hotel.tripadvisorUrl || null
       })
       .select()
       .maybeSingle();
@@ -166,9 +166,9 @@ export const hotelRepository = {
       .update({
         name: hotel.name,
         organization_id: hotel.organizationId,
-        google_maps_link: hotel.googleMapsLink,
-        google_maps_url: hotel.googleMapsLink,
-        tripadvisor_url: hotel.tripadvisorUrl
+        google_maps_link: hotel.googleMapsLink || null,
+        google_maps_url: hotel.googleMapsLink || null,
+        tripadvisor_url: hotel.tripadvisorUrl || null
       })
       .eq('id', id)
       .select()

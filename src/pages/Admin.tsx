@@ -543,6 +543,9 @@ export default function Admin() {
       console.log('[DEBUG-ADMIN-SAVE] Saving hotel values:');
       console.log('  - State hotelGoogleMapsLink:', hotelGoogleMapsLink);
       console.log('  - State hotelTripadvisorLink:', hotelTripadvisorLink);
+      console.log('[DEBUG-TRIPADVISOR-SAVE]');
+      console.log('  - hotelId:', editingHotel?.id || 'new');
+      console.log('  - tripadvisorUrl:', hotelTripadvisorLink);
 
       if (isAddingHotel) {
         await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink, tripadvisorUrl: hotelTripadvisorLink });
