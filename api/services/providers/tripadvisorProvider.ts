@@ -19,13 +19,16 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     startUrls: [
       { url: targetUrl }
     ],
-    maxItemsPerQuery: 100,
-    reviewRatings: ['ALL_REVIEW_RATINGS'],
-    reviewsLanguages: ['ALL_REVIEW_LANGUAGES']
+    maxItemsPerQuery: 50,
+    reviewRatings: ["ALL_REVIEW_RATINGS"],
+    reviewsLanguages: ["ALL_REVIEW_LANGUAGES"],
+    scrapeReviewerInfo: true,
+    disableMachineTranslations: false
   };
 
+  console.log("TRIPADVISOR URL:", targetUrl);
+  console.log("ACTOR PAYLOAD:", JSON.stringify(payload, null, 2));
   console.log(`[Tripadvisor Provider] Running actor: ${rawActorId} (encoded: ${encodedActorId})`);
-  console.log('[Tripadvisor Provider] Sending payload (token hidden):', JSON.stringify(payload, null, 2));
 
   let response;
   try {
