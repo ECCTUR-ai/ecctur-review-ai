@@ -1,7 +1,7 @@
 // src/services/reviewService.ts
 import { supabase } from '@/lib/supabase';
 import { Review, ReviewSource, Sentiment, ReviewStatus, ReviewPriority } from '@/types';
-import { reviewRepository } from '@/repositories/reviewRepository';
+import { reviewRepository, mapReview } from '@/repositories/reviewRepository';
 import { settingsService } from './settingsService';
 
 export const testReviews: Review[] = [
@@ -1360,5 +1360,31 @@ export const reviewService = {
     }
 
     return result;
+  },
+
+  async publishGoogleReply(reviewId: string): Promise<{ success: boolean; review: Review }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/reviews?action=publish-google-reply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ reviewId })
+    });
+
+    if (!response.ok) {
+      const errRes = await response.json().catch(() => ({ error: 'Publishing failed' }));
+      throw new Error(errRes.error || 'Publishing failed');
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      review: mapReview(data.review)
+    };
   }
 };

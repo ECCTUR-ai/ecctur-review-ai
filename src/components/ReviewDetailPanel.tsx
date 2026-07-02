@@ -34,6 +34,7 @@ interface ReviewDetailPanelProps {
   onSaveDraft: (id: string, response: string) => void;
   onGenerateAiReply: (id: string) => Promise<string>;
   onUpdateNotes: (id: string, managerNotes: string, internalNotes: string) => void;
+  onPublishGoogleReply?: (id: string) => Promise<void>;
 }
 
 export function ReviewDetailPanel({
@@ -43,6 +44,7 @@ export function ReviewDetailPanel({
   onSaveDraft,
   onGenerateAiReply,
   onUpdateNotes,
+  onPublishGoogleReply,
 }: ReviewDetailPanelProps) {
   const { hasPermission } = useAuth();
   const canManageReviews = hasPermission('manage:reviews');
@@ -55,6 +57,8 @@ export function ReviewDetailPanel({
   const [internalNotes, setInternalNotes] = useState(review.internalNotes || '');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
 
   // Task creation local states
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -153,6 +157,23 @@ export function ReviewDetailPanel({
     const text = encodeURIComponent(`Misafir Yorumu (${review.guestName}):\n"${review.comment}"\n\nAI Önerilen Cevap:\n"${responseVal}"`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
+
+  const handlePublishGoogleClick = async () => {
+    if (!responseVal || !onPublishGoogleReply) return;
+    const confirmPublish = window.confirm("Bu cevabı Google yorumuna işletmeci yanıtı olarak yayınlamak istiyor musunuz?");
+    if (!confirmPublish) return;
+
+    setIsPublishing(true);
+    try {
+      await onPublishGoogleReply(review.id);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Yayınlama sırasında bir hata oluştu.');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -429,6 +450,19 @@ export function ReviewDetailPanel({
                       >
                         Onaya Gönder
                       </button>
+                      
+                      {review.source === 'Google' && (
+                        <button
+                          type="button"
+                          disabled={!responseVal || isPublishing}
+                          onClick={handlePublishGoogleClick}
+                          className="px-3.5 py-1.5 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500 disabled:opacity-50 text-[10px] font-bold text-white transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <Send size={11} />
+                          {isPublishing ? 'Yayınlanıyor...' : "Google'a Yayınla"}
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => onSubmitResponse(review.id, responseVal)}

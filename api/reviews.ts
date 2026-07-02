@@ -1215,5 +1215,70 @@ ${JSON.stringify(reviewsSample)}
     }
   }
 
+  // -------------------------------------------------------------
+  // Action: publish-google-reply
+  // -------------------------------------------------------------
+  if (action === 'publish-google-reply') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    const { reviewId } = req.body;
+    if (!reviewId) {
+      return res.status(400).json({ success: false, error: 'Missing reviewId parameter' });
+    }
+
+    try {
+      // 1. Fetch review to identify hotel
+      const { data: review, error: rErr } = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('id', reviewId)
+        .maybeSingle();
+
+      if (rErr || !review) {
+        return res.status(404).json({ success: false, error: 'Yorum bulunamadı.' });
+      }
+
+      const hotelId = review.hotel_id;
+
+      // 2. Authorization and clearance check
+      const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+      let userRole = userRolesData?.[0]?.roles?.name;
+      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+        userRole = 'Super Admin';
+      }
+      const roleNameLower = (userRole || 'staff').toLowerCase();
+
+      if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
+        const { data: userHotels } = await supabaseAdmin.from('user_hotels').select('*').eq('profile_id', user.id).eq('hotel_id', hotelId);
+        if (!userHotels || userHotels.length === 0) {
+          return res.status(403).json({ success: false, error: 'Forbidden: You do not have clearance for this hotel.' });
+        }
+      }
+
+      // 3. Call publish service
+      const { publishGoogleReply } = await import('../api-services/googleReplyService.js');
+      const publishRes = await publishGoogleReply(reviewId);
+
+      // 4. Fetch the updated review to return it
+      const { data: updatedReview } = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('id', reviewId)
+        .maybeSingle();
+
+      return res.status(200).json({
+        success: true,
+        mock: publishRes.mock,
+        message: publishRes.message,
+        review: updatedReview
+      });
+    } catch (err: any) {
+      console.error('[API publish-google-reply] Failure:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Yayınlama başarısız oldu' });
+    }
+  }
+
   return res.status(400).json({ error: `Unknown action: ${action}` });
 }

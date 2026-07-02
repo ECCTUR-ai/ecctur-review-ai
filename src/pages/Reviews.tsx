@@ -713,6 +713,23 @@ export default function Reviews() {
     }
   };
 
+  const handlePublishGoogleReply = async (id: string) => {
+    try {
+      const res = await reviewService.publishGoogleReply(id);
+      if (res.success) {
+        setToastMessage("Cevap Google Business Profile üzerinden başarıyla yayınlandı.");
+        if (res.review && res.review.id) {
+          setSelectedReviewDetail(res.review);
+        }
+        refetch();
+      }
+    } catch (err: any) {
+      console.error('Failed to publish Google reply:', err);
+      throw err;
+    }
+  };
+
+
   const handleSaveDraft = async (id: string, responseText: string) => {
     try {
       const updated = await reviewService.saveResponseDraft(id, responseText);
@@ -992,6 +1009,7 @@ export default function Reviews() {
               onSaveDraft={handleSaveDraft}
               onGenerateAiReply={handleGenerateAiReply}
               onUpdateNotes={handleUpdateNotes}
+              onPublishGoogleReply={handlePublishGoogleReply}
             />
           ) : (
             <div className="rounded-2xl p-12 text-center h-[60vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white shadow-sm">
