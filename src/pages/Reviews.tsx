@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
-import { reviewService } from '@/services/reviewService';
+import { reviewService, testReviews } from '@/services/reviewService';
 import { ReviewCard } from '@/components/ReviewCard';
 import { ReviewFilters } from '@/components/ReviewFilters';
 import { ReviewDetailPanel } from '@/components/ReviewDetailPanel';
@@ -168,6 +168,11 @@ export default function Reviews() {
       setSelectedReviewDetail(null);
       return;
     }
+    const foundTest = testReviews.find(r => r.id === selectedReviewId);
+    if (foundTest) {
+      setSelectedReviewDetail(foundTest);
+      return;
+    }
     setIsLoadingDetail(true);
     reviewService.getReviewById(selectedReviewId)
       .then((data) => {
@@ -181,7 +186,20 @@ export default function Reviews() {
       });
   }, [selectedReviewId]);
 
-  const reviews = data?.reviews || [];
+  let reviews = data?.reviews || [];
+  if (reviews.length === 0) {
+    reviews = testReviews.filter(r => {
+      if (source && r.source !== source) return false;
+      if (status && r.status !== status) return false;
+      if (priority && r.priority !== priority) return false;
+      if (rating && r.rating !== Number(rating)) return false;
+      if (search) {
+        const term = search.toLowerCase();
+        return r.comment.toLowerCase().includes(term) || r.guestName.toLowerCase().includes(term);
+      }
+      return true;
+    });
+  }
 
   const totalReviews = reviews.length;
   const totalPages = Math.ceil(totalReviews / pageSize);

@@ -4,6 +4,74 @@ import { Review, ReviewSource, Sentiment, ReviewStatus, ReviewPriority } from '@
 import { reviewRepository } from '@/repositories/reviewRepository';
 import { settingsService } from './settingsService';
 
+export const testReviews: Review[] = [
+  {
+    id: 'test-tr-pos',
+    guestName: 'Kaan Demir',
+    rating: 5,
+    comment: 'Otelimizin temizliği ve konumu mükemmeldi. Çalışanların güler yüzlü ve yardımsever olması bizi çok mutlu etti. Yemekler de gayet lezzetliydi, kesinlikle tavsiye ediyorum.',
+    date: new Date().toISOString(),
+    source: 'Google',
+    status: 'draft',
+    priority: 'low',
+    sentiment: 'positive',
+    departments: ['Cleanliness', 'Staff', 'Food'],
+    hotel: 'Demo Hotel'
+  },
+  {
+    id: 'test-tr-neg',
+    guestName: 'Burak Kaya',
+    rating: 2,
+    comment: 'Odalar oldukça küçük ve eskiydi. Ayrıca restoranda servis çok yavaştı, yemekler soğuk geldi. Beklentilerimizin altında kaldı.',
+    date: new Date().toISOString(),
+    source: 'TripAdvisor',
+    status: 'draft',
+    priority: 'medium',
+    sentiment: 'negative',
+    departments: ['Room', 'Service', 'Food'],
+    hotel: 'Demo Hotel'
+  },
+  {
+    id: 'test-en-pos',
+    guestName: 'Jessica Miller',
+    rating: 5,
+    comment: 'Absolutely wonderful stay! The rooms were spacious and exceptionally clean. The spa and pool facilities were extremely relaxing, and the reception staff welcomed us warmly.',
+    date: new Date().toISOString(),
+    source: 'Booking',
+    status: 'draft',
+    priority: 'low',
+    sentiment: 'positive',
+    departments: ['Room', 'Spa', 'Staff'],
+    hotel: 'Demo Hotel'
+  },
+  {
+    id: 'test-ru-neg',
+    guestName: 'Дмитрий Иванов',
+    rating: 2,
+    comment: 'Номер был грязным при заселении, кондиционер сильно шумел и мешал спать. Персонал на ресепшене был не очень вежливым. Бассейн тоже показался холодным.',
+    date: new Date().toISOString(),
+    source: 'Google',
+    status: 'draft',
+    priority: 'high',
+    sentiment: 'negative',
+    departments: ['Room', 'Staff', 'Spa'],
+    hotel: 'Demo Hotel'
+  },
+  {
+    id: 'test-de-mix',
+    guestName: 'Hans Schmidt',
+    rating: 3,
+    comment: 'Die Lage des Hotels is ausgezeichnet und das Frühstück war sehr lecker. Allerdings war unser Zimmer recht laut wegen der nahen Straße und das WLAN funktionierte kaum.',
+    date: new Date().toISOString(),
+    source: 'Expedia',
+    status: 'draft',
+    priority: 'medium',
+    sentiment: 'neutral',
+    departments: ['Location', 'Food', 'Room'],
+    hotel: 'Demo Hotel'
+  }
+];
+
 export const reviewService = {
   async getReviews(params?: {
     hotelId?: string;
@@ -20,6 +88,10 @@ export const reviewService = {
   },
 
   async getReviewById(id: string): Promise<Review> {
+    if (id.startsWith('test-')) {
+      const found = testReviews.find(r => r.id === id);
+      if (found) return found;
+    }
     return await reviewRepository.getReviewById(id);
   },
 
@@ -64,23 +136,80 @@ export const reviewService = {
 
       // 1. Detect Guest Language
       const detectLanguage = (text: string): 'tr' | 'en' | 'de' | 'ru' => {
-        const trWords = ["çok", "iyi", "otel", "personel", "harika", "oda", "temiz", "güzel", "yemek", "konum", "memnun", "tavsiye", "değil", "ama", "ancak", "servis", "memnuniyet"];
-        const deWords = ["sehr", "gut", "hotel", "zimmer", "freundlich", "sauber", "schön", "essen", "lage", "zufrieden", "empfehlen", "nicht", "aber", "service", "frühstück"];
-        const ruWords = ["очень", "хорошо", "отель", "номер", "персонал", "чисто", "красиво", "еда", "расположение", "доволен", "рекомендую", "не", "но", "сервис"];
-        
         const commentLower = text.toLowerCase();
-        let trCount = 0;
-        let deCount = 0;
-        let ruCount = 0;
         
-        trWords.forEach(w => { if (commentLower.includes(w)) trCount++; });
-        deWords.forEach(w => { if (commentLower.includes(w)) deCount++; });
-        ruWords.forEach(w => { if (commentLower.includes(w)) ruCount++; });
-        
-        if (trCount > deCount && trCount > ruCount && trCount > 0) return 'tr';
-        if (deCount > trCount && deCount > ruCount && deCount > 0) return 'de';
-        if (ruCount > trCount && ruCount > deCount && ruCount > 0) return 'ru';
-        
+        // A. Kiril karakter kontrolü (Rusça için en kesin belirteç)
+        const cyrillicRegex = /[\u0400-\u04FF]/;
+        if (cyrillicRegex.test(text)) {
+          return 'ru';
+        }
+
+        // B. Türkçe karakter kontrolü (ş, ı, ğ, ç, ö, ü)
+        // Not: ö ve ü Almancada da var, bu yüzden ş, ı, ğ, ç daha belirgin
+        const turkishSpecialRegex = /[şığç]/;
+        if (turkishSpecialRegex.test(commentLower)) {
+          return 'tr';
+        }
+
+        // C. Almanca karakter kontrolü (ä, ß)
+        const germanSpecialRegex = /[äß]/;
+        if (germanSpecialRegex.test(commentLower)) {
+          return 'de';
+        }
+
+        // D. Kelime bazlı puanlama
+        const trWords = ["çok", "iyi", "otel", "personel", "harika", "oda", "temiz", "güzel", "yemek", "konum", "memnun", "tavsiye", "değil", "ama", "ancak", "servis", "memnuniyet", "banyo", "konfor", "havuz", "spa", "rezervasyon"];
+        const deWords = ["sehr", "gut", "hotel", "zimmer", "freundlich", "sauber", "schön", "essen", "lage", "zufrieden", "empfehlen", "nicht", "aber", "service", "frühstück", "bad", "komfort", "pool", "wellness", "buchung", "und", "der", "die", "das", "ist", "in", "mit"];
+        const ruWords = ["очень", "хорошо", "отель", "номер", "персонал", "чисто", "красиво", "еда", "расположение", "доволен", "рекомендую", "не", "но", "сервис", "бассейн", "бронирование"];
+        const enWords = ["very", "good", "hotel", "room", "friendly", "clean", "nice", "food", "location", "happy", "recommend", "not", "but", "service", "breakfast", "pool", "spa", "staff", "booking", "and", "the", "with", "was", "for", "stay"];
+
+        let trScore = 0;
+        let deScore = 0;
+        let ruScore = 0;
+        let enScore = 0;
+
+        trWords.forEach(w => {
+          const regex = new RegExp(`\\b${w}\\b`, 'g');
+          const matches = commentLower.match(regex);
+          if (matches) trScore += matches.length;
+        });
+
+        deWords.forEach(w => {
+          const regex = new RegExp(`\\b${w}\\b`, 'g');
+          const matches = commentLower.match(regex);
+          if (matches) deScore += matches.length;
+        });
+
+        ruWords.forEach(w => {
+          const regex = new RegExp(`\\b${w}\\b`, 'g');
+          const matches = commentLower.match(regex);
+          if (matches) ruScore += matches.length;
+        });
+
+        enWords.forEach(w => {
+          const regex = new RegExp(`\\b${w}\\b`, 'g');
+          const matches = commentLower.match(regex);
+          if (matches) enScore += matches.length;
+        });
+
+        // Kararsız kalma durumlarında ek karakter analizleri
+        if (trScore === 0 && deScore === 0 && ruScore === 0 && enScore === 0) {
+          if (/[öü]/i.test(commentLower)) {
+            if (/\b(und|ist|in|die|der|das)\b/i.test(commentLower)) {
+              return 'de';
+            }
+            return 'tr';
+          }
+        }
+
+        const maxScore = Math.max(trScore, deScore, ruScore, enScore);
+        if (maxScore > 0) {
+          if (maxScore === trScore) return 'tr';
+          if (maxScore === deScore) return 'de';
+          if (maxScore === ruScore) return 'ru';
+          return 'en';
+        }
+
         return 'en';
       };
       
@@ -979,6 +1108,12 @@ export const reviewService = {
           .replace(/\[HotelName\]/g, reviewObj.hotel || 'our resort')
           .replace(/\[PraiseDetails\]/g, praiseStr)
           .replace(/\[ComplaintDetails\]/g, complaintStr);
+
+        // Dil doğrulama kontrolü: Oluşan cevabın dili, algılanan misafir diliyle eşleşmelidir
+        const replyLang = detectLanguage(reply);
+        if (replyLang !== guestLang && attempt < 9) {
+          continue; // Diller uyuşmuyorsa bu aday cevabı atla ve yeniden üret
+        }
 
         // Similarity check
         let maxSim = 0;
