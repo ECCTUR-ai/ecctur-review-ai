@@ -7,9 +7,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const styles: Record<ReviewStatus, string> = {
-    draft: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-    waiting_approval: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    published: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    draft: 'bg-slate-100 text-slate-700 border-slate-200',
+    waiting_approval: 'bg-amber-50 text-amber-700 border-amber-200',
+    published: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 
   const labels: Record<ReviewStatus, string> = {

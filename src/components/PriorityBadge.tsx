@@ -7,10 +7,10 @@ interface PriorityBadgeProps {
 
 export function PriorityBadge({ priority }: PriorityBadgeProps) {
   const styles: Record<ReviewPriority, string> = {
-    low: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    medium: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    high: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    critical: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    medium: 'bg-amber-50 text-amber-700 border-amber-200',
+    high: 'bg-rose-50 text-rose-700 border-rose-200',
+    critical: 'bg-red-50 text-red-700 border-red-200',
   };
 
   return (

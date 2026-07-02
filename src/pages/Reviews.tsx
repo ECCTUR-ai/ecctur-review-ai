@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Database,
   ArrowLeft,
-  Bell
+  Bell,
+  Sparkles
 } from 'lucide-react';
 
 import { hotelRepository } from '@/repositories/hotelRepository';
@@ -350,8 +351,8 @@ export default function Reviews() {
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div className="space-y-1.5">
-          <h1 className="text-xl font-bold text-slate-100 m-0">{t('reviews.title')}</h1>
-          <p className="text-xs text-slate-400">
+          <h1 className="text-xl font-bold text-slate-800 m-0">{t('reviews.title')}</h1>
+          <p className="text-xs text-slate-500">
             {t('reviews.subtitle')}
           </p>
         </div>
@@ -361,7 +362,7 @@ export default function Reviews() {
             <select
               value={importRange}
               onChange={(e) => setImportRange(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none text-slate-300 min-h-[36px]"
+              className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none text-slate-700 min-h-[36px]"
             >
               <option value="30">Son 30 gün</option>
               <option value="90">Son 90 gün</option>
@@ -374,7 +375,7 @@ export default function Reviews() {
           <button
             onClick={handleImport30DaysReviews}
             disabled={isImporting}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 min-h-[36px]"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 min-h-[36px] cursor-pointer"
           >
             <RefreshCw size={14} className={isImporting ? 'animate-spin' : ''} />
             <span>{isImporting ? 'İçe Aktarılıyor...' : t('reviews.import30Days')}</span>
@@ -383,7 +384,7 @@ export default function Reviews() {
           <button
             onClick={handleImportGoogleMapsReviews}
             disabled={isImportingGoogleMaps}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 min-h-[36px]"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 min-h-[36px] cursor-pointer"
           >
             <RefreshCw size={14} className={isImportingGoogleMaps ? 'animate-spin' : ''} />
             <span>{isImportingGoogleMaps ? 'Haritadan Çekiliyor...' : 'Google Maps Yorumlarını Çek'}</span>
@@ -392,7 +393,7 @@ export default function Reviews() {
           <button
             onClick={handleSyncReviews}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
           >
             <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
             <span>{isSyncing ? 'Syncing...' : t('reviews.sync')}</span>
@@ -401,7 +402,7 @@ export default function Reviews() {
           <button
             onClick={handleExportReviews}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-800 disabled:opacity-50 text-slate-300 font-semibold text-xs rounded-xl transition-all min-h-[36px]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
           >
             <Download size={14} className={isExporting ? 'animate-spin' : ''} />
             <span>{isExporting ? 'Exporting...' : t('reviews.export')}</span>
@@ -431,20 +432,20 @@ export default function Reviews() {
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl bg-white/[0.01] border border-slate-200 animate-pulse" />
+                <div key={i} className="h-32 rounded-2xl bg-white border border-slate-200 animate-pulse" />
               ))}
             </div>
           ) : error ? (
-            <div className="glass-panel p-6 rounded-2xl border-l-4 border-rose-500 text-rose-400 bg-rose-950/10 flex items-center gap-3">
-              <AlertCircle size={20} />
-              <span>{error}</span>
+            <div className="p-6 rounded-2xl border border-rose-200 text-rose-700 bg-rose-50 flex items-center gap-3">
+              <AlertCircle size={20} className="text-rose-500" />
+              <span className="font-semibold text-xs">{error}</span>
             </div>
           ) : reviews.length === 0 ? (
-            <div className="glass-panel rounded-2xl p-12 text-center space-y-4">
-              <Database className="mx-auto text-slate-600" size={40} />
-              <h3 className="text-sm font-semibold text-slate-400">{t('reviews.empty')}</h3>
-              <p className="text-xs text-slate-500 max-w-[280px] mx-auto">
-                No guest reviews match your filters or database is empty.
+            <div className="rounded-2xl p-12 text-center space-y-4 bg-white border border-slate-200 shadow-sm">
+              <Database className="mx-auto text-slate-300" size={40} />
+              <h3 className="text-sm font-bold text-slate-800">{t('reviews.empty')}</h3>
+              <p className="text-xs text-slate-500 max-w-[280px] mx-auto leading-relaxed">
+                Filtrelerinize uygun misafir yorumu bulunamadı veya veritabanı boş.
               </p>
             </div>
           ) : (
@@ -464,9 +465,9 @@ export default function Reviews() {
         {/* Right pane: Review detail card */}
         <div className="lg:col-span-1">
           {isLoadingDetail ? (
-            <div className="glass-panel rounded-2xl p-12 text-center h-[85vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white">
-              <RefreshCw className="animate-spin text-blue-500" size={32} />
-              <p className="text-xs text-slate-400">Loading operations center data...</p>
+            <div className="rounded-2xl p-12 text-center h-[60vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white shadow-sm">
+              <RefreshCw className="animate-spin text-blue-600" size={32} />
+              <p className="text-xs text-slate-500 font-semibold">Detay analiz verileri yükleniyor...</p>
             </div>
           ) : selectedReviewDetail ? (
             <ReviewDetailPanel
@@ -478,11 +479,13 @@ export default function Reviews() {
               onUpdateNotes={handleUpdateNotes}
             />
           ) : (
-            <div className="glass-panel rounded-2xl p-12 text-center space-y-4 h-64 flex flex-col justify-center items-center">
-              <AlertCircle className="mx-auto text-slate-600" size={36} />
-              <h3 className="text-sm font-semibold text-slate-400">No Review Selected</h3>
-              <p className="text-xs text-slate-500 max-w-[200px] mx-auto">
-                Select a review card on the list pane to view full comments, quality grades and generate AI answers.
+            <div className="rounded-2xl p-12 text-center h-[60vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500/10 to-purple-500/10 flex items-center justify-center text-blue-600 mb-2">
+                <Sparkles size={28} className="animate-pulse" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800">Bir yorum seçin</h3>
+              <p className="text-xs text-slate-500 max-w-[220px] mx-auto leading-relaxed font-medium">
+                AI analizi ve cevap taslağı burada görünecek.
               </p>
             </div>
           )}
@@ -491,16 +494,16 @@ export default function Reviews() {
 
       {/* Import Debug Summary Modal */}
       {importSummary && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg p-6 rounded-2xl border border-slate-200 shadow-2xl relative overflow-hidden space-y-6 text-slate-800">
             <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
-                <Bell size={16} className="text-blue-400" />
+              <h3 className="text-sm font-bold text-slate-850 flex items-center gap-2 m-0">
+                <Bell size={16} className="text-blue-600" />
                 <span>İçe Aktarım Sonuç Özeti</span>
               </h3>
               <button 
                 onClick={() => setImportSummary(null)}
-                className="text-xs text-slate-400 hover:text-slate-200"
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold"
               >
                 Kapat
               </button>
@@ -508,9 +511,9 @@ export default function Reviews() {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-3.5 text-xs">
-                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                  <span className="text-slate-400">Tarih Aralığı:</span>
-                  <span className="font-semibold text-slate-200">
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500">Tarih Aralığı:</span>
+                  <span className="font-semibold text-slate-800">
                     {importSummary.range === '30' && 'Son 30 gün'}
                     {importSummary.range === '90' && 'Son 90 gün'}
                     {importSummary.range === '180' && 'Son 180 gün'}
@@ -518,40 +521,40 @@ export default function Reviews() {
                     {importSummary.range === 'all' && 'Tüm zamanlar'}
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                  <span className="text-slate-400">Google’dan çekilen toplam:</span>
-                  <span className="font-bold text-blue-400">{importSummary.totalFetched}</span>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500">Google’dan çekilen toplam:</span>
+                  <span className="font-bold text-blue-600">{importSummary.totalFetched}</span>
                 </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                  <span className="text-slate-400">Mükerrer (Atlanan):</span>
-                  <span className="font-semibold text-amber-500">{importSummary.duplicateCount}</span>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500">Mükerrer (Atlanan):</span>
+                  <span className="font-semibold text-amber-600">{importSummary.duplicateCount}</span>
                 </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/[0.02]">
-                  <span className="text-slate-400">n8n’e gönderilen yeni:</span>
-                  <span className="font-bold text-emerald-400">{importSummary.importedCount}</span>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500">Sisteme eklenen yeni:</span>
+                  <span className="font-bold text-emerald-600">{importSummary.importedCount}</span>
                 </div>
                 <div className="flex justify-between items-center py-1.5">
-                  <span className="text-slate-400">Hata alan yorum:</span>
-                  <span className="font-semibold text-rose-500">{importSummary.failedCount}</span>
+                  <span className="text-slate-500">Hata alan yorum:</span>
+                  <span className="font-semibold text-rose-600">{importSummary.failedCount}</span>
                 </div>
               </div>
 
-              <div className="space-y-2 bg-slate-50/40 p-4 rounded-xl border border-white/[0.03]">
-                <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Debug Entegrasyon Durumu</h4>
-                <div className="text-[11px] text-slate-400 space-y-1.5 leading-relaxed">
+              <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h4 className="text-[10px] text-slate-550 font-bold uppercase tracking-wider mb-2">Entegrasyon Durumu</h4>
+                <div className="text-[11px] text-slate-650 space-y-1.5 leading-relaxed">
                   <div>
-                    <span className="text-slate-500">n8n Durumu:</span>{' '}
+                    <span className="text-slate-500">Entegrasyon Durumu:</span>{' '}
                     {importSummary.importedCount > 0 ? (
-                      <span className="text-emerald-400 font-semibold">Aktif (Veri İletiliyor)</span>
+                      <span className="text-emerald-600 font-semibold">Aktif (Veri İletiliyor)</span>
                     ) : importSummary.failedCount > 0 ? (
-                      <span className="text-rose-400 font-semibold">Hatalı (Bağlantı Sorunu)</span>
+                      <span className="text-rose-600 font-semibold">Hatalı (Bağlantı Sorunu)</span>
                     ) : (
                       <span className="text-slate-500">Beklemede</span>
                     )}
                   </div>
                   <div>
                     <span className="text-slate-500">Google API Sınıfı:</span>{' '}
-                    <span className="text-slate-300 font-mono text-[10px]">MockGoogleProvider</span>
+                    <span className="text-slate-600 font-mono text-[10px]">MockGoogleProvider</span>
                   </div>
                 </div>
               </div>
@@ -559,17 +562,17 @@ export default function Reviews() {
 
             {importSummary.importDetails && importSummary.importDetails.length > 0 && (
               <div className="space-y-3 pt-4 border-t border-slate-200">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
                   Senkronizasyon Detayları ({importSummary.importDetails.length} Yorum)
                 </span>
                 <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {importSummary.importDetails.map((detail: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50/20 border border-white/[0.02] text-[10px]">
-                      <code className="text-slate-300 font-mono text-[9px] truncate max-w-[200px]">{detail.reviewId}</code>
-                      <span className={`px-2 py-0.5 rounded font-semibold text-[8px] uppercase tracking-wider ${
-                        detail.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                        detail.status === 'duplicate_skipped' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                        'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                    <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[10px]">
+                      <code className="text-slate-600 font-mono text-[9px] truncate max-w-[200px]">{detail.reviewId}</code>
+                      <span className={`px-2 py-0.5 rounded font-bold text-[8px] uppercase tracking-wider border ${
+                        detail.status === 'sent' ? 'bg-emerald-55 text-emerald-600 border-emerald-200' :
+                        detail.status === 'duplicate_skipped' ? 'bg-amber-55 text-amber-600 border-amber-200' :
+                        'bg-rose-55 text-rose-600 border-rose-200'
                       }`}>
                         {detail.status === 'sent' && 'İletildi'}
                         {detail.status === 'duplicate_skipped' && 'Mükerrer'}
@@ -583,38 +586,38 @@ export default function Reviews() {
 
             {importSummary.detailedErrors && importSummary.detailedErrors.length > 0 && (
               <div className="space-y-3.5 pt-4 border-t border-slate-200">
-                <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider block">
+                <span className="text-[10px] text-rose-600 font-bold uppercase tracking-wider block">
                   Hata Detayları ({importSummary.detailedErrors.length})
                 </span>
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {importSummary.detailedErrors.map((err, idx) => (
-                    <div key={idx} className="p-3.5 rounded-xl bg-rose-950/15 border border-rose-500/10 text-[10px] text-rose-300 space-y-1.5 leading-normal">
-                      <div className="flex justify-between items-center text-[9px] border-b border-rose-500/10 pb-1 mb-1">
-                        <span className="text-rose-400 font-semibold">HATA #{idx + 1}</span>
-                        <code className="text-slate-400 font-mono">ID: {err.reviewId}</code>
+                    <div key={idx} className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-[10px] text-rose-700 space-y-1.5 leading-normal">
+                      <div className="flex justify-between items-center text-[9px] border-b border-rose-200 pb-1 mb-1">
+                        <span className="text-rose-700 font-bold">HATA #{idx + 1}</span>
+                        <code className="text-slate-600 font-mono">ID: {err.reviewId}</code>
                       </div>
                       {err.webhookUrl && (
                         <div className="flex items-start gap-1">
                           <span className="text-slate-500 shrink-0 font-medium">Webhook URL:</span>
-                          <code className="text-slate-300 font-mono break-all">{err.webhookUrl}</code>
+                          <code className="text-slate-600 font-mono break-all">{err.webhookUrl}</code>
                         </div>
                       )}
                       {err.status !== undefined && (
                         <div>
                           <span className="text-slate-500 font-medium">HTTP Durum Kodu:</span>{' '}
-                          <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold font-mono text-[9px]">{err.status}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold font-mono text-[9px]">{err.status}</span>
                         </div>
                       )}
                       {err.responseBody && (
                         <div className="space-y-0.5">
-                          <span className="text-slate-500 font-medium block">Yanıt Gövdesi (Response Body):</span>
-                          <pre className="mt-1 bg-black/40 p-2 rounded-lg text-slate-400 font-mono text-[9px] overflow-x-auto whitespace-pre-wrap max-h-20 leading-relaxed">
+                          <span className="text-slate-500 font-medium block">Yanıt Gövdesi:</span>
+                          <pre className="mt-1 bg-white border border-slate-200 p-2 rounded-lg text-slate-600 font-mono text-[9px] overflow-x-auto whitespace-pre-wrap max-h-20 leading-relaxed">
                             {err.responseBody}
                           </pre>
                         </div>
                       )}
                       {err.message && (
-                        <div className="text-rose-400/90 font-mono text-[9px] bg-rose-950/30 p-2 rounded-lg border border-rose-500/5">
+                        <div className="text-rose-700 font-mono text-[9px] bg-white p-2 rounded-lg border border-rose-200">
                           {err.message}
                         </div>
                       )}
@@ -627,7 +630,7 @@ export default function Reviews() {
             <div className="flex justify-end pt-2 border-t border-slate-200">
               <button
                 onClick={() => setImportSummary(null)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
                 Tamam
               </button>
@@ -638,19 +641,19 @@ export default function Reviews() {
 
       {/* Premium Toast Notification Overlay */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-blue-500/25 bg-[#0a0d1d] shadow-2xl flex items-center gap-3 animate-slide-in glass-panel max-w-sm animate-fade-in">
-          <div className="w-8 h-8 rounded-lg bg-blue-600/10 flex items-center justify-center text-blue-400">
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-blue-200 bg-white shadow-2xl flex items-center gap-3 animate-slide-in max-w-sm">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
             <Bell size={16} />
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-slate-200">Alert Notification</h4>
-            <p className="text-[10px] text-slate-400 mt-0.5">{toastMessage}</p>
+            <h4 className="text-xs font-bold text-slate-800">Bildirim</h4>
+            <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{toastMessage}</p>
           </div>
           <button 
             onClick={() => setToastMessage(null)}
-            className="text-xs text-slate-500 hover:text-slate-300 font-medium ml-4"
+            className="text-xs text-slate-500 hover:text-slate-800 font-bold ml-4"
           >
-            Dismiss
+            Kapat
           </button>
         </div>
       )}
