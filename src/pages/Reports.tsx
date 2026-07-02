@@ -306,6 +306,36 @@ export default function Reports() {
   const [resolvedKeys, setResolvedKeys] = useState<string[]>([]);
   const [localResolvedKeys, setLocalResolvedKeys] = useState<string[]>([]);
 
+  // Stable Action Key Generator Helper
+  const createActionKey = (act: { title: string; category: string }, hotelId: string, sourcePeriod: string): string => {
+    const normTitle = (act.title || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '');
+    return `${hotelId}_${normTitle}_${act.category || 'general'}_${sourcePeriod}`;
+  };
+
+  // Reusable resolved actions reader
+  const loadResolutions = async (activePeriod: string): Promise<string[]> => {
+    if (!currentHotelId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('action_resolutions')
+        .select('action_key')
+        .eq('hotel_id', currentHotelId)
+        .eq('source_period', activePeriod);
+
+      if (error) {
+        console.warn('[Database] action_resolutions table may not be migrated yet:', error.message);
+      } else if (data) {
+        return data.map((item: any) => item.action_key);
+      }
+    } catch (e) {
+      console.warn('[Database] Exception loading action resolutions:', e);
+    }
+    return [];
+  };
+
   useEffect(() => {
     setLocalResolvedKeys([]);
   }, [currentHotelId, dateFilter, startDate, endDate]);
@@ -320,23 +350,7 @@ export default function Reports() {
       setInsightsLoading(true);
       try {
         const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-        let dbResolved: string[] = [];
-
-        try {
-          const { data, error } = await supabase
-            .from('action_resolutions')
-            .select('action_key')
-            .eq('hotel_id', currentHotelId)
-            .eq('source_period', activePeriod);
-
-          if (error) {
-            console.warn('[Database] action_resolutions table may not be migrated yet:', error.message);
-          } else if (data) {
-            dbResolved = data.map((item: any) => item.action_key);
-          }
-        } catch (e) {
-          console.warn('[Database] Exception loading action resolutions:', e);
-        }
+        const dbResolved = await loadResolutions(activePeriod);
         setResolvedKeys(dbResolved);
 
         const payload = filteredReviews.map(r => ({
@@ -365,17 +379,10 @@ export default function Reports() {
   // Compute filtered unresolved actions sliced to exactly 5
   const unresolvedActions = useMemo(() => {
     const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-    const generateActionKey = (title: string, category: string) => {
-      const normTitle = (title || '')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]/g, '');
-      return `${currentHotelId}_${normTitle}_${category || 'general'}_${activePeriod}`;
-    };
 
     return (insights.actions || [])
       .filter(act => {
-        const key = generateActionKey(act.title, act.category);
+        const key = createActionKey(act, currentHotelId, activePeriod);
         return !resolvedKeys.includes(key) && !localResolvedKeys.includes(key);
       })
       .slice(0, 5);
@@ -390,14 +397,17 @@ export default function Reports() {
     if (!window.confirm(confirmMessage)) return;
 
     const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-    const normTitle = (act.title || '')
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]/g, '');
-    const actionKey = `${currentHotelId}_${normTitle}_${act.category || 'general'}_${activePeriod}`;
+    const actionKey = createActionKey(act, currentHotelId, activePeriod);
 
     // Update local keys immediately for responsive rendering
     setLocalResolvedKeys(prev => [...prev, actionKey]);
+    setResolvedKeys(prev => [...prev, actionKey]);
+    
+    // Dynamically filter it out from the raw insights data structure to trigger immediate re-render
+    setInsights(prev => ({
+      ...prev,
+      actions: (prev.actions || []).filter(a => createActionKey(a, currentHotelId, activePeriod) !== actionKey)
+    }));
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -415,6 +425,11 @@ export default function Reports() {
         console.warn('[Database] Failed to save action resolution. Migration might be required:', error.message);
       } else {
         console.log('[Database] Action resolution saved successfully.');
+        // Optionally refresh data in the background from db
+        const dbResolved = await loadResolutions(activePeriod);
+        if (dbResolved.length > 0) {
+          setResolvedKeys(dbResolved);
+        }
       }
     } catch (err) {
       console.warn('[Database] Exception saving action resolution:', err);
