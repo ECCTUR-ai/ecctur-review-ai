@@ -6,7 +6,7 @@ import { reviewService } from '@/services/reviewService';
 import { ReviewCard } from '@/components/ReviewCard';
 import { ReviewFilters } from '@/components/ReviewFilters';
 import { ReviewDetailPanel } from '@/components/ReviewDetailPanel';
-import { Review, ReviewSource, ReviewStatus, ReviewPriority } from '@/types';
+import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { 
   RefreshCw, 
@@ -99,6 +99,53 @@ export default function Reviews() {
 
   const [selectedReviewDetail, setSelectedReviewDetail] = useState<Review | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [currentHotel, setCurrentHotel] = useState<Hotel | null>(null);
+
+  // Load selected hotel info directly from database to get fresh values
+  useEffect(() => {
+    if (!currentHotelId) {
+      setCurrentHotel(null);
+      return;
+    }
+    
+    const fetchHotelDetails = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('hotels')
+          .select('*')
+          .eq('id', currentHotelId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          setCurrentHotel({
+            id: data.id,
+            organizationId: data.organization_id,
+            name: data.name,
+            createdAt: data.created_at,
+            googleMapsLink: data.google_maps_url || data.google_maps_link || '',
+            googleMapsUrl: data.google_maps_url || data.google_maps_link || '',
+            tripadvisorUrl: data.tripadvisor_url || '',
+            address: data.address || '',
+            phone: data.phone || '',
+            website: data.website || ''
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load current hotel for details:', err);
+      }
+    };
+
+    fetchHotelDetails();
+  }, [currentHotelId]);
+
+  // Log TripAdvisor URL details on state changes
+  useEffect(() => {
+    console.log('[DEBUG-TRIPADVISOR]', {
+      currentHotel,
+      tripadvisorUrl: currentHotel?.tripadvisorUrl
+    });
+  }, [currentHotel]);
 
   // Load full review details from Supabase when selectedReviewId changes
   useEffect(() => {
@@ -528,9 +575,8 @@ export default function Reviews() {
           </div>
 
           {(() => {
-            const selectedHotelObj = hotels?.find(h => h.id === currentHotelId);
-            const hasTripadvisor = !!(selectedHotelObj?.tripadvisorUrl);
-            const hasGoogle = !!(selectedHotelObj?.googleMapsLink || selectedHotelObj?.googleMapsUrl);
+            const hasTripadvisor = !!(currentHotel?.tripadvisorUrl);
+            const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
             const hasAnyLink = hasGoogle || hasTripadvisor;
 
             return (
