@@ -302,15 +302,43 @@ export default function Reports() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
 
+  // Resolutions states
+  const [resolvedKeys, setResolvedKeys] = useState<string[]>([]);
+  const [localResolvedKeys, setLocalResolvedKeys] = useState<string[]>([]);
+
   useEffect(() => {
-    if (filteredReviews.length === 0) {
+    setLocalResolvedKeys([]);
+  }, [currentHotelId, dateFilter, startDate, endDate]);
+
+  useEffect(() => {
+    if (filteredReviews.length === 0 || !currentHotelId) {
       setInsights({ issues: [], highlights: [], actions: [] });
       return;
     }
 
-    const loadInsights = async () => {
+    const loadInsightsAndResolutions = async () => {
       setInsightsLoading(true);
       try {
+        const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
+        let dbResolved: string[] = [];
+
+        try {
+          const { data, error } = await supabase
+            .from('action_resolutions')
+            .select('action_key')
+            .eq('hotel_id', currentHotelId)
+            .eq('source_period', activePeriod);
+
+          if (error) {
+            console.warn('[Database] action_resolutions table may not be migrated yet:', error.message);
+          } else if (data) {
+            dbResolved = data.map((item: any) => item.action_key);
+          }
+        } catch (e) {
+          console.warn('[Database] Exception loading action resolutions:', e);
+        }
+        setResolvedKeys(dbResolved);
+
         const payload = filteredReviews.map(r => ({
           comment: r.comment || '',
           rating: r.rating || 5,
@@ -331,8 +359,69 @@ export default function Reports() {
       }
     };
 
-    loadInsights();
-  }, [filteredReviews]);
+    loadInsightsAndResolutions();
+  }, [filteredReviews, currentHotelId, dateFilter, startDate, endDate]);
+
+  // Compute filtered unresolved actions sliced to exactly 5
+  const unresolvedActions = useMemo(() => {
+    const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
+    const generateActionKey = (title: string, category: string) => {
+      const normTitle = (title || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]/g, '');
+      return `${currentHotelId}_${normTitle}_${category || 'general'}_${activePeriod}`;
+    };
+
+    return (insights.actions || [])
+      .filter(act => {
+        const key = generateActionKey(act.title, act.category);
+        return !resolvedKeys.includes(key) && !localResolvedKeys.includes(key);
+      })
+      .slice(0, 5);
+  }, [insights.actions, resolvedKeys, localResolvedKeys, currentHotelId, dateFilter, startDate, endDate]);
+
+  // Click handler to mark action completed
+  const handleResolveAction = async (act: { title: string; description: string; category: string }) => {
+    const confirmMessage = isTr 
+      ? 'Bu aksiyon önerisini tamamlandı olarak işaretlemek istiyor musunuz?'
+      : 'Would you like to mark this action recommendation as resolved?';
+    
+    if (!window.confirm(confirmMessage)) return;
+
+    const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
+    const normTitle = (act.title || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '');
+    const actionKey = `${currentHotelId}_${normTitle}_${act.category || 'general'}_${activePeriod}`;
+
+    // Update local keys immediately for responsive rendering
+    setLocalResolvedKeys(prev => [...prev, actionKey]);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error } = await supabase.from('action_resolutions').insert({
+        hotel_id: currentHotelId,
+        action_key: actionKey,
+        action_title: act.title,
+        action_description: act.description,
+        source_period: activePeriod,
+        resolved_by: user?.id || null
+      });
+
+      if (error) {
+        console.warn('[Database] Failed to save action resolution. Migration might be required:', error.message);
+      } else {
+        console.log('[Database] Action resolution saved successfully.');
+      }
+    } catch (err) {
+      console.warn('[Database] Exception saving action resolution:', err);
+    }
+
+    showToast(isTr ? 'Aksiyon tamamlandı olarak işaretlendi.' : 'Action marked as completed.');
+  };
 
   // Category to Lucide Icon Mapper
   const getCategoryIcon = (category: string) => {
@@ -738,28 +827,44 @@ export default function Reports() {
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-indigo-400 tracking-wider uppercase flex items-center gap-1.5">
                       <Sparkles size={14} />
-                      {isTr ? '10 Kritik Aksiyon Önerisi' : '10 Action Recommendations'}
+                      {isTr ? '5 Kritik Aksiyon Önerisi' : '5 Action Recommendations'}
                     </h4>
                     <ul className="space-y-4">
-                      {insights.actions.map((act, idx) => (
+                      {unresolvedActions.map((act, idx) => (
                         <li key={idx} className="flex gap-2 text-xs text-slate-400">
                           <span className="text-indigo-500/60 font-bold text-[11px] shrink-0 mt-0.5">{idx + 1}.</span>
-                          <div className="flex items-start justify-between gap-3 min-w-0 w-full">
-                            <div className="flex items-start gap-2 min-w-0">
-                              <div className="mt-0.5 bg-slate-900 border border-white/[0.06] rounded-md p-1 shrink-0">
-                                {getCategoryIcon(act.category)}
+                          <div className="flex flex-col min-w-0 w-full">
+                            <div className="flex items-start justify-between gap-3 min-w-0 w-full">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <div className="mt-0.5 bg-slate-900 border border-white/[0.06] rounded-md p-1 shrink-0">
+                                  {getCategoryIcon(act.category)}
+                                </div>
+                                <div className="space-y-0.5">
+                                  <strong className="text-slate-200 block text-xs font-semibold">{act.title}</strong>
+                                  <span className="text-[11px] text-slate-500 block leading-relaxed">{act.description}</span>
+                                </div>
                               </div>
-                              <div className="space-y-0.5">
-                                <strong className="text-slate-200 block text-xs font-semibold">{act.title}</strong>
-                                <span className="text-[11px] text-slate-500 block leading-relaxed">{act.description}</span>
-                              </div>
+                              <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-extrabold uppercase rounded px-1.5 py-0.5 tracking-wider shrink-0 mt-0.5">
+                                {isTr ? `Öncelik ${idx + 1}` : `Priority ${idx + 1}`}
+                              </span>
                             </div>
-                            <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-extrabold uppercase rounded px-1.5 py-0.5 tracking-wider shrink-0 mt-0.5">
-                              {isTr ? `Öncelik ${idx + 1}` : `Priority ${idx + 1}`}
-                            </span>
+                            <div className="pl-8">
+                              <button
+                                onClick={() => handleResolveAction(act)}
+                                className="mt-2 text-[10px] flex items-center gap-1 font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded transition-all"
+                              >
+                                <CheckCircle size={10} />
+                                {isTr ? 'Aksiyon Alındı' : 'Action Resolved'}
+                              </button>
+                            </div>
                           </div>
                         </li>
                       ))}
+                      {unresolvedActions.length === 0 && (
+                        <div className="text-center py-6 text-slate-500 text-xs font-semibold">
+                          {isTr ? 'Aktif aksiyon önerisi bulunmuyor.' : 'No active action recommendations.'}
+                        </div>
+                      )}
                     </ul>
                   </div>
                 </div>
