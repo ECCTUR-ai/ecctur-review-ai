@@ -150,6 +150,82 @@ function parseRelativeDate(relative: string): string {
   return now.toISOString();
 }
 
+function detectLanguage(text: string): 'tr' | 'en' | 'de' | 'ru' {
+  const commentLower = (text || '').toLowerCase();
+  
+  // A. Kiril karakter kontrolü (Rusça için en kesin belirteç)
+  const cyrillicRegex = /[\u0400-\u04FF]/;
+  if (cyrillicRegex.test(text || '')) {
+    return 'ru';
+  }
+
+  // B. Türkçe karakter kontrolü (ş, ı, ğ, ç, ö, ü)
+  const turkishSpecialRegex = /[şığç]/;
+  if (turkishSpecialRegex.test(commentLower)) {
+    return 'tr';
+  }
+
+  // C. Almanca karakter kontrolü (ä, ß)
+  const germanSpecialRegex = /[äß]/;
+  if (germanSpecialRegex.test(commentLower)) {
+    return 'de';
+  }
+
+  // D. Kelime bazlı puanlama
+  const trWords = ["çok", "iyi", "otel", "personel", "harika", "oda", "temiz", "güzel", "yemek", "konum", "memnun", "tavsiye", "değil", "ama", "ancak", "servis", "memnuniyet", "banyo", "konfor", "havuz", "spa", "rezervasyon"];
+  const deWords = ["sehr", "gut", "hotel", "zimmer", "freundlich", "sauber", "schön", "essen", "lage", "zufrieden", "empfehlen", "nicht", "aber", "service", "frühstück", "bad", "komfort", "pool", "wellness", "buchung", "und", "der", "die", "das", "ist", "in", "mit"];
+  const ruWords = ["очень", "хорошо", "отель", "номер", "персонал", "чисто", "красиво", "еда", "расположение", "доволен", "рекомендую", "не", "но", "сервис", "бассейн", "бронирование"];
+  const enWords = ["very", "good", "hotel", "room", "friendly", "clean", "nice", "food", "location", "happy", "recommend", "not", "but", "service", "breakfast", "pool", "spa", "staff", "booking", "and", "the", "with", "was", "for", "stay"];
+
+  let trScore = 0;
+  let deScore = 0;
+  let ruScore = 0;
+  let enScore = 0;
+
+  trWords.forEach(w => {
+    const regex = new RegExp(`\\b${w}\\b`, 'g');
+    const matches = commentLower.match(regex);
+    if (matches) trScore += matches.length;
+  });
+
+  deWords.forEach(w => {
+    const regex = new RegExp(`\\b${w}\\b`, 'g');
+    const matches = commentLower.match(regex);
+    if (matches) deScore += matches.length;
+  });
+
+  ruWords.forEach(w => {
+    const regex = new RegExp(`\\b${w}\\b`, 'g');
+    const matches = commentLower.match(regex);
+    if (matches) ruScore += matches.length;
+  });
+
+  enWords.forEach(w => {
+    const regex = new RegExp(`\\b${w}\\b`, 'g');
+    const matches = commentLower.match(regex);
+    if (matches) enScore += matches.length;
+  });
+
+  if (trScore === 0 && deScore === 0 && ruScore === 0 && enScore === 0) {
+    if (/[öü]/i.test(commentLower)) {
+      if (/\b(und|ist|in|die|der|das)\b/i.test(commentLower)) {
+        return 'de';
+      }
+      return 'tr';
+    }
+  }
+
+  const maxScore = Math.max(trScore, deScore, ruScore, enScore);
+  if (maxScore > 0) {
+    if (maxScore === trScore) return 'tr';
+    if (maxScore === deScore) return 'de';
+    if (maxScore === ruScore) return 'ru';
+    return 'en';
+  }
+
+  return 'en';
+}
+
 async function translateText(text: string, targetLang: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
   const langNames: Record<string, string> = {
@@ -234,9 +310,14 @@ async function translateText(text: string, targetLang: string): Promise<string> 
     return chunks;
   }
 
+  const sourceLang = detectLanguage(text);
+  if (sourceLang === targetLang) {
+    return text;
+  }
+
   // Fallback to MyMemory translation API with chunking support
   try {
-    console.log(`[Translate API] Translating via MyMemory chunks to ${targetLang}...`);
+    console.log(`[Translate API] Translating via MyMemory chunks from ${sourceLang} to ${targetLang}...`);
     const chunks = chunkText(text, 400);
     let successCount = 0;
 
@@ -244,7 +325,7 @@ async function translateText(text: string, targetLang: string): Promise<string> 
       chunks.map(async (chunk) => {
         try {
           const encodedText = encodeURIComponent(chunk);
-          const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=auto|${targetLang}`;
+          const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=${sourceLang}|${targetLang}`;
           const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
