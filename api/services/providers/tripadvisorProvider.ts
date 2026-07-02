@@ -11,7 +11,7 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     throw new Error('apify_token_missing');
   }
 
-  const rawActorId = process.env.APIFY_TRIPADVISOR_ACTOR_ID || 'maxcopell/tripadvisor';
+  const rawActorId = process.env.APIFY_TRIPADVISOR_ACTOR_ID || 'maxcopell/tripadvisor-reviews';
   const encodedActorId = encodeURIComponent(rawActorId);
   const apifyUrl = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
@@ -19,7 +19,9 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     startUrls: [
       { url: targetUrl }
     ],
-    maxItems: 100
+    maxItemsPerQuery: 100,
+    reviewRatings: ['ALL_REVIEW_RATINGS'],
+    reviewsLanguages: ['ALL_REVIEW_LANGUAGES']
   };
 
   console.log(`[Tripadvisor Provider] Running actor: ${rawActorId} (encoded: ${encodedActorId})`);
@@ -91,9 +93,11 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     const guestName = 
       item.reviewerName || 
       item.userName || 
+      item.username || 
+      item.author || 
+      item.authorName || 
       item.user?.username || 
       item.user?.name || 
-      item.authorName || 
       item.reviewer?.name || 
       item.title || 
       'Tripadvisor Guest';
