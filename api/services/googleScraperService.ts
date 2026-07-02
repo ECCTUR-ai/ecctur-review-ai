@@ -20,14 +20,29 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<Sc
   const encodedActorId = encodeURIComponent(rawActorId);
   const url = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  console.log(`[Apify Scraper] Running actor: ${rawActorId} (encoded: ${encodedActorId}) for target URL (token hidden)`);
+  // Normalize URL by stripping browser query clutter while preserving cid parameters
+  let cleanUrl = targetUrl;
+  if (cleanUrl.includes('google.com/maps') && !cleanUrl.includes('?cid=')) {
+    if (cleanUrl.includes('?')) {
+      cleanUrl = cleanUrl.split('?')[0];
+    }
+  } else if (cleanUrl.includes('maps.app.goo.gl') || cleanUrl.includes('goo.gl/maps')) {
+    if (cleanUrl.includes('?')) {
+      cleanUrl = cleanUrl.split('?')[0];
+    }
+  }
 
   const payload = {
-    startUrls: [{ url: targetUrl }],
-    maxReviews: 20,
+    startUrls: [
+      { url: cleanUrl }
+    ],
+    maxReviews: 100,
     language: 'tr',
-    personalDataAuthorization: 'GDPR_COMPLIANT'
+    reviewsSort: 'newest'
   };
+
+  console.log(`[Apify Scraper] Running actor: ${rawActorId} (encoded: ${encodedActorId})`);
+  console.log('[Apify Scraper] Sending payload (token hidden):', JSON.stringify(payload, null, 2));
 
   let response;
   try {
