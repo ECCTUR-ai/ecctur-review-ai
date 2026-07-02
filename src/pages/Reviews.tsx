@@ -645,7 +645,9 @@ export default function Reviews() {
         await reviewService.saveResponseDraft(id, responseText);
       }
       const updated = await reviewService.updateReviewStatus(id, newStatus);
-      setSelectedReviewDetail(updated);
+      if (updated && updated.id) {
+        setSelectedReviewDetail(updated);
+      }
       refetch();
 
       if (newStatus === 'pending_approval') {
@@ -669,37 +671,47 @@ export default function Reviews() {
         }
       }
     } catch (err: any) {
-      alert(`API Error: Could not update status. ${err.message}`);
+      console.warn('Failed to update review status:', err);
+      refetch();
     }
   };
 
   const handleSubmitResponse = async (id: string, responseText: string) => {
     try {
       const updated = await reviewService.submitResponse(id, responseText);
-      setSelectedReviewDetail(updated);
+      if (updated && updated.id) {
+        setSelectedReviewDetail(updated);
+      }
       refetch();
     } catch (err: any) {
-      alert(`API Error: Could not publish response. ${err.message}`);
+      console.warn('Failed to submit response:', err);
+      refetch();
     }
   };
 
   const handleSaveDraft = async (id: string, responseText: string) => {
     try {
       const updated = await reviewService.saveResponseDraft(id, responseText);
-      setSelectedReviewDetail(updated);
+      if (updated && updated.id) {
+        setSelectedReviewDetail(updated);
+      }
       refetch();
     } catch (err: any) {
-      alert(`API Error: Could not save draft. ${err.message}`);
+      console.warn('Failed to save response draft:', err);
+      refetch();
     }
   };
 
   const handleUpdateNotes = async (id: string, managerNotes: string, internalNotes: string) => {
     try {
       const updated = await reviewService.updateReviewNotes(id, managerNotes, internalNotes);
-      setSelectedReviewDetail(updated);
+      if (updated && updated.id) {
+        setSelectedReviewDetail(updated);
+      }
       refetch();
     } catch (err: any) {
-      alert(`API Error: Could not save notes. ${err.message}`);
+      console.warn('Failed to update notes:', err);
+      refetch();
     }
   };
 

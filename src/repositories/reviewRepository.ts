@@ -3,6 +3,25 @@ import { supabase } from '@/lib/supabase';
 import { Review, ReviewSource, Sentiment, ReviewStatus, ReviewPriority } from '@/types';
 
 export function mapReview(item: any): Review {
+  if (!item) {
+    return {
+      id: '',
+      guestName: '',
+      rating: 0,
+      comment: '',
+      date: '',
+      source: 'Google',
+      status: 'draft',
+      priority: 'low',
+      response: '',
+      respondedAt: '',
+      sentiment: 'neutral',
+      departments: [],
+      hotel: '',
+      managerNotes: '',
+      internalNotes: '',
+    };
+  }
   return {
     id: item.id,
     guestName: item.guest_name || item.guestName || '',
@@ -110,7 +129,7 @@ export const reviewRepository = {
       .from('reviews')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return mapReview(data);
@@ -132,7 +151,7 @@ export const reviewRepository = {
       .update(updateData)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       // Fallback if specific columns are missing
@@ -145,7 +164,7 @@ export const reviewRepository = {
         .update(fallbackData)
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       if (fbError) throw fbError;
       return mapReview(fbData);
     }
@@ -168,7 +187,7 @@ export const reviewRepository = {
       .update(updateData)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       const fallbackData = {
@@ -180,7 +199,7 @@ export const reviewRepository = {
         .update(fallbackData)
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       if (fbError) throw fbError;
       return mapReview(fbData);
     }
@@ -201,7 +220,7 @@ export const reviewRepository = {
       .update(updateData)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       const fallbackData = {
@@ -212,7 +231,7 @@ export const reviewRepository = {
         .update(fallbackData)
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       if (fbError) throw fbError;
       return mapReview(fbData);
     }
@@ -227,7 +246,7 @@ export const reviewRepository = {
       .update({ status: statusVal, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       const { data: fbData, error: fbError } = await supabase
@@ -235,7 +254,7 @@ export const reviewRepository = {
         .update({ status })
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       if (fbError) throw fbError;
       return mapReview(fbData);
     }
