@@ -42,6 +42,21 @@ export default function Reviews() {
   const [isImportingTripadvisor, setIsImportingTripadvisor] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currentHotelId, search, source, rating, status, priority]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
+
   const [importSummary, setImportSummary] = useState<{
     totalFetched: number;
     importedCount: number;
@@ -167,6 +182,26 @@ export default function Reviews() {
   }, [selectedReviewId]);
 
   const reviews = data?.reviews || [];
+
+  const totalReviews = reviews.length;
+  const totalPages = Math.ceil(totalReviews / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalReviews);
+  const paginatedReviews = reviews.slice(startIndex, endIndex);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   const handleSyncReviews = async () => {
     setIsSyncing(true);
@@ -682,15 +717,80 @@ export default function Reviews() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {reviews.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  review={review}
-                  isSelected={selectedReviewId === review.id}
-                  onClick={() => setSelectedReviewId(review.id)}
-                />
-              ))}
+            <div className="space-y-6">
+              <div className="space-y-4">
+                {paginatedReviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    isSelected={selectedReviewId === review.id}
+                    onClick={() => setSelectedReviewId(review.id)}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination controls */}
+              {totalReviews > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 text-xs text-slate-500">
+                  <div>
+                    Toplam <span className="font-semibold text-slate-700">{totalReviews}</span> yorumdan{' '}
+                    <span className="font-semibold text-slate-700">{totalReviews === 0 ? 0 : startIndex + 1}</span>-
+                    <span className="font-semibold text-slate-700">{endIndex}</span> arası gösteriliyor
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4">
+                    {/* Page size selection */}
+                    <div className="flex items-center gap-1.5">
+                      <span>Gösterim:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 text-xs font-semibold cursor-pointer"
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </div>
+
+                    {/* Page numbers navigation */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold cursor-pointer disabled:cursor-not-allowed text-[11px]"
+                      >
+                        Önceki
+                      </button>
+
+                      {getPageNumbers().map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer text-[11px] ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                              : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      ))}
+
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold cursor-pointer disabled:cursor-not-allowed text-[11px]"
+                      >
+                        Sonraki
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

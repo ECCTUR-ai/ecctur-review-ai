@@ -559,63 +559,66 @@ export default function Dashboard() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800">Son Yorumlar</h3>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    <th className="py-2.5 pb-2">Yorum</th>
-                    <th className="py-2.5 pb-2">Otel</th>
-                    <th className="py-2.5 pb-2">Puan</th>
-                    <th className="py-2.5 pb-2">Platform</th>
-                    <th className="py-2.5 pb-2 text-right">Durum</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {displayReviews.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-400">
-                        Henüz yorum bulunmamaktadır.
-                      </td>
-                    </tr>
-                  ) : (
-                    displayReviews.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3">
-                          <div className="flex items-start gap-3 min-w-[200px]">
-                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0">
-                              {r.guestName.split(' ').map(part => part[0]).join('').slice(0, 2)}
-                            </div>
-                            <div className="space-y-0.5">
-                              <div className="font-semibold text-slate-800">{r.guestName}</div>
-                              <div className="text-[10px] text-slate-400 leading-normal line-clamp-1">{r.comment}</div>
-                            </div>
+            <div className="space-y-4">
+              {displayReviews.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  Henüz yorum bulunmamaktadır.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {displayReviews.map((r) => (
+                    <div key={r.id} className="py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-slate-50/50 transition-colors rounded-xl px-2">
+                      {/* Left: Guest Name & Comment */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0 text-xs">
+                          {r.guestName.split(' ').map(part => part[0]).join('').slice(0, 2)}
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="font-semibold text-slate-800 text-xs">{r.guestName}</div>
+                          <div className="text-[11px] text-slate-500 leading-relaxed italic break-words">
+                            "{r.comment}"
                           </div>
-                        </td>
-                        <td className="py-3 text-slate-500 font-medium">{r.hotel}</td>
-                        <td className="py-3">{renderStars(r.rating)}</td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        </div>
+                      </div>
+
+                      {/* Right: Meta details stacked alt alta */}
+                      <div className="flex flex-col items-start sm:items-end gap-1.5 shrink-0 text-[10.5px] font-medium text-slate-500 w-full sm:w-auto pl-12 sm:pl-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Otel: </span>
+                          <span className="text-slate-700 font-semibold">{r.hotel}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Puan: </span>
+                          {renderStars(r.rating)}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Platform: </span>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${
                             r.source.toLowerCase() === 'google' 
                               ? 'bg-red-50 text-red-500 border border-red-100' 
                               : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                           }`}>
                             {r.source}
                           </span>
-                        </td>
-                        <td className="py-3 text-right">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Durum: </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                             r.status === 'AI Yanıt Hazır' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
                             r.status === 'Onay Bekliyor' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
                             'bg-emerald-50 text-emerald-600 border border-emerald-100'
                           }`}>
                             {r.status}
                           </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
