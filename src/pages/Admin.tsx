@@ -110,6 +110,75 @@ export default function Admin() {
   const [selectedHotelForGoogle, setSelectedHotelForGoogle] = useState<string>('');
   const [connectingLocationId, setConnectingLocationId] = useState<string | null>(null);
 
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testStatus, setTestStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('google_connected') === 'true') {
+      setToast('Google Business hesabı başarıyla bağlandı.');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    } else if (searchParams.get('google_connected') === 'false') {
+      const errorMsg = searchParams.get('error') || 'Bağlantı başarısız oldu.';
+      alert(`Google Business bağlantı hatası: ${errorMsg}`);
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
+
+  const handleGoogleConnectRedirect = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bilgisi bulunamadı.');
+
+      const hotelParam = selectedHotelForGoogle ? `&hotelId=${selectedHotelForGoogle}` : '';
+      const response = await fetch(`/api/admin?action=get-google-oauth-url${hotelParam}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const resData = await response.json();
+      if (resData.success && resData.url) {
+        window.location.href = resData.url;
+      } else {
+        alert(resData.error || 'OAuth URL alınamadı.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Bağlantı başlatılamadı.');
+    }
+  };
+
+  const handleTestGoogleConnection = async () => {
+    setTestingConnection(true);
+    setTestStatus(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum kapalı.');
+
+      const hotelParam = selectedHotelForGoogle ? `&hotelId=${selectedHotelForGoogle}` : '';
+      const response = await fetch(`/api/admin?action=test-google-connection${hotelParam}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const resData = await response.json();
+      if (resData.success) {
+        setTestStatus({ success: true, message: 'Google Business bağlantısı aktif' });
+      } else {
+        setTestStatus({ success: false, message: resData.error || 'Google Business bağlantısı eksik veya yetkilendirme gerekli.' });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setTestStatus({ success: false, message: err.message || 'Google Business bağlantısı eksik veya yetkilendirme gerekli.' });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'google-locations') {
       fetchGoogleLocations();
@@ -124,7 +193,8 @@ export default function Admin() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bilgisi bulunamadı.');
 
-      const res = await fetch('/api/admin?action=google-locations', {
+      const hotelParam = selectedHotelForGoogle ? `&hotelId=${selectedHotelForGoogle}` : '';
+      const res = await fetch(`/api/admin?action=google-locations${hotelParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1539,29 +1609,82 @@ export default function Admin() {
 
               <div className="space-y-4">
                 {integrations?.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-3.5 rounded-xl bg-white border border-slate-200">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-semibold text-slate-200 block">{item.name}</span>
-                      <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                        {item.id === 'google_business' && <Database size={10} />}
-                        {item.id === 'whatsapp' && <Users size={10} />}
-                        {item.id === 'n8n' && <Sliders size={10} />}
-                        {item.id === 'supabase' && <CheckCircle size={10} />}
-                        Sync status: <span className="text-slate-400 capitalize">{item.status}</span>
-                      </span>
+                  <div key={item.id} className="p-4 rounded-2xl bg-white border border-slate-200 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-slate-200 block">{item.name}</span>
+                        <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                          {item.id === 'google_business' && <Database size={10} />}
+                          {item.id === 'whatsapp' && <Users size={10} />}
+                          {item.id === 'n8n' && <Sliders size={10} />}
+                          {item.id === 'supabase' && <CheckCircle size={10} />}
+                          Sync status: <span className="text-slate-400 capitalize">{item.status}</span>
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleIntegration(item.id, item.status)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                          item.status === 'connected'
+                            ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
+                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Power size={12} />
+                        {item.status === 'connected' ? 'Disconnect' : 'Connect'}
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleToggleIntegration(item.id, item.status)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                        item.status === 'connected'
-                          ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
-                          : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Power size={12} />
-                      {item.status === 'connected' ? 'Disconnect' : 'Connect'}
-                    </button>
+                    {/* Google Business Connection Panel */}
+                    {item.id === 'google_business' && (
+                      <div className="pt-3.5 border-t border-slate-200 space-y-3.5">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">İlişkili Otel Seçin (Opsiyonel)</label>
+                          <select
+                            value={selectedHotelForGoogle}
+                            onChange={(e) => setSelectedHotelForGoogle(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none text-slate-300 min-h-[36px]"
+                          >
+                            <option value="">-- Tüm Oteller / Varsayılan Bağlantı --</option>
+                            {hotels?.map((h: Hotel) => (
+                              <option key={h.id} value={h.id}>
+                                {h.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleGoogleConnectRedirect}
+                            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-tr from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex-1"
+                          >
+                            <Power size={13} />
+                            Google ile Bağlan
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleTestGoogleConnection}
+                            disabled={testingConnection}
+                            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-300 hover:text-slate-100 font-semibold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 flex-1"
+                          >
+                            {testingConnection ? 'Test Ediliyor...' : 'Bağlantıyı Test Et'}
+                          </button>
+                        </div>
+
+                        {testStatus && (
+                          <div className={`p-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                            testStatus.success 
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                              : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                          }`}>
+                            {testStatus.message}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

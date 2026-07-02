@@ -11,13 +11,33 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-async function getGoogleAccessToken() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_BUSINESS_REFRESH_TOKEN;
+async function getGoogleAccessToken(hotelId?: string) {
+  const { data: settingsData } = await supabaseAdmin
+    .from('integration_settings')
+    .select('*');
+
+  const gSetting = settingsData?.find((s: any) => 
+    (s.id === 'google_business' || s.provider === 'google') && 
+    (!hotelId || s.hotel_id === hotelId || s.id === 'google_business')
+  );
+
+  let configObj: any = {};
+  if (gSetting && gSetting.config) {
+    configObj = typeof gSetting.config === 'string' ? JSON.parse(gSetting.config) : gSetting.config;
+  }
+
+  const clientId = configObj?.client_id || configObj?.clientId || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = configObj?.client_secret || configObj?.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = configObj?.refresh_token || configObj?.refreshToken || process.env.GOOGLE_BUSINESS_REFRESH_TOKEN;
+  const accessToken = configObj?.access_token || configObj?.accessToken;
+  const tokenExpiresAt = configObj?.token_expires_at || configObj?.tokenExpiresAt;
+
+  if (accessToken && tokenExpiresAt && new Date(tokenExpiresAt).getTime() > Date.now() + 60000) {
+    return accessToken;
+  }
 
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Google OAuth credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_BUSINESS_REFRESH_TOKEN) are not configured in the environment.');
+    throw new Error('Google OAuth credentials (client_id, client_secret, refresh_token) are not configured.');
   }
 
   const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -37,7 +57,22 @@ async function getGoogleAccessToken() {
   }
 
   const data = await response.json();
-  return data.access_token;
+  const newAccessToken = data.access_token;
+  const newExpiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString();
+
+  if (gSetting && newAccessToken) {
+    configObj.access_token = newAccessToken;
+    configObj.token_expires_at = newExpiresAt;
+    await supabaseAdmin
+      .from('integration_settings')
+      .update({
+        config: configObj,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', gSetting.id);
+  }
+
+  return newAccessToken;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -53,6 +88,121 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const action = req.query.action;
+
+  // -------------------------------------------------------------
+  // Action: google-oauth-callback (Public Endpoint, browser redirect)
+  // -------------------------------------------------------------
+  if (action === 'google-oauth-callback') {
+    const { code, state, error } = req.query;
+    const frontendUrl = process.env.APP_URL || 'https://ecctur-review-ai.vercel.app';
+
+    if (error) {
+      console.error('[Google OAuth Callback] Error from Google:', error);
+      res.writeHead(302, { Location: `${frontendUrl}/admin?google_connected=false&error=${encodeURIComponent(String(error))}` });
+      res.end();
+      return;
+    }
+
+    if (!code) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Missing code parameter' }));
+      return;
+    }
+
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = `${frontendUrl}/api/admin?action=google-oauth-callback`;
+
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: code,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code'
+        })
+      });
+
+      if (!tokenResponse.ok) {
+        const errText = await tokenResponse.text();
+        throw new Error(`Failed to exchange code: ${tokenResponse.status} ${errText}`);
+      }
+
+      const tokenData = await tokenResponse.json();
+      const { access_token, refresh_token, expires_in } = tokenData;
+      const tokenExpiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
+
+      const hotelId = state && state !== 'default' ? String(state) : null;
+
+      let orgId = null;
+      if (hotelId) {
+        const { data: hotelData } = await supabaseAdmin
+          .from('hotels')
+          .select('organization_id')
+          .eq('id', hotelId)
+          .maybeSingle();
+        orgId = hotelData?.organization_id;
+      }
+
+      const config: any = {
+        access_token,
+        refresh_token,
+        token_expires_at: tokenExpiresAt
+      };
+      
+      const { data: existingSetting } = await supabaseAdmin
+        .from('integration_settings')
+        .select('*')
+        .eq('id', 'google_business')
+        .maybeSingle();
+
+      const mergedConfig = {
+        ...(existingSetting?.config || {}),
+        ...config
+      };
+
+      const integrationPayload: any = {
+        id: 'google_business',
+        name: 'Google Business API',
+        status: 'connected',
+        updated_at: new Date().toISOString(),
+        config: mergedConfig
+      };
+
+      if (orgId) integrationPayload.organization_id = orgId;
+      if (hotelId) integrationPayload.hotel_id = hotelId;
+      integrationPayload.provider = 'google';
+      integrationPayload.is_active = true;
+
+      const { error: upsertErr } = await supabaseAdmin.from('integration_settings').upsert(integrationPayload);
+      if (upsertErr) throw upsertErr;
+
+      if (hotelId) {
+        const { data: sampleRows } = await supabaseAdmin.from('hotels').select('*').limit(1);
+        const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : [];
+        const hotelUpdates: any = {
+          updated_at: new Date().toISOString()
+        };
+        if (actualHotelCols.includes('google_business_connected')) {
+          hotelUpdates.google_business_connected = true;
+        }
+        await supabaseAdmin.from('hotels').update(hotelUpdates).eq('id', hotelId);
+      }
+
+      res.writeHead(302, { Location: `${frontendUrl}/admin?google_connected=true${hotelId ? `&hotelId=${hotelId}` : ''}` });
+      res.end();
+      return;
+    } catch (err: any) {
+      console.error('[Google OAuth Callback] Exception:', err);
+      res.writeHead(302, { Location: `${frontendUrl}/admin?google_connected=false&error=${encodeURIComponent(err.message || 'OAuth callback failed')}` });
+      res.end();
+      return;
+    }
+  }
+
 
   // Verify caller and setup Supabase Admin context
   const authHeader = req.headers.authorization;
@@ -87,6 +237,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const roleNameLower = (userRole || 'staff').toLowerCase();
 
   // -------------------------------------------------------------
+  // Action: get-google-oauth-url
+  // -------------------------------------------------------------
+  if (action === 'get-google-oauth-url') {
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Admin permissions required' });
+    }
+
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        throw new Error('Google OAuth client ID (GOOGLE_CLIENT_ID) is not configured in the server environment.');
+      }
+      const frontendUrl = process.env.APP_URL || 'https://ecctur-review-ai.vercel.app';
+      const redirectUri = `${frontendUrl}/api/admin?action=google-oauth-callback`;
+      const scope = 'https://www.googleapis.com/auth/business.manage';
+      const hotelId = req.query.hotelId || 'default';
+      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + 
+        `client_id=${encodeURIComponent(clientId)}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `response_type=code&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `access_type=offline&` +
+        `prompt=consent&` +
+        `state=${encodeURIComponent(hotelId as string)}`;
+
+      return res.status(200).json({ success: true, url: oauthUrl });
+    } catch (err: any) {
+      console.error('[API get-google-oauth-url] Failure:', err);
+      return res.status(500).json({ success: false, error: err.message || 'OAuth URL üretilemedi' });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: test-google-connection
+  // -------------------------------------------------------------
+  if (action === 'test-google-connection') {
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Admin permissions required' });
+    }
+
+    try {
+      const hotelId = req.query.hotelId ? String(req.query.hotelId) : undefined;
+      const googleAccessToken = await getGoogleAccessToken(hotelId);
+      
+      const accountsRes = await fetch('https://mybusinessbusinessinformation.googleapis.com/v1/accounts', {
+        headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+      });
+
+      if (!accountsRes.ok) {
+        const errText = await accountsRes.text();
+        throw new Error(`Google API check failed: ${accountsRes.status} ${errText}`);
+      }
+
+      return res.status(200).json({ success: true, message: 'Google Business bağlantısı aktif' });
+    } catch (err: any) {
+      console.error('[API test-google-connection] Failure:', err);
+      return res.status(400).json({ success: false, error: err.message || 'Google Business bağlantısı eksik veya yetkilendirme gerekli.' });
+    }
+  }
+
+  // -------------------------------------------------------------
   // Action: google-locations
   // -------------------------------------------------------------
   if (action === 'google-locations') {
@@ -95,7 +306,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      const googleAccessToken = await getGoogleAccessToken();
+      const hotelId = req.query.hotelId ? String(req.query.hotelId) : undefined;
+      const googleAccessToken = await getGoogleAccessToken(hotelId);
       const accountsRes = await fetch('https://mybusinessbusinessinformation.googleapis.com/v1/accounts', {
         headers: { 'Authorization': `Bearer ${googleAccessToken}` }
       });
