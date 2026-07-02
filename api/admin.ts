@@ -174,7 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (orgId) integrationPayload.organization_id = orgId;
       if (hotelId) integrationPayload.hotel_id = hotelId;
-      integrationPayload.provider = 'google';
+      integrationPayload.provider = 'google_business';
       integrationPayload.is_active = true;
 
       const { error: upsertErr } = await supabaseAdmin.from('integration_settings').upsert(integrationPayload);
@@ -251,6 +251,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const frontendUrl = process.env.APP_URL || 'https://ecctur-review-ai.vercel.app';
       const redirectUri = `${frontendUrl}/api/admin?action=google-oauth-callback`;
+      console.log('[Google Connection API] Generating OAuth URL. Callback URL:', redirectUri);
       const scope = 'https://www.googleapis.com/auth/business.manage';
       const hotelId = req.query.hotelId || 'default';
       const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + 

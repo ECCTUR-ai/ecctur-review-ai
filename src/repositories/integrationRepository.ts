@@ -35,7 +35,8 @@ export const integrationRepository = {
       id: item.id,
       name: item.name,
       status: item.status,
-      updatedAt: item.updated_at || item.updatedAt
+      updatedAt: item.updated_at || item.updatedAt,
+      config: item.config || {}
     }));
   },
 

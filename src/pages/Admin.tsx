@@ -179,6 +179,30 @@ export default function Admin() {
     }
   };
 
+  const getGoogleConnectionStatus = (item: any) => {
+    if (item.status !== 'connected') {
+      return 'Bağlı değil';
+    }
+    
+    // Check if a hotel is selected
+    const selectedHotelObj = hotels?.find((h: Hotel) => h.id === selectedHotelForGoogle);
+    
+    // Check if the hotel has a connected location
+    const googleLocId = selectedHotelObj?.googleLocationId || item.config?.google_location_id;
+    if (!googleLocId) {
+      return 'Location seçilmedi';
+    }
+
+    // Check if token is expired
+    const expiresAt = item.config?.token_expires_at;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+      return 'Token süresi dolmuş';
+    }
+
+    return 'Bağlı';
+  };
+
+
   useEffect(() => {
     if (activeTab === 'google-locations') {
       fetchGoogleLocations();
@@ -1619,6 +1643,17 @@ export default function Admin() {
                           {item.id === 'n8n' && <Sliders size={10} />}
                           {item.id === 'supabase' && <CheckCircle size={10} />}
                           Sync status: <span className="text-slate-400 capitalize">{item.status}</span>
+                          {item.id === 'google_business' && (
+                            <span className={`ml-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                              getGoogleConnectionStatus(item) === 'Bağlı'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                : getGoogleConnectionStatus(item) === 'Bağlı değil'
+                                ? 'bg-slate-500/10 border-slate-200 text-slate-400'
+                                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                            }`}>
+                              {getGoogleConnectionStatus(item)}
+                            </span>
+                          )}
                         </span>
                       </div>
 

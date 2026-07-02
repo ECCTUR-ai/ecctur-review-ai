@@ -185,4 +185,11 @@ export interface IntegrationSetting {
   name: string;
   status: 'connected' | 'disconnected' | 'error';
   updatedAt: string;
+  config?: {
+    google_account_id?: string;
+    google_location_id?: string;
+    google_business_name?: string;
+    token_expires_at?: string;
+    [key: string]: any;
+  };
 }

@@ -143,13 +143,18 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
     };
   }
 
-  if (!googleAccountId || !googleLocationId || !externalReviewId) {
-    throw new Error('Google Business bağlantısı eksik veya yetkilendirme gerekli. (Konum veya hesap bilgisi eksik)');
+  if (!gSetting && !refreshToken && !accessTokenInConfig) {
+    throw new Error('Bu otel için Google Business bağlantısı yapılmamış.');
   }
 
-  if (!refreshToken && !accessTokenInConfig) {
-    throw new Error('Google Business bağlantısı eksik veya yetkilendirme gerekli.');
+  if (!googleLocationId) {
+    throw new Error('Google Business location seçilmemiş.');
   }
+
+  if (!googleAccountId || !externalReviewId) {
+    throw new Error('Google Business location seçilmemiş.');
+  }
+
 
   let accessToken = accessTokenInConfig;
   let tokenRefreshed = false;
@@ -186,13 +191,17 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
     }
 
     if (!published && refreshToken && clientId && clientSecret) {
-      accessToken = await refreshGoogleAccessToken(clientId, clientSecret, refreshToken);
-      tokenRefreshed = true;
-      published = await tryPublishWithToken(accessToken);
+      try {
+        accessToken = await refreshGoogleAccessToken(clientId, clientSecret, refreshToken);
+        tokenRefreshed = true;
+        published = await tryPublishWithToken(accessToken);
+      } catch (refreshErr) {
+        throw new Error('Google Business yetkisi eksik veya süresi dolmuş.');
+      }
     }
 
     if (!published) {
-      throw new Error('Google Business bağlantısı eksik veya yetkilendirme gerekli.');
+      throw new Error('Google Business yetkisi eksik veya süresi dolmuş.');
     }
 
     if (tokenRefreshed && gSetting && accessToken) {
@@ -207,8 +216,8 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
     }
   } catch (apiErr: any) {
     const errorMsg = String(apiErr.message || apiErr);
-    if (errorMsg.includes('Invalid credentials') || errorMsg.includes('invalid_grant') || errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
-      throw new Error('Google Business bağlantısı eksik veya yetkilendirme gerekli.');
+    if (errorMsg.includes('Invalid credentials') || errorMsg.includes('invalid_grant') || errorMsg.includes('401') || errorMsg.includes('Unauthorized') || errorMsg.includes('Google Business yetkisi')) {
+      throw new Error('Google Business yetkisi eksik veya süresi dolmuş.');
     }
     throw apiErr;
   }
