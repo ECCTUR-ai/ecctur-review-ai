@@ -5,6 +5,7 @@ import Dashboard from '@/pages/Dashboard';
 import Reviews from '@/pages/Reviews';
 import Departments from '@/pages/Departments';
 import Analytics from '@/pages/Analytics';
+import Reports from '@/pages/Reports';
 import WhatsApp from '@/pages/WhatsApp';
 import Settings from '@/pages/Settings';
 import Tasks from '@/pages/Tasks';
@@ -77,6 +78,14 @@ export default function App() {
               element={
                 <AuthGuard requiredPermission="view:analytics">
                   <Analytics />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <AuthGuard requiredPermission="view:analytics">
+                  <Reports />
                 </AuthGuard>
               }
             />

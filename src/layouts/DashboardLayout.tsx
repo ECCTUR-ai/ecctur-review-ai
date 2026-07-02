@@ -31,7 +31,8 @@ import {
   Building,
   Globe,
   ShieldCheck,
-  Menu
+  Menu,
+  FileText
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -48,6 +49,7 @@ const sidebarItems: SidebarItem[] = [
   { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'view:tasks', tKey: 'sidebar.tasks' },
   { name: 'Departments', path: '/departments', icon: Building2, permission: 'view:departments', tKey: 'sidebar.departments' },
   { name: 'Analytics', path: '/analytics', icon: TrendingUp, permission: 'view:analytics', tKey: 'sidebar.analytics' },
+  { name: 'Reports', path: '/reports', icon: FileText, permission: 'view:analytics', tKey: 'sidebar.reports' },
   { name: 'WhatsApp', path: '/whatsapp', icon: MessageCircle, permission: 'view:whatsapp', tKey: 'sidebar.whatsapp' },
   { name: 'Settings', path: '/settings', icon: Settings, permission: 'view:settings', tKey: 'sidebar.settings' },
   { name: 'Admin', path: '/admin', icon: ShieldCheck, permission: 'view:users', tKey: 'sidebar.admin' },
