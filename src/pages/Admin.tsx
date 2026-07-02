@@ -540,18 +540,19 @@ export default function Admin() {
   const handleSaveHotel = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      console.log('[DEBUG-ADMIN-SAVE] Saving hotel values:');
-      console.log('  - State hotelGoogleMapsLink:', hotelGoogleMapsLink);
-      console.log('  - State hotelTripadvisorLink:', hotelTripadvisorLink);
-      console.log('[DEBUG-TRIPADVISOR-SAVE]');
-      console.log('  - hotelId:', editingHotel?.id || 'new');
-      console.log('  - tripadvisorUrl:', hotelTripadvisorLink);
+      const payload = {
+        name: hotelName,
+        organizationId: hotelOrgId,
+        googleMapsUrl: hotelGoogleMapsLink,
+        tripadvisorUrl: hotelTripadvisorLink
+      };
+      console.log('[SAVE PAYLOAD]', payload);
 
       if (isAddingHotel) {
-        await adminService.addHotel({ name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink, tripadvisorUrl: hotelTripadvisorLink });
+        await adminService.addHotel(payload);
         triggerToast('Hotel added successfully');
       } else if (editingHotel) {
-        await adminService.editHotel(editingHotel.id, { name: hotelName, organizationId: hotelOrgId, googleMapsUrl: hotelGoogleMapsLink, tripadvisorUrl: hotelTripadvisorLink });
+        await adminService.editHotel(editingHotel.id, payload);
         triggerToast('Hotel updated successfully');
       }
 

@@ -102,19 +102,25 @@ export const hotelRepository = {
   },
 
   async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string }): Promise<Hotel> {
+    const insertData = {
+      name: hotel.name,
+      organization_id: hotel.organizationId,
+      google_maps_link: hotel.googleMapsLink || null,
+      google_maps_url: hotel.googleMapsLink || null,
+      tripadvisor_url: hotel.tripadvisorUrl || null
+    };
+    console.log('[SUPABASE INSERT]', insertData);
+
     const { data, error } = await supabase
       .from('hotels')
-      .insert({
-        name: hotel.name,
-        organization_id: hotel.organizationId,
-        google_maps_link: hotel.googleMapsLink || null,
-        google_maps_url: hotel.googleMapsLink || null,
-        tripadvisor_url: hotel.tripadvisorUrl || null
-      })
+      .insert(insertData)
       .select()
       .maybeSingle();
 
+    console.log('[SUPABASE INSERT RESPONSE]', { data, error });
+
     if (error) {
+      console.error('[SUPABASE INSERT ERROR DETAILED]', error);
       if (error.code === 'PGRST116' || error.message.includes('single') || error.message.includes('JSON')) {
         console.warn('Supabase select post-insert was blocked by RLS policies. Treating as success.');
         return {
@@ -141,6 +147,8 @@ export const hotelRepository = {
       tripadvisor_url: hotel.tripadvisorUrl
     };
 
+    console.log('[SUPABASE INSERT RESOLVED ROW]', resultRow);
+
     return {
       id: resultRow.id,
       organizationId: resultRow.organization_id,
@@ -149,32 +157,31 @@ export const hotelRepository = {
       connectionStatus: 'connected',
       googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
       googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
-      tripadvisorUrl: resultRow.tripadvisor_url
+      tripadvisorUrl: resultRow.tripadvisor_url || ''
     };
   },
 
   async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string }): Promise<Hotel> {
-    console.log('[DEBUG-REPOSITORY-UPDATE] Supabase update payload:');
-    console.log('  - id:', id);
-    console.log('  - name:', hotel.name);
-    console.log('  - google_maps_link:', hotel.googleMapsLink);
-    console.log('  - google_maps_url:', hotel.googleMapsLink);
-    console.log('  - tripadvisor_url:', hotel.tripadvisorUrl);
+    const updateData = {
+      name: hotel.name,
+      organization_id: hotel.organizationId,
+      google_maps_link: hotel.googleMapsLink || null,
+      google_maps_url: hotel.googleMapsLink || null,
+      tripadvisor_url: hotel.tripadvisorUrl || null
+    };
+    console.log('[SUPABASE UPDATE]', updateData);
 
     const { data, error } = await supabase
       .from('hotels')
-      .update({
-        name: hotel.name,
-        organization_id: hotel.organizationId,
-        google_maps_link: hotel.googleMapsLink || null,
-        google_maps_url: hotel.googleMapsLink || null,
-        tripadvisor_url: hotel.tripadvisorUrl || null
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .maybeSingle();
 
+    console.log('[SUPABASE UPDATE RESPONSE]', { data, error });
+
     if (error) {
+      console.error('[SUPABASE UPDATE ERROR DETAILED]', error);
       if (error.code === 'PGRST116' || error.message.includes('single') || error.message.includes('JSON')) {
         console.warn('Supabase select post-update was blocked by RLS policies. Treating as success.');
         return {
@@ -201,6 +208,8 @@ export const hotelRepository = {
       tripadvisor_url: hotel.tripadvisorUrl
     };
 
+    console.log('[SUPABASE UPDATE RESOLVED ROW]', resultRow);
+
     return {
       id: resultRow.id,
       organizationId: resultRow.organization_id,
@@ -209,7 +218,7 @@ export const hotelRepository = {
       connectionStatus: 'connected',
       googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
       googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
-      tripadvisorUrl: resultRow.tripadvisor_url
+      tripadvisorUrl: resultRow.tripadvisor_url || ''
     };
   }
 };
