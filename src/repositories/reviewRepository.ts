@@ -136,7 +136,13 @@ export const reviewRepository = {
   },
 
   async submitResponse(id: string, responseText: string): Promise<Review> {
-    // Check if column ai_reply or response is used in table
+    console.log(`[Repository submitResponse] reviewId: ${id}`);
+    const { data: checkData, error: checkError } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('id', id);
+    console.log(`[Repository submitResponse] Check result:`, checkData, `Error:`, checkError);
+
     const updateData: any = {
       ai_reply: responseText,
       response: responseText,
@@ -150,11 +156,10 @@ export const reviewRepository = {
       .from('reviews')
       .update(updateData)
       .eq('id', id)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) {
-      // Fallback if specific columns are missing
+      console.warn(`[Repository submitResponse] Update failed, retrying fallback...`, error);
       const fallbackData = {
         ai_reply: responseText,
         status: 'published'
@@ -163,16 +168,22 @@ export const reviewRepository = {
         .from('reviews')
         .update(fallbackData)
         .eq('id', id)
-        .select()
-        .maybeSingle();
+        .select();
       if (fbError) throw fbError;
-      return mapReview(fbData);
+      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data);
+    return mapReview(data && data.length > 0 ? data[0] : null);
   },
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
+    console.log(`[Repository saveResponseDraft] reviewId: ${id}`);
+    const { data: checkData, error: checkError } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('id', id);
+    console.log(`[Repository saveResponseDraft] Check result:`, checkData, `Error:`, checkError);
+
     const updateData: any = {
       ai_reply: responseText,
       response: responseText,
@@ -186,10 +197,10 @@ export const reviewRepository = {
       .from('reviews')
       .update(updateData)
       .eq('id', id)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) {
+      console.warn(`[Repository saveResponseDraft] Update failed, retrying fallback...`, error);
       const fallbackData = {
         ai_reply: responseText,
         status: 'draft'
@@ -198,16 +209,22 @@ export const reviewRepository = {
         .from('reviews')
         .update(fallbackData)
         .eq('id', id)
-        .select()
-        .maybeSingle();
+        .select();
       if (fbError) throw fbError;
-      return mapReview(fbData);
+      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data);
+    return mapReview(data && data.length > 0 ? data[0] : null);
   },
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
+    console.log(`[Repository updateReviewNotes] reviewId: ${id}`);
+    const { data: checkData, error: checkError } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('id', id);
+    console.log(`[Repository updateReviewNotes] Check result:`, checkData, `Error:`, checkError);
+
     const updateData: any = {
       notes: managerNotes,
       manager_notes: managerNotes,
@@ -219,10 +236,10 @@ export const reviewRepository = {
       .from('reviews')
       .update(updateData)
       .eq('id', id)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) {
+      console.warn(`[Repository updateReviewNotes] Update failed, retrying fallback...`, error);
       const fallbackData = {
         notes: managerNotes
       };
@@ -230,35 +247,45 @@ export const reviewRepository = {
         .from('reviews')
         .update(fallbackData)
         .eq('id', id)
-        .select()
-        .maybeSingle();
+        .select();
       if (fbError) throw fbError;
-      return mapReview(fbData);
+      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data);
+    return mapReview(data && data.length > 0 ? data[0] : null);
   },
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
+    console.log(`[Repository updateReviewStatus] reviewId: ${id}, status: ${status}`);
+    const { data: checkData, error: checkError } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('id', id);
+    console.log(`[Repository updateReviewStatus] Check result:`, checkData, `Error:`, checkError);
+
     const statusVal = status.charAt(0).toUpperCase() + status.slice(1);
+    let mappedStatus = statusVal;
+    if (status === 'pending_approval') mappedStatus = 'Pending Approval';
+    if (status === 'waiting_approval') mappedStatus = 'Waiting Approval';
+    if (status === 'draft') mappedStatus = 'Draft';
+
     const { data, error } = await supabase
       .from('reviews')
-      .update({ status: statusVal, updated_at: new Date().toISOString() })
+      .update({ status: mappedStatus, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) {
+      console.warn(`[Repository updateReviewStatus] Update failed, retrying fallback...`, error);
       const { data: fbData, error: fbError } = await supabase
         .from('reviews')
         .update({ status })
         .eq('id', id)
-        .select()
-        .maybeSingle();
+        .select();
       if (fbError) throw fbError;
-      return mapReview(fbData);
+      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data);
+    return mapReview(data && data.length > 0 ? data[0] : null);
   }
 };
