@@ -639,11 +639,35 @@ export default function Reviews() {
     }
   };
 
-  const handleUpdateStatus = async (id: string, newStatus: ReviewStatus) => {
+  const handleUpdateStatus = async (id: string, newStatus: ReviewStatus, responseText?: string) => {
     try {
+      if (responseText !== undefined) {
+        await reviewService.saveResponseDraft(id, responseText);
+      }
       const updated = await reviewService.updateReviewStatus(id, newStatus);
       setSelectedReviewDetail(updated);
       refetch();
+
+      if (newStatus === 'pending_approval') {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            await fetch('/api/send-review-whatsapp-approval', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ reviewId: id })
+            });
+            console.log('[WhatsApp] Approval notification triggered.');
+            setToastMessage('Yorum onaya gönderildi ve WhatsApp onay bildirimi tetiklendi.');
+          }
+        } catch (wErr) {
+          console.warn('[WhatsApp] Failed to send approval notification:', wErr);
+        }
+      }
     } catch (err: any) {
       alert(`API Error: Could not update status. ${err.message}`);
     }

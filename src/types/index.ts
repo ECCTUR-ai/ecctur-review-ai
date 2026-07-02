@@ -1,7 +1,7 @@
 export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 export type ReviewPriority = 'low' | 'medium' | 'high' | 'critical';
-export type ReviewStatus = 'draft' | 'waiting_approval' | 'published';
+export type ReviewStatus = 'draft' | 'waiting_approval' | 'pending_approval' | 'published';
 
 export interface AIAnalysis {
   sentiment: Sentiment;

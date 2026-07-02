@@ -26,7 +26,7 @@ import { useAuth } from './AuthGuard';
 
 interface ReviewDetailPanelProps {
   review: Review;
-  onUpdateStatus: (id: string, status: any) => void;
+  onUpdateStatus: (id: string, status: any, responseText?: string) => void;
   onSubmitResponse: (id: string, response: string) => void;
   onSaveDraft: (id: string, response: string) => void;
   onGenerateAiReply: (id: string) => Promise<string>;
@@ -335,10 +335,10 @@ export function ReviewDetailPanel({
                     <>
                       <button
                         type="button"
-                        onClick={() => onUpdateStatus(review.id, 'waiting_approval')}
+                        onClick={() => onUpdateStatus(review.id, 'pending_approval', responseVal)}
                         className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 text-[10px] font-bold text-amber-700 transition-colors"
                       >
-                        Onayla
+                        Onaya Gönder
                       </button>
                       <button
                         type="button"
