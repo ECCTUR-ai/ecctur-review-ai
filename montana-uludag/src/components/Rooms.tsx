@@ -7,28 +7,28 @@ interface RoomsProps {
 export default function Rooms({ onBookRoom }: RoomsProps) {
   const roomCategories = [
     {
-      title: 'Standart Orman Odası',
-      price: '₺4.500',
+      title: 'Standart Oda',
+      price: '₺3.200',
       size: '28 m²',
       capacity: '2 Yetişkin',
       image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?q=80&w=800&auto=format&fit=crop',
-      features: ['Orman Manzarası', 'Yerden Isıtma', 'Lüks Banyo Ürünleri', 'Çay/Kahve Seti', 'Ücretsiz Wi-Fi']
+      features: ['Orman Manzarası', 'Yerden Isıtma', 'Banyo Ürünleri', 'Çay/Kahve Seti', 'Ücretsiz Wi-Fi']
     },
     {
-      title: 'Deluxe Şömineli Süit',
-      price: '₺6.800',
+      title: 'Aile Odası',
+      price: '₺4.800',
       size: '45 m²',
-      capacity: '3 Yetişkin',
+      capacity: '3-4 Kişi',
       image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=800&auto=format&fit=crop',
-      features: ['Gerçek Odun Şöminesi', 'Dağ ve Pist Manzarası', 'Özel Jakuzi', 'Nespresso Makinesi', 'Yerden Isıtma']
+      features: ['Şömine Keyfi', 'Dağ ve Pist Manzarası', 'Geniş Banyo', 'Nespresso Makinesi', 'Yerden Isıtma']
     },
     {
-      title: 'Montana Loft Aile Süiti',
-      price: '₺9.200',
-      size: '65 m²',
-      capacity: '4 Yetişkin + 2 Çocuk',
+      title: 'Ekonomik Dağ Odası',
+      price: '₺2.400',
+      size: '22 m²',
+      capacity: '2 Kişi',
       image: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?q=80&w=800&auto=format&fit=crop',
-      features: ['Çift Katlı Loft Yapı', 'Geniş Teras & Balon', 'Ebeveyn Banyosu', 'Mutfak Nişi & Bar', 'Şömine Köşesi']
+      features: ['Sıcak Dekorasyon', 'Merkezi Isıtma', 'Çay/Kahve Seti', 'Dağ Manzarası', 'Ücretsiz Wi-Fi']
     }
   ];
 
@@ -36,10 +36,10 @@ export default function Rooms({ onBookRoom }: RoomsProps) {
     <section id="rooms" className="rooms-section section">
       <div className="container">
         <div className="section-header text-center">
-          <span className="subtitle">LÜKS KONAKLAMA</span>
-          <h2 className="heading-md">Özel Tasarım Odalarımız</h2>
+          <span className="subtitle">SICAK VE KONFORLU KONAKLAMA</span>
+          <h2 className="heading-md">Oda Seçeneklerimiz</h2>
           <p className="header-desc">
-            Dağ esintisini ve modern lüksü bir araya getiren oda konseptlerimizde, ev sıcaklığında bir konfor sizi bekliyor.
+            Dağ havasını ve ev sıcaklığını bir araya getiren samimi oda konseptlerimizde, konforlu bir tatil sizi bekliyor.
           </p>
         </div>
 

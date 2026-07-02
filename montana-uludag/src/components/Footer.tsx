@@ -20,7 +20,7 @@ export default function Footer({ setActivePage }: FooterProps) {
             <span className="logo-sub">ULUDAĞ</span>
           </div>
           <p className="footer-brand-desc">
-            Uludağ'ın 2. Gelişim bölgesinde, eşsiz pistlerin ve karın tadını en yüksek konforla çıkarmanız için tasarlanmış lüks dağ oteli.
+            Uludağ'ın 2. Gelişim bölgesinde, eşsiz pistlerin ve karın tadını en yüksek konforla çıkarmanız için tasarlanmış samimi dağ oteli.
           </p>
           <div className="social-icons">
             <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-link">Instagram</a>
@@ -46,7 +46,7 @@ export default function Footer({ setActivePage }: FooterProps) {
         <div className="footer-contact-col">
           <h4 className="footer-title">Bize Ulaşın</h4>
           <p className="contact-detail-line">📍 2. Gelişim Bölgesi, Oteller Mevkii No: 12, Uludağ / Bursa</p>
-          <p className="contact-detail-line">📞 +90 (224) 444 25 43</p>
+          <p className="contact-detail-line">📞 +90XXXXXXXXXX</p>
           <p className="contact-detail-line">✉ info@montana2543.com</p>
         </div>
       </div>

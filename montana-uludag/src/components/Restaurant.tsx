@@ -2,10 +2,10 @@
 
 export default function Restaurant() {
   const menuHighlights = [
-    { title: 'Montana Burger', desc: 'Özel dağ baharatlı 200g burger köftesi, karamelize soğan, cheddar peyniri ve el yapımı sos.' },
-    { title: 'Şömine Ateşinde Sıcak Şarap', desc: 'Karanfil, tarçın ve taze meyve kabukları ile demlenmiş Montana klasik dağ lezzeti.' },
-    { title: 'Kestane Çorbası', desc: 'Uludağ kestanelerinden taze krema ve dağ kekiği eşliğinde hazırlanan özel kış başlangıcı.' },
-    { title: 'Fırınlanmış Dağ Armudu', desc: 'Fırında odun ateşinde karamelize edilmiş armut, keçi sütlü dondurma ve yaban mersini sosu.' }
+    { title: 'Uludağ Sucuk Ekmek', desc: 'Izgarada pişen özel kasap sucuğu, taze çıtır ekmek ve dağ kekikli sosu ile eşsiz kar klasiği.' },
+    { title: 'Şömine Başında Sıcak İçecekler', desc: 'Salep, sıcak çikolata, taze demlenmiş dağ çayı ve şifalı bitki çayları ile içinizi ısıtacak seçenekler.' },
+    { title: 'Montana Burger', desc: 'Özel baharatlı 200g burger köftesi, karamelize soğan, cheddar peyniri ve el yapımı çıtır patates.' },
+    { title: 'Acenta & Grup Menüleri', desc: 'Günübirlik turlar ve acenta grupları için önceden planlanabilen pratik ve doyurucu toplu yemek menüleri.' }
   ];
 
   return (
@@ -13,10 +13,10 @@ export default function Restaurant() {
       <div className="container">
         <div className="restaurant-layout">
           <div className="restaurant-content">
-            <span className="subtitle">GASTRONOMİ DENEYİMİ</span>
+            <span className="subtitle">LEZZET DURAGI</span>
             <h2 className="heading-md">Montana Snack Restaurant</h2>
             <p className="restaurant-description">
-              Pist dönüşünde ya da şömine başında, içinizi ısıtacak lezzetlerle buluşun. Odun ateşinde pişen taze pizzalardan gurme burgerlere, zengin sıcak içecek menümüzden özel dağ tatlılarına uzanan geniş seçkimizle hizmetinizdeyiz.
+              Pist dönüşünde, günübirlik turlarınızda ya da acenta gruplarınızla sıcak bir mola verin. Şömine başında sucuk ekmek keyfi, içinizi ısıtacak zengin sıcak içecekler ve odun ateşinde pişen lezzetlerimizle hem günübirlik dağ ziyaretçilerimize hem de otel konuklarımıza hizmet vermekteyiz.
             </p>
             
             <div className="menu-list">

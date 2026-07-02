@@ -30,7 +30,17 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Simulate submission
+    const messageText = `Merhaba Montana 2543,\n\nRezervasyon/Bilgi Talebi:\n` +
+      `- İsim: ${formData.name}\n` +
+      `- E-Posta: ${formData.email}\n` +
+      `- Telefon: ${formData.phone}\n` +
+      `- Tarihler: ${formData.dates}\n` +
+      `- Oda Konsepti: ${formData.roomType || 'Belirtilmedi'}\n` +
+      `- Özel Not: ${formData.message || 'Yok'}`;
+
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=90XXXXXXXXXX&text=${encodeURIComponent(messageText)}`;
+    window.open(whatsappUrl, '_blank');
+
     setSubmitted(true);
     setFormData({
       name: '',
@@ -75,8 +85,8 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
                 <span className="info-icon">📞</span>
                 <div className="info-text">
                   <h5>Telefon / WhatsApp</h5>
-                  <p>+90 (224) 444 25 43</p>
-                  <p>+90 (555) 123 45 67</p>
+                  <p>+90XXXXXXXXXX</p>
+                  <p>+90XXXXXXXXXX</p>
                 </div>
               </div>
 
@@ -184,9 +194,9 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
                         className="form-control"
                       >
                         <option value="">Oda Konsepti Seçin</option>
-                        <option value="Standart Orman Odası">Standart Orman Odası</option>
-                        <option value="Deluxe Şömineli Süit">Deluxe Şömineli Süit</option>
-                        <option value="Montana Loft Aile Süiti">Montana Loft Aile Süiti</option>
+                        <option value="Standart Oda">Standart Oda</option>
+                        <option value="Aile Odası">Aile Odası</option>
+                        <option value="Ekonomik Dağ Odası">Ekonomik Dağ Odası</option>
                       </select>
                     </div>
                   </div>

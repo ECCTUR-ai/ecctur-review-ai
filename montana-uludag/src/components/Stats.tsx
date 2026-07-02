@@ -2,9 +2,9 @@
 
 export default function Stats() {
   const statList = [
-    { number: '64', label: 'LÜKS ODA', desc: 'Konforlu & Dağ Manzaralı' },
-    { number: '180', label: 'YATAK KAPASİTESİ', desc: 'Geniş Aile & Süit Seçenekleri' },
-    { number: '6', label: 'KAT', desc: 'Sosyal Alanlar & Şömine Salonu' }
+    { number: '64', label: 'KONFORLU ODA', desc: 'Sıcak & Dağ Manzaralı' },
+    { number: '180', label: 'YATAK KAPASİTESİ', desc: 'Geniş Aile & Oda Seçenekleri' },
+    { number: '6', label: 'KAT', desc: 'Sosyal Alanlar & Dinlenme Salonu' }
   ];
 
   return (

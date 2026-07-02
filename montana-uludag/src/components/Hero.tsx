@@ -6,14 +6,14 @@ interface HeroProps {
 
 export default function Hero({ onBookClick }: HeroProps) {
   const handleWhatsAppClick = () => {
-    window.open('https://api.whatsapp.com/send?phone=905551234567&text=Merhaba%2C%20Montana%202543%20otelinde%20rezervasyon%20hakk%C4%B1nda%20bilgi%20alabilir%20miyim%3F', '_blank');
+    window.open('https://api.whatsapp.com/send?phone=90XXXXXXXXXX&text=Merhaba%2C%20Montana%202543%20otelinde%20konaklama%20ve%20rezervasyon%20talebi%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.', '_blank');
   };
 
   return (
     <section className="hero-section">
       <div className="hero-background-overlay" />
       <div className="hero-content container animate-fade-in">
-        <span className="hero-badge">ZİRVEDE LÜKS BİR TATİL</span>
+        <span className="hero-badge">ZİRVEDE SICAK VE SAMİMİ BİR TATİL</span>
         <h1 className="hero-title">MONTANA <span className="title-highlight">2543</span></h1>
         <p className="hero-subtitle">Uludağ'ın Zirvesinde Yeni Bir Deneyim</p>
         

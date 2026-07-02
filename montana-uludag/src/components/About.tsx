@@ -3,7 +3,7 @@
 export default function About() {
   const highlights = [
     { title: '2.543m Yükseklik', desc: 'Uludağ Zirve noktasının hemen altında, temiz hava ve sınırsız manzara sunan özel lokasyon.' },
-    { title: 'Sıcak Mimari Yapı', desc: 'Bölgeye özgü doğal ahşap ve taş dokuların harmanlandığı lüks dağ evi konsepti.' },
+    { title: 'Sıcak Mimari Yapı', desc: 'Bölgeye özgü doğal ahşap ve taş dokuların harmanlandığı sıcak dağ evi konsepti.' },
     { title: 'Şömine & Sosyal Alanlar', desc: 'Ortak oturma alanlarındaki dev şöminelerle günün yorgunluğunu atabileceğiniz dinlendirici lobi.' }
   ];
 
@@ -15,10 +15,10 @@ export default function About() {
             <span className="subtitle">HİKAYEMİZ</span>
             <h2 className="heading-md">Montana 2543 Uludağ</h2>
             <p className="about-desc">
-              Adını Uludağ'ın büyüleyici zirvelerinden biri olan 2.543 metre yükseklikten alan otelimiz, doğanın kalbinde lüks ve konforu bir arada sunmak için tasarlandı. Dağ kültürünün samimi dokusunu modern mimari ile birleştirerek kış tatillerinizi unutulmaz bir deneyime dönüştürüyoruz.
+              Adını Uludağ'ın büyüleyici zirvelerinden biri olan 2.543 metre yükseklikten alan otelimiz, doğanın kalbinde sıcak ve konforlu bir konaklama sunmak için tasarlandı. Dağ kültürünün samimi dokusunu modern mimari ile birleştirerek kış tatillerinizi unutulmaz bir deneyime dönüştürüyoruz.
             </p>
             <p className="about-desc">
-              Misafirlerimize sadece konaklama değil, her anı özenle tasarlanmış bir yaşam stili sunuyoruz. Pist erişiminden gurme tatlara, ateş başı sohbetlerinden şömineli odalara kadar Montana 2543, dağ ruhunu derinden hissetmeniz için var.
+              Misafirlerimize konaklamadan daha fazlasını sunarak kendilerini evlerinde hissettirmeyi amaçlıyoruz. Pist erişiminden lezzetli atıştırmalıklara, şömine başı sıcak sohbetlerden rahat odalara kadar Montana 2543, dağ ruhunu en samimi şekilde hissetmeniz için var.
             </p>
 
             <div className="about-highlights-list">
