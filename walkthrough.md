@@ -1,6 +1,6 @@
-# Walkthrough — AI Business Insights & 5 Critical Actions with Global Resolutions
+# Walkthrough — AI Business Insights & Centralized Department Matching
 
-Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights** and **5 Kritik Aksiyon Önerisi** (5 Critical Actions) sections with dynamic action resolutions, category icon mappings, priority badges, review counting, and update timestamps.
+Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights**, **5 Kritik Aksiyon Önerisi** (5 Critical Actions), and unified **Department Matching** filters.
 
 ## 1. Upgraded 5 Critical Action Recommendations with Resolution
 - **Balanced 3-Column Layout**:
@@ -29,21 +29,17 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
 
 ---
 
-## 2. Upgraded AI Business Insights Section
-- **Dynamic 5 Issues & 5 Highlights**:
-  - Replaced the static/mock list of 3 issues and 3 highlights with exactly **5 Issues** ("Öne Çıkan 5 Sorun") and **5 Highlights** ("Memnuniyet Duyulan 5 Konu").
-  - Dynamically processes comments, sentiment values, ratings, and classifications of the filtered reviews in the selected date range.
-- **Category Icon Mappings**:
-  - Mapped hospitality categories (`reception`, `housekeeping`, `wifi`, `room`, `food`, `spa`, `location`, `staff`) to custom Lucide icons.
-  - Implemented the `getCategoryIcon(category)` helper function to display corresponding visual markers next to each list item.
-- **Metadata Information & Timestamp**:
-  - Displays the total number of reviews analyzed in the active date preset at the bottom left: *"Bu analiz seçilen tarih aralığında incelenen X yorum üzerinden AI tarafından oluşturulmuştur."*
-  - Automatically calculates and prints the last updated timestamp at the bottom right: *"Son Güncelleme: DD.MM.YYYY HH:MM"*.
-- **Business Intelligence Phrasing**:
-  - Instructs the AI engine to write titles and descriptions using board-level Business Intelligence (BI) insights phrasing instead of simple lists of complaints.
-- **AI Engine & Fallback Compiler**:
-  - **`api/reviews.ts` (`action === 'generate-insights'`)**: If `OPENAI_API_KEY` is present, compiles insights by feeding a structured prompt into GPT-3.5-turbo, demanding JSON objects with exact category classifications and combining duplicate topics.
-  - **`compileLocalInsights(reviews)` Fallback**: If the key is missing or the call fails, runs a smart local keywords parser. Computes positive and negative review frequencies for each category, ranks them, and maps the top 5 to custom BI titles and descriptions.
+## 2. Centralized Department Operational Matching & Chart Interactivity
+- **Discrepancy Resolution**:
+  - Extracted department keyword and Yapay Zeka parsing logic into a shared utility file: **`src/utils/departmentMatcher.ts`**.
+  - Includes standard functions: `matchesDepartment(review, key)`, `getDepartmentKey(review)`, and `getDepartmentStats(reviews, isTr)`.
+  - Guarantees that both the bar counts on the Reports dashboard and the list filtering on the Reviews page execute the exact same query matches.
+- **Date Filter Parameter Forwarding**:
+  - Clicking on a department bar forwards both the `department` tag AND the current active date filters (`from` and `to` search queries) to the Reviews routing path: e.g. `/reviews?department=housekeeping&from=2026-06-02&to=2026-07-02`.
+  - The Reviews page consumes the `from` and `to` parameters to filter the list date bounds, matching the Reports dashboard dataset exactly.
+- **Visual Dynamic Banner**:
+  - Displays a clean dismissible notification badge detailing the matched counts: e.g. *"Kat Hizmetleri ile ilgili 19 yorum"*.
+  - Tapping "Temizle" safely clears all search parameters (`department`, `from`, `to`) from the active URL path.
 
 ---
 
@@ -62,8 +58,13 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
 - **[Reports.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/pages/Reports.tsx)**:
   - Injected `insights`, `insightsLoading`, `lastUpdated`, `resolvedKeys`, and `localResolvedKeys` React states.
   - Configured a `useEffect` hook to fetch new insights and completed actions whenever date presets or hotel selection filters update `filteredReviews`.
-  - Added `getCategoryIcon` category mapper and corrected JSX wrappers.
-  - Imported `Wifi`, `Building` and `CheckCircle` from `lucide-react`.
+  - Imported `getDepartmentStats` utility to compute department numbers consistently.
+  - Added `getActiveDateRange()` to forward date values on bar clicks.
+
+### Reviews Page Layout
+- **[Reviews.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/pages/Reviews.tsx)**:
+  - Configured `fromParam` and `toParam` searchParams lookups.
+  - Applied the centralized `matchesDepartment` parser and date window filtering logic to the review records.
 
 ---
-Verified cleanly using `npm run build` and committed to main (`a583c85`).
+Verified cleanly using `npm run build` and committed to main (`5cb2b05`).
