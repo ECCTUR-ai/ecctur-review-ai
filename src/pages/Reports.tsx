@@ -297,7 +297,7 @@ export default function Reports() {
   const [insights, setInsights] = useState<{
     issues: Array<{ title: string; description: string; category: string }>;
     highlights: Array<{ title: string; description: string; category: string }>;
-    actions: string[];
+    actions: Array<{ title: string; description: string; category: string }>;
   }>({ issues: [], highlights: [], actions: [] });
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
@@ -738,13 +738,26 @@ export default function Reports() {
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-indigo-400 tracking-wider uppercase flex items-center gap-1.5">
                       <Sparkles size={14} />
-                      {isTr ? '5 Kritik Aksiyon Önerisi' : '5 Action Recommendations'}
+                      {isTr ? '10 Kritik Aksiyon Önerisi' : '10 Action Recommendations'}
                     </h4>
                     <ul className="space-y-4">
                       {insights.actions.map((act, idx) => (
                         <li key={idx} className="flex gap-2 text-xs text-slate-400">
                           <span className="text-indigo-500/60 font-bold text-[11px] shrink-0 mt-0.5">{idx + 1}.</span>
-                          <span className="leading-relaxed text-slate-400 text-xs">{act}</span>
+                          <div className="flex items-start justify-between gap-3 min-w-0 w-full">
+                            <div className="flex items-start gap-2 min-w-0">
+                              <div className="mt-0.5 bg-slate-900 border border-white/[0.06] rounded-md p-1 shrink-0">
+                                {getCategoryIcon(act.category)}
+                              </div>
+                              <div className="space-y-0.5">
+                                <strong className="text-slate-200 block text-xs font-semibold">{act.title}</strong>
+                                <span className="text-[11px] text-slate-500 block leading-relaxed">{act.description}</span>
+                              </div>
+                            </div>
+                            <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-extrabold uppercase rounded px-1.5 py-0.5 tracking-wider shrink-0 mt-0.5">
+                              {isTr ? `Öncelik ${idx + 1}` : `Priority ${idx + 1}`}
+                            </span>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -755,8 +768,8 @@ export default function Reports() {
                 <div className="border-t border-white/[0.04] pt-4 mt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-[10px] text-slate-500 font-semibold">
                   <span>
                     {isTr 
-                      ? `Bu analiz seçilen tarih aralığında incelenen ${stats.total} yorum üzerinden AI tarafından oluşturulmuştur.`
-                      : `This analysis was compiled by AI based on ${stats.total} reviews within the selected date scope.`}
+                      ? `Bu aksiyon önerileri seçilen tarih aralığında analiz edilen ${stats.total} yorum üzerinden AI tarafından oluşturulmuştur.`
+                      : `These actions were compiled by AI based on ${stats.total} reviews analyzed within the selected date scope.`}
                   </span>
                   {lastUpdated && (
                     <span>

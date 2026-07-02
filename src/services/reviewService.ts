@@ -197,7 +197,7 @@ export const reviewService = {
   async generateInsights(reviews: Array<{ comment: string; rating: number; sentiment: string }>): Promise<{
     issues: Array<{ title: string; description: string; category: string }>;
     highlights: Array<{ title: string; description: string; category: string }>;
-    actions: string[];
+    actions: Array<{ title: string; description: string; category: string }>;
   }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;

@@ -482,20 +482,117 @@ function compileLocalInsights(reviews: Array<{ comment: string; rating: number; 
     };
   });
 
-  const allActionTemplates: Record<string, string> = {
-    reception: 'Giriş yoğunluğunu engellemek adına resepsiyonda pik saatler için ek nöbetçi personel görevlendirilmeli.',
-    housekeeping: 'Kat hizmetleri departmanında banyo temizliği kontrol listeleri (checklist) ve denetim sıklığı revize edilmeli.',
-    wifi: 'Oda katlarındaki Wi-Fi erişim noktalarının (AP) sinyal gücü ve bant genişliği teknik olarak test edilmeli.',
-    room: 'Klimaların periyodik filtre temizliği, kompresör gaz bakımları ve kapı fitillerinin ses yalıtımı denetlenmeli.',
-    food: 'Açık büfede alternatif sıcak ürün çeşitliliği artırılmalı ve yoğun saatlerde garson sipariş koordinasyonu geliştirilmeli.',
-    spa: 'Havuz sıcaklık ve klor ölçümleri daha sık izlenerek spa alanında genel dezenfeksiyon takvimi sıklaştırılmalı.',
-    location: 'Dış çevre ses yalıtımı için pencerelerin fitil bakımları yapılmalı ve ses yalıtımlı cam uygulamaları değerlendirilmeli.',
-    staff: 'Personelin servis içi iletişim standartları ve problem çözme yetkinlikleri üzerine hizmet içi eğitim planlanmalı.'
+  const allActionTemplates: Record<string, { title: string; description: string }> = {
+    reception: {
+      title: 'Resepsiyon Kadro ve Giriş Yönetimi',
+      description: 'Pik giriş saatlerinde resepsiyon kadrosunu desteklemek için esnek vardiya planı uygulanmalı ve bekleme süreleri minimize edilmelidir.'
+    },
+    housekeeping: {
+      title: 'Kat Hizmetleri Hijyen Standartları',
+      description: 'Kat hizmetleri departmanında banyo ve genel oda temizliği kontrol listeleri (checklist) revize edilerek denetim sıklığı artırılmalıdır.'
+    },
+    wifi: {
+      title: 'Wi-Fi ve Network Altyapı Denetimi',
+      description: 'Odalar ve genel alanlardaki kablosuz erişim noktalarının (AP) sinyal güçleri ve internet bant genişliği teknik olarak test edilp optimize edilmelidir.'
+    },
+    room: {
+      title: 'Oda Donanımları ve Klima Bakımı',
+      description: 'Klimaların periyodik filtre temizliği ile ses yalıtım fitillerinin bakımları hızlandırılarak misafir uyku konforu korunmalıdır.'
+    },
+    food: {
+      title: 'Yiyecek & İçecek Operasyonel Revizyonu',
+      description: 'Açık büfede sıcak alternatif çeşitliliği artırılmalı ve yoğun kahvaltı saatlerinde restoran servis koordinasyonu yeniden planlanmalıdır.'
+    },
+    spa: {
+      title: 'Spa ve Havuz Hijyen Kontrolü',
+      description: 'Havuz sıcaklık ve klor değerleri daha sık ölçülmeli, spa dinlenme alanlarında genel dezenfeksiyon takvimi sıklaştırılmalıdır.'
+    },
+    location: {
+      title: 'Dış Çevre Gürültü İzolasyonu',
+      description: 'Dış sokak gürültüsünü engellemek için oda pencerelerinin fitil kontrolleri yapılmalı ve gerekli izolasyon önlemleri alınmalıdır.'
+    },
+    staff: {
+      title: 'Personel Hizmet ve İletişim Eğitimi',
+      description: 'Hizmet sunum kalitesini yükseltmek amacıyla tüm servis personeline yönelik iletişim ve problem çözme eğitimleri düzenlenmelidir.'
+    }
   };
 
-  const actions = sortedNegatives.slice(0, 5).map(id => {
-    return allActionTemplates[id] || 'Misafir memnuniyetini artırmaya yönelik periyodik denetim süreçleri sıklaştırılmalı.';
+  const highlightActionTemplates: Record<string, { title: string; description: string }> = {
+    staff: {
+      title: 'Personel Motivasyon Programı',
+      description: 'Misafirlerimizin memnuniyetle bahsettiği çalışanların başarılarını ödüllendiren motivasyon ve prim programları sürdürülmelidir.'
+    },
+    location: {
+      title: 'Konum Odaklı Tanıtım Stratejileri',
+      description: 'Tesisin plaja ve turistik alanlara yakınlığı gibi güçlü konum avantajları pazarlama ve sosyal medya kanallarında daha fazla öne çıkarılmalıdır.'
+    },
+    food: {
+      title: 'Açık Büfe Sunum Standartları',
+      description: 'Misafirlerden tam not alan akşam yemekleri zenginliği ve sunum kalitesi korunmalı, mevsimlik lezzetler eklenerek zenginleştirilmelidir.'
+    },
+    room: {
+      title: 'Oda Kalite Standartları Korunması',
+      description: 'Odalardaki yatak konforu ve peyzaj bütünlüğü korunmalı, yatak takımları ve tekstil ürünleri periyodik olarak yenilenmelidir.'
+    },
+    reception: {
+      title: 'Karşılama İkramları ve Hızlı Check-in',
+      description: 'Otele girişte sunulan karşılama ikramları çeşitlendirilmeli ve hızlı giriş süreçlerindeki dijital kolaylıklar artırılmalıdır.'
+    },
+    spa: {
+      title: 'Spa Tanıtım ve Masaj Kampanyaları',
+      description: 'Misafirlerin beğenisini toplayan profesyonel masaj terapisi hizmetleri giriş esnasında broşür ve özel indirim paketleriyle teşvik edilmelidir.'
+    },
+    housekeeping: {
+      title: 'Hijyen ve Temizlik Eğitimleri',
+      description: 'Misafirlerimizin takdir ettiği temiz odalar standardının devamlılığı için kat hizmetleri eğitimleri periyodik olarak sürdürülmelidir.'
+    },
+    general: {
+      title: 'Genel Tesis Bakım ve Onarım Planı',
+      description: 'Ortak alanlardaki peyzaj, bahçe yolları ve aydınlatma armatürlerinin periyodik teknik kontrolleri aksatılmadan sürdürülmelidir.'
+    }
+  };
+
+  const actions: Array<{ title: string; description: string; category: string }> = [];
+
+  // 1. Add actions based on negative feedback categories first (sorted by priority)
+  sortedNegatives.forEach(id => {
+    const template = allActionTemplates[id];
+    if (template && actions.length < 10) {
+      actions.push({
+        title: template.title,
+        description: template.description,
+        category: id
+      });
+    }
   });
+
+  // 2. Add actions based on positive feedback categories (sorted by priority) to fill up to 10
+  sortedPositives.forEach(id => {
+    const template = highlightActionTemplates[id];
+    if (template && actions.length < 10) {
+      const exists = actions.some(a => a.title === template.title);
+      if (!exists) {
+        actions.push({
+          title: template.title,
+          description: template.description,
+          category: id
+        });
+      }
+    }
+  });
+
+  // 3. Fallbacks if we still don't have 10
+  const fallbacks = [
+    { title: 'Tesis Genel Teknik Bakımı', description: 'Ortak alan aydınlatmaları, kapı kilit sistemleri ve asansörlerin periyodik bakımları zamanında yapılmalıdır.', category: 'room' },
+    { title: 'Otopark ve Karşılama Düzeni', description: 'Otel girişinde vale ve otopark yönlendirme süreçleri optimize edilerek ilk izlenim iyileştirilmelidir.', category: 'reception' },
+    { title: 'Güvenlik Protokolleri Denetimi', description: 'Ortak alanlardaki güvenlik kameraları ve cankurtaran hizmetlerinin kontrolü periyodik olarak sürdürülmelidir.', category: 'general' }
+  ];
+
+  for (const fallback of fallbacks) {
+    if (actions.length < 10) {
+      actions.push(fallback);
+    }
+  }
 
   return { issues, highlights, actions };
 }
@@ -571,7 +668,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const prompt = `
 You are a hospitality Business Intelligence expert. Analyze the following guest reviews for a hotel.
-Identify the top 5 operational issues/complaints and top 5 positive highlights/praises, and provide exactly 5 strategic action recommendations.
+Identify the top 5 operational issues/complaints and top 5 positive highlights/praises, and provide exactly 10 strategic, prioritized action recommendations.
 
 Combine similar reviews into single topics (e.g., check-in, queue, lobi waiting should be merged into "Check-in Yoğunluğu").
 Write the descriptions using professional Business Intelligence insights phrasing. Make it sound like advice to a hotel board, not just a complaint list.
@@ -588,8 +685,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     ... (exactly 5 items, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff)
   ],
   "actions": [
-    "Pik giriş saatlerinde resepsiyon kadrosunu desteklemek için esnek vardiya planı uygulanmalı.",
-    ... (exactly 5 items)
+    { "title": "Klima Sistemleri Revizyonu", "description": "Sıcak yaz aylarında artan şikayetlerin önüne geçmek amacıyla oda klimalarının filtre temizliği ve kompresör bakımları hızlandırılmalıdır.", "category": "room" },
+    ... (exactly 10 items, ordered by priority, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff, general)
   ]
 }
 
