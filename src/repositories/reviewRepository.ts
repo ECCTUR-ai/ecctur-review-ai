@@ -152,11 +152,10 @@ export const reviewRepository = {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('reviews')
       .update(updateData)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
     if (error) {
       console.warn(`[Repository submitResponse] Update failed, retrying fallback...`, error);
@@ -164,16 +163,14 @@ export const reviewRepository = {
         ai_reply: responseText,
         status: 'published'
       };
-      const { data: fbData, error: fbError } = await supabase
+      const { error: fbError } = await supabase
         .from('reviews')
         .update(fallbackData)
-        .eq('id', id)
-        .select();
+        .eq('id', id);
       if (fbError) throw fbError;
-      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data && data.length > 0 ? data[0] : null);
+    return await reviewRepository.getReviewById(id);
   },
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
@@ -193,11 +190,10 @@ export const reviewRepository = {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('reviews')
       .update(updateData)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
     if (error) {
       console.warn(`[Repository saveResponseDraft] Update failed, retrying fallback...`, error);
@@ -205,16 +201,14 @@ export const reviewRepository = {
         ai_reply: responseText,
         status: 'draft'
       };
-      const { data: fbData, error: fbError } = await supabase
+      const { error: fbError } = await supabase
         .from('reviews')
         .update(fallbackData)
-        .eq('id', id)
-        .select();
+        .eq('id', id);
       if (fbError) throw fbError;
-      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data && data.length > 0 ? data[0] : null);
+    return await reviewRepository.getReviewById(id);
   },
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
@@ -232,27 +226,24 @@ export const reviewRepository = {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('reviews')
       .update(updateData)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
     if (error) {
       console.warn(`[Repository updateReviewNotes] Update failed, retrying fallback...`, error);
       const fallbackData = {
         notes: managerNotes
       };
-      const { data: fbData, error: fbError } = await supabase
+      const { error: fbError } = await supabase
         .from('reviews')
         .update(fallbackData)
-        .eq('id', id)
-        .select();
+        .eq('id', id);
       if (fbError) throw fbError;
-      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data && data.length > 0 ? data[0] : null);
+    return await reviewRepository.getReviewById(id);
   },
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
@@ -269,23 +260,20 @@ export const reviewRepository = {
     if (status === 'waiting_approval') mappedStatus = 'Waiting Approval';
     if (status === 'draft') mappedStatus = 'Draft';
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('reviews')
       .update({ status: mappedStatus, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
     if (error) {
       console.warn(`[Repository updateReviewStatus] Update failed, retrying fallback...`, error);
-      const { data: fbData, error: fbError } = await supabase
+      const { error: fbError } = await supabase
         .from('reviews')
         .update({ status })
-        .eq('id', id)
-        .select();
+        .eq('id', id);
       if (fbError) throw fbError;
-      return mapReview(fbData && fbData.length > 0 ? fbData[0] : null);
     }
 
-    return mapReview(data && data.length > 0 ? data[0] : null);
+    return await reviewRepository.getReviewById(id);
   }
 };
