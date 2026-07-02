@@ -1,3 +1,4 @@
+// api/services/providers/bookingProvider.ts
 export interface BookingReview {
   review_id: string;
   guest_name: string;

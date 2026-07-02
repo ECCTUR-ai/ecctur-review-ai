@@ -1,14 +1,14 @@
-// src/scripts/createAdminUser.ts
+// scripts/createAdminUser.ts
 /**
  * Script to ensure a default admin user exists in Supabase Auth.
  * Runs using the Supabase service role key.
  *
- * Usage: `node src/scripts/createAdminUser.ts`
+ * Usage: `node scripts/createAdminUser.ts`
  */
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Supabase service role key or URL not defined. Please verify environment.');
