@@ -1145,9 +1145,13 @@ export default function Admin() {
                               u.department || '-'
                             )}
                           </td>
-                          <td className="p-4">
-                            <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20 text-[10px]">
-                              {u.roleName || 'No Role'}
+                           <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded font-semibold border text-[10px] ${
+                              u.roleName 
+                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
+                                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            }`}>
+                              {u.roleName || 'Bu kullanıcıya rol atanmamış.'}
                             </span>
                           </td>
                           <td className="p-4">

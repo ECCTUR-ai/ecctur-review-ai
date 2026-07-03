@@ -8,6 +8,28 @@ export interface UserRoleInfo {
 
 export const rbacService = {
   async getUserRoleAndPermissions(userId: string): Promise<UserRoleInfo> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (token) {
+        const response = await fetch('/api/admin?action=get-current-user', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const result = await response.json();
+          console.log('[rbacService] User role loaded from backend API:', result.user.role);
+          return {
+            role: result.user.role || '',
+            permissions: result.user.permissions || []
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[rbacService] Failed backend role fetch, using local client fallback:', err);
+    }
+
     // Retrieve auth user email to bypass any RLS or seed UUID out-of-sync issues
     let email: string | undefined;
     try {

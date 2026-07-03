@@ -237,6 +237,89 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const roleNameLower = (userRole || 'staff').toLowerCase();
 
   // -------------------------------------------------------------
+  // Action: get-current-user
+  // -------------------------------------------------------------
+  if (action === 'get-current-user') {
+    try {
+      const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      const { data: userHotels } = await supabaseAdmin.from('user_hotels').select('hotel_id').eq('profile_id', user.id);
+      const hotelIds = (userHotels || []).map(uh => uh.hotel_id);
+
+      let displayRoleName = userRole || null;
+
+      // Define every permission available in the platform
+      const ALL_PERMISSIONS = [
+        'view:dashboard',
+        'view:reviews',
+        'view:tasks',
+        'view:departments',
+        'view:analytics',
+        'view:whatsapp',
+        'view:settings',
+        'view:users',
+        'manage:tasks',
+        'manage:reviews',
+        'manage:users'
+      ];
+
+      let permissions: string[] = [];
+      const currentRoleLower = (displayRoleName || '').toLowerCase();
+      if (currentRoleLower === 'super admin' || currentRoleLower === 'admin') {
+        permissions = ALL_PERMISSIONS;
+      } else if (currentRoleLower === 'manager' || currentRoleLower === 'hotel manager') {
+        permissions = [
+          'view:dashboard',
+          'view:reviews',
+          'view:tasks',
+          'view:analytics',
+          'view:users',
+          'manage:tasks',
+          'manage:reviews',
+          'manage:users'
+        ];
+      } else if (currentRoleLower === 'staff' || currentRoleLower === 'department manager') {
+        permissions = [
+          'view:dashboard',
+          'view:reviews',
+          'view:tasks',
+          'manage:tasks'
+        ];
+      } else if (currentRoleLower) {
+        permissions = [
+          'view:dashboard',
+          'view:reviews',
+          'view:tasks'
+        ];
+      }
+
+      const getRoleKey = (name: string | null) => {
+        if (!name) return 'staff';
+        return name.toLowerCase().replace(' ', '_');
+      };
+
+      console.log('[API Admin get-current-user] Resolved:', { userId: user.id, email: user.email, role: displayRoleName, permissionsCount: permissions.length });
+
+      return res.status(200).json({
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: profile?.first_name || '',
+          lastName: profile?.last_name || '',
+          status: profile?.status || 'active',
+          organizationId: profile?.organization_id || null,
+          hotelIds,
+          role: displayRoleName,
+          roleKey: getRoleKey(displayRoleName),
+          permissions
+        }
+      });
+    } catch (err: any) {
+      console.error('[API Admin get-current-user Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
   // Action: get-google-oauth-url
   // -------------------------------------------------------------
   if (action === 'get-google-oauth-url') {

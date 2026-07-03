@@ -33,7 +33,7 @@ export const userRepository = {
       const userRoles = item?.user_roles ?? [];
       const primaryRole = userRoles[0];
       const roleId = primaryRole?.role_id;
-      const roleName = primaryRole?.roles?.name || 'Staff';
+      const roleName = primaryRole?.roles?.name || null;
       const hotelIds = (item?.user_hotels ?? []).map((uh: any) => uh.hotel_id);
 
       return {
@@ -187,7 +187,7 @@ export const userRepository = {
     const userRoles = data?.user_roles ?? [];
     const primaryRole = userRoles[0];
     const roleId = primaryRole?.role_id;
-    const roleName = primaryRole?.roles?.name || 'Staff';
+    const roleName = primaryRole?.roles?.name || null;
     const hotelIds = (data?.user_hotels ?? []).map((uh: any) => uh.hotel_id);
 
     return {
