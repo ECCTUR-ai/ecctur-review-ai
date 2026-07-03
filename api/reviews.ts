@@ -1345,7 +1345,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
-      const limit = mode === 'initial_import' ? 200 : undefined;
+      const limit = mode === 'initial_import' || mode === 'backfill_import' ? 200 : 50;
       const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl, limit);
 
       let importedCount = 0;
@@ -1427,7 +1427,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
-      const limit = mode === 'initial_import' ? 200 : undefined;
+      const limit = mode === 'initial_import' || mode === 'backfill_import' ? 200 : 50;
       const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl, limit);
 
       let importedCount = 0;

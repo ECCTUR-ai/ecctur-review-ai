@@ -24,6 +24,23 @@ import {
 
 import { hotelRepository } from '@/repositories/hotelRepository';
 
+const isTimeoutError = (err: any, responseText?: string) => {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const txt = String(responseText || '').toLowerCase();
+  return (
+    msg.includes('timeout') ||
+    msg.includes('time out') ||
+    msg.includes('504') ||
+    msg.includes('502') ||
+    msg.includes('function_invocation_timeout') ||
+    txt.includes('timeout') ||
+    txt.includes('time out') ||
+    txt.includes('504') ||
+    txt.includes('502') ||
+    txt.includes('function_invocation_timeout')
+  );
+};
+
 export default function Reviews() {
   const { t } = useTranslation();
   const { hotelIds, roleKey } = useAuth();
@@ -420,6 +437,7 @@ export default function Reviews() {
       return;
     }
 
+    if (isImportingGoogleMaps) return;
     setIsImportingGoogleMaps(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -445,10 +463,16 @@ export default function Reviews() {
         res = await response.json();
       } else {
         const textError = await response.text();
+        if (response.status === 504 || response.status === 502 || isTimeoutError(null, textError)) {
+          throw new Error('TIMEOUT_ERROR');
+        }
         throw new Error(textError || 'Bilinmeyen bir sunucu hatası oluştu (JSON yerine düz metin dönüldü).');
       }
 
       if (!response.ok) {
+        if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
+          throw new Error('TIMEOUT_ERROR');
+        }
         if (res.error === 'apify_token_missing') {
           throw new Error('Apify Token Eksik: Vercel Environment Variables içerisine APIFY_TOKEN tanımlanmalıdır.');
         }
@@ -474,7 +498,11 @@ export default function Reviews() {
       refetch();
     } catch (err: any) {
       console.error(err);
-      alert(`Hata: ${err.message || 'İçe aktarım sırasında bir sorun oluştu.'}`);
+      if (err.message === 'TIMEOUT_ERROR' || isTimeoutError(err)) {
+        alert("Senkronizasyon zaman aşımına uğradı. Lütfen birazdan tekrar deneyin veya daha küçük aralıkla çalıştırın.");
+      } else {
+        alert(`Hata: ${err.message || 'İçe aktarım sırasında bir sorun oluştu.'}`);
+      }
     } finally {
       setIsImportingGoogleMaps(false);
     }
@@ -506,6 +534,7 @@ export default function Reviews() {
       return;
     }
 
+    if (isImportingTripadvisor) return;
     setIsImportingTripadvisor(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -531,11 +560,17 @@ export default function Reviews() {
         res = await response.json();
       } else {
         const textError = await response.text();
+        if (response.status === 504 || response.status === 502 || isTimeoutError(null, textError)) {
+          throw new Error('TIMEOUT_ERROR');
+        }
         throw new Error(textError || 'Bilinmeyen bir sunucu hatası oluştu.');
       }
 
       if (!response.ok) {
         console.log('[DEBUG-TRIPADVISOR-IMPORT-RESPONSE-ERROR]', res);
+        if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
+          throw new Error('TIMEOUT_ERROR');
+        }
         const errDetails = [
           `Hata: ${res.error || 'İçe aktarım başarısız oldu.'}`,
           res.message ? `Mesaj: ${res.message}` : null,
@@ -560,7 +595,11 @@ export default function Reviews() {
       refetch();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
+      if (err.message === 'TIMEOUT_ERROR' || isTimeoutError(err)) {
+        alert("Senkronizasyon zaman aşımına uğradı. Lütfen birazdan tekrar deneyin veya daha küçük aralıkla çalıştırın.");
+      } else {
+        alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
+      }
     } finally {
       setIsImportingTripadvisor(false);
     }
@@ -612,6 +651,7 @@ export default function Reviews() {
       return;
     }
 
+    if (isSyncingAll) return;
     setIsSyncingAll(true);
     setTimeout(async () => {
       const currentHotel = hotels?.find(h => h.id === currentHotelId);
@@ -644,6 +684,8 @@ export default function Reviews() {
         const token = session?.access_token;
         if (!token) throw new Error('Oturum bulunamadı.');
 
+        const mode = totalCount === 0 ? 'initial_import' : 'daily_sync';
+
         // 1. Google
         if (googleMapsUrl) {
           try {
@@ -653,16 +695,36 @@ export default function Reviews() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
               },
-              body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
+              body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl, mode })
             });
-            const res = await response.json();
+
+            let res: any;
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              res = await response.json();
+            } else {
+              const textError = await response.text();
+              if (response.status === 504 || response.status === 502 || isTimeoutError(null, textError)) {
+                throw new Error('TIMEOUT_ERROR');
+              }
+              throw new Error('Server error');
+            }
+
             if (response.ok) {
               results.push(`Google: ${res.importedCount} yeni yorum`);
             } else {
-              results.push(`Google: Hata (${res.error || 'İçe aktarılamadı'})`);
+              if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
+                results.push(`Google: Hata (Zaman aşımı)`);
+              } else {
+                results.push(`Google: Hata (${res.error || 'İçe aktarılamadı'})`);
+              }
             }
           } catch (e: any) {
-            results.push(`Google: Hata (${e.message})`);
+            if (e.message === 'TIMEOUT_ERROR' || isTimeoutError(e)) {
+              results.push(`Google: Hata (Zaman aşımı)`);
+            } else {
+              results.push(`Google: Hata (${e.message})`);
+            }
           }
         }
 
@@ -675,16 +737,36 @@ export default function Reviews() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
               },
-              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl })
+              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode })
             });
-            const res = await response.json();
+
+            let res: any;
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              res = await response.json();
+            } else {
+              const textError = await response.text();
+              if (response.status === 504 || response.status === 502 || isTimeoutError(null, textError)) {
+                throw new Error('TIMEOUT_ERROR');
+              }
+              throw new Error('Server error');
+            }
+
             if (response.ok) {
               results.push(`Tripadvisor: ${res.importedCount} yeni yorum`);
             } else {
-              results.push(`Tripadvisor: Hata (${res.error || 'İçe aktarılamadı'})`);
+              if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
+                results.push(`Tripadvisor: Hata (Zaman aşımı)`);
+              } else {
+                results.push(`Tripadvisor: Hata (${res.error || 'İçe aktarılamadı'})`);
+              }
             }
           } catch (e: any) {
-            results.push(`Tripadvisor: Hata (${e.message})`);
+            if (e.message === 'TIMEOUT_ERROR' || isTimeoutError(e)) {
+              results.push(`Tripadvisor: Hata (Zaman aşımı)`);
+            } else {
+              results.push(`Tripadvisor: Hata (${e.message})`);
+            }
           }
         }
 
@@ -710,11 +792,20 @@ export default function Reviews() {
           }
         }
 
-        setToastMessage(`Senkronizasyon tamamlandı:\n${results.join('\n')}`);
+        const hasTimeout = results.some(r => r.includes('Zaman aşımı'));
+        if (hasTimeout) {
+          alert("Senkronizasyon zaman aşımına uğradı. Lütfen birazdan tekrar deneyin veya daha küçük aralıkla çalıştırın.");
+        } else {
+          setToastMessage(`Senkronizasyon tamamlandı:\n${results.join('\n')}`);
+        }
         refetch();
       } catch (err: any) {
         console.error(err);
-        alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
+        if (isTimeoutError(err)) {
+          alert("Senkronizasyon zaman aşımına uğradı. Lütfen birazdan tekrar deneyin veya daha küçük aralıkla çalıştırın.");
+        } else {
+          alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
+        }
       } finally {
         setIsSyncingAll(false);
       }
