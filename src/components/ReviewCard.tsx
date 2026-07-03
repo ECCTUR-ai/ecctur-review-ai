@@ -39,17 +39,26 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
   // Helper to choose platform badge style and label
   const getPlatformBadge = () => {
     const rawPlat = review.source || (review as any).platform || '';
-    const name = rawPlat ? (rawPlat.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' : rawPlat.toLowerCase() === 'google' ? 'Google' : rawPlat.toLowerCase() === 'booking' ? 'Booking' : rawPlat) : 'Platform Yok';
-    
+    let name = 'Platform Yok';
     let colorClass = 'bg-slate-50 text-slate-600 border-slate-100';
-    if (name === 'Google') {
-      colorClass = 'bg-blue-50 text-blue-600 border-blue-100';
-    } else if (name === 'TripAdvisor') {
-      colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-    } else if (name === 'Booking') {
-      colorClass = 'bg-sky-50 text-sky-600 border-sky-100';
-    } else if (name === 'Expedia') {
-      colorClass = 'bg-amber-50 text-amber-600 border-amber-100';
+
+    if (rawPlat) {
+      const lower = rawPlat.toLowerCase();
+      if (lower === 'google') {
+        name = 'Google Reviews';
+        colorClass = 'bg-blue-50 text-blue-600 border-blue-100';
+      } else if (lower === 'tripadvisor') {
+        name = 'TripAdvisor';
+        colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      } else if (lower === 'booking') {
+        name = 'Booking.com';
+        colorClass = 'bg-sky-50 text-sky-600 border-sky-100';
+      } else if (lower === 'expedia') {
+        name = 'Expedia';
+        colorClass = 'bg-amber-50 text-amber-600 border-amber-100';
+      } else {
+        name = rawPlat;
+      }
     }
     
     return (
@@ -97,9 +106,17 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
             <h4 className="text-xs font-bold text-slate-800 line-clamp-1">
               {review.guestName}
             </h4>
-            <div className="flex items-center gap-1 text-[10.5px] text-slate-500 font-medium">
-              <Calendar size={11} className="text-slate-400" />
-              <span>{getRelativeTime(review.date)}</span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1 text-[10.5px] text-slate-500 font-medium">
+                <Calendar size={11} className="text-slate-400" />
+                <span>{getRelativeTime(review.date)}</span>
+              </div>
+              {review.hotel && (
+                <div className="flex items-center gap-1 text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">
+                  <Building size={10} className="text-slate-400 shrink-0" />
+                  <span className="line-clamp-1">{review.hotel}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

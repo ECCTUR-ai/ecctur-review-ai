@@ -19,7 +19,7 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     startUrls: [
       { url: targetUrl }
     ],
-    maxItemsPerQuery: 50,
+    maxItemsPerQuery: 200,
     reviewRatings: ["ALL_REVIEW_RATINGS"],
     reviewsLanguages: ["ALL_REVIEW_LANGUAGES"],
     scrapeReviewerInfo: true,

@@ -221,6 +221,29 @@ export default function Reviews() {
       });
   }, [selectedReviewId]);
 
+  const allLoadedReviews = data?.reviews || [];
+  
+  // Apply date and department filters to the count base so counts match active date/dept filters
+  let baseForCounts = allLoadedReviews;
+  if (fromParam || toParam) {
+    const startLimit = fromParam ? new Date(fromParam) : new Date(0);
+    const endLimit = toParam ? new Date(toParam) : new Date();
+    endLimit.setHours(23, 59, 59);
+    baseForCounts = baseForCounts.filter(r => {
+      if (!r.date) return false;
+      const rDate = new Date(r.date);
+      return rDate >= startLimit && rDate <= endLimit;
+    });
+  }
+  if (departmentParam) {
+    baseForCounts = baseForCounts.filter(r => matchesDepartment(r, departmentParam));
+  }
+
+  const totalCount = baseForCounts.length;
+  const googleCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'google').length;
+  const tripadvisorCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'tripadvisor').length;
+  const bookingCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'booking').length;
+
   let reviews = data?.reviews || [];
 
   // Filter reviews by date query parameters if present (passed from Reports dashboard click)
@@ -507,16 +530,15 @@ export default function Reviews() {
 
       console.log('[DEBUG-TRIPADVISOR-IMPORT-RESPONSE-SUCCESS]', res);
       
-      const rawCount = res.rawCount !== undefined ? res.rawCount : 'Bilinmiyor';
-      const normalizedCount = res.normalizedCount !== undefined ? res.normalizedCount : 'Bilinmiyor';
-      const insertedCount = res.insertedCount !== undefined ? res.insertedCount : res.importedCount;
-      const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 'Bilinmiyor';
-      const apifyErrorText = res.apifyError ? `\nError: ${res.apifyError}` : '';
+      const totalFetched = res.totalFetched !== undefined ? res.totalFetched : 0;
+      const importedCount = res.importedCount !== undefined ? res.importedCount : 0;
+      const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
+      const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
 
-      const alertMsg = `TripAdvisor yorumları içe aktarıldı:\nYeni: ${insertedCount}\nRaw: ${rawCount}\nNormalized: ${normalizedCount}\nDuplicate: ${duplicateCount}${apifyErrorText}`;
+      const alertMsg = `TripAdvisor yorumları içe aktarıldı:\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
       
       alert(alertMsg);
-      setToastMessage(alertMsg);
+      setToastMessage(`TripAdvisor: ${importedCount} yeni yorum eklendi.`);
       refetch();
     } catch (err: any) {
       console.error(err);
@@ -865,6 +887,68 @@ export default function Reviews() {
             );
           })()}
         </div>
+      </div>
+
+      {/* Platform Summary Counters */}
+      <div className="flex flex-wrap gap-2 mb-4 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
+        <button
+          onClick={() => setSource('')}
+          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+            !source
+              ? 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10'
+              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+          }`}
+        >
+          <span>Tümü</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${!source ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+            {totalCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSource('Google')}
+          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+            source === 'Google'
+              ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/10'
+              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+          <span>Google Reviews</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'Google' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>
+            {googleCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSource('TripAdvisor')}
+          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+            source === 'TripAdvisor'
+              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10'
+              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+          <span>TripAdvisor</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'TripAdvisor' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
+            {tripadvisorCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSource('Booking')}
+          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+            source === 'Booking'
+              ? 'bg-sky-600 border-sky-600 text-white shadow-sm shadow-sky-500/10'
+              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+          <span>Booking.com</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'Booking' ? 'bg-white/20 text-white' : 'bg-sky-50 text-sky-600'}`}>
+            {bookingCount}
+          </span>
+        </button>
       </div>
 
       {/* Filters Bar */}

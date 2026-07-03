@@ -1416,45 +1416,58 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       let importedCount = 0;
       let duplicateCount = 0;
+      let failedCount = 0;
 
       for (const r of scrapedReviews) {
-        const { data: existingReview } = await supabaseAdmin
-          .from('reviews')
-          .select('id')
-          .eq('hotel_id', hotelId)
-          .eq('platform', 'Tripadvisor')
-          .eq('guest_name', r.guestName)
-          .eq('review_text', r.reviewText)
-          .eq('rating', r.rating)
-          .limit(1);
+        try {
+          const { data: existingReview } = await supabaseAdmin
+            .from('reviews')
+            .select('id')
+            .eq('hotel_id', hotelId)
+            .eq('platform', 'Tripadvisor')
+            .eq('guest_name', r.guestName)
+            .eq('review_text', r.reviewText)
+            .eq('rating', r.rating)
+            .limit(1);
 
-        if (existingReview && existingReview.length > 0) {
-          duplicateCount++;
-          continue;
+          if (existingReview && existingReview.length > 0) {
+            duplicateCount++;
+            continue;
+          }
+
+          const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+
+          const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
+            hotel_id: hotelId,
+            organization_id: orgId,
+            guest_name: r.guestName,
+            rating: r.rating,
+            review_text: r.reviewText,
+            platform: 'Tripadvisor',
+            sentiment,
+            status: 'draft',
+            published: 'No',
+            created_at: parseRelativeDate(r.reviewDate)
+          });
+
+          if (insertErr) {
+            console.error('[Tripadvisor Import] Database insert error:', insertErr);
+            failedCount++;
+          } else {
+            importedCount++;
+          }
+        } catch (loopErr) {
+          console.error('[Tripadvisor Import] Loop exception:', loopErr);
+          failedCount++;
         }
-
-        const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
-
-        await supabaseAdmin.from('reviews').insert({
-          hotel_id: hotelId,
-          organization_id: orgId,
-          guest_name: r.guestName,
-          rating: r.rating,
-          review_text: r.reviewText,
-          platform: 'Tripadvisor',
-          sentiment,
-          status: 'draft',
-          published: 'No',
-          created_at: parseRelativeDate(r.reviewDate)
-        });
-        importedCount++;
       }
 
       return res.status(200).json({
         success: true,
         totalFetched: scrapedReviews.length,
         importedCount,
-        duplicateCount
+        duplicateCount,
+        failedCount
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });

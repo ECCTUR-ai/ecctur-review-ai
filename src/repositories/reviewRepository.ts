@@ -110,7 +110,9 @@ export const reviewRepository = {
     const limit = params.limit || 20;
     const offset = params.offset || 0;
     query = query.range(offset, offset + limit - 1);
-    query = query.order('created_at', { ascending: false });
+    query = query
+      .order('review_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
 
     const response = await query;
     if (response.error) throw response.error;
