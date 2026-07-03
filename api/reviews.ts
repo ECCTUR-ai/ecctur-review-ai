@@ -1500,9 +1500,39 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           if (existingBookingReview) {
             const currentText = (existingBookingReview.review_text || '').trim();
             const newText = (r.reviewText || '').trim();
-            const hasNewRealText = newText && newText !== 'No comment review.';
 
-            if (currentText === 'No comment review.' && hasNewRealText) {
+            const placeholders = [
+              "",
+              "no comment review.",
+              "no comment review",
+              "no comment",
+              "no review text",
+              "no review",
+              "yorum yok",
+              "boş yorum",
+              "bos yorum"
+            ];
+
+            const isPlaceholderText = (text: string | null | undefined): boolean => {
+              if (!text) return true;
+              const clean = text.trim().toLowerCase();
+              return placeholders.includes(clean);
+            };
+
+            const canUpdatePlaceholder = isPlaceholderText(currentText);
+            const hasNewRealText = newText && !isPlaceholderText(newText);
+
+            // Log duplicate check details
+            const existingReview = existingBookingReview;
+            const review = r;
+            console.log("BOOKING DUPLICATE CHECK", {
+              existingText: existingReview?.review_text,
+              incomingText: review.reviewText,
+              canUpdatePlaceholder,
+              hasNewRealText
+            });
+
+            if (canUpdatePlaceholder && hasNewRealText) {
               let parsedDateStr = new Date().toISOString();
               if (r.reviewDate) {
                 const dateObj = new Date(r.reviewDate);
