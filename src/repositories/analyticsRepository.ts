@@ -16,34 +16,15 @@ export const analyticsRepository = {
       ];
     }
 
-    const runQueries = async (useHotelFilter: boolean) => {
-      let qTotal = supabase.from('reviews').select('*', { count: 'exact', head: true });
-      let qAvg = supabase.from('reviews').select('rating');
-      // Use ilike for case-insensitive matching in case status is capitalized (e.g. 'Draft')
-      let qDraft = supabase.from('reviews').select('*', { count: 'exact', head: true }).ilike('status', 'draft');
-      let qPublished = supabase.from('reviews').select('*', { count: 'exact', head: true }).ilike('status', 'published');
-      let qPriority = supabase.from('reviews').select('*', { count: 'exact', head: true }).in('priority', ['high', 'critical']);
+    const qTotal = supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('hotel_id', hotelId);
+    const qAvg = supabase.from('reviews').select('rating').eq('hotel_id', hotelId);
+    const qDraft = supabase.from('reviews').select('*', { count: 'exact', head: true }).ilike('status', 'draft').eq('hotel_id', hotelId);
+    const qPublished = supabase.from('reviews').select('*', { count: 'exact', head: true }).ilike('status', 'published').eq('hotel_id', hotelId);
+    const qPriority = supabase.from('reviews').select('*', { count: 'exact', head: true }).in('priority', ['high', 'critical']).eq('hotel_id', hotelId);
 
-      if (useHotelFilter && hotelId) {
-        qTotal = qTotal.eq('hotel_id', hotelId);
-        qAvg = qAvg.eq('hotel_id', hotelId);
-        qDraft = qDraft.eq('hotel_id', hotelId);
-        qPublished = qPublished.eq('hotel_id', hotelId);
-        qPriority = qPriority.eq('hotel_id', hotelId);
-      }
-
-      return await Promise.all([qTotal, qAvg, qDraft, qPublished, qPriority]);
-    };
-
-    let responses = await runQueries(true);
-    const hasHotelIdError = responses.some(res => res.error && (res.error.code === '42703' || res.error.message.includes('hotel_id')));
-
-    if (hasHotelIdError) {
-      // Fallback
-      responses = await runQueries(false);
-    }
-
+    const responses = await Promise.all([qTotal, qAvg, qDraft, qPublished, qPriority]);
     const [rTotal, rAvg, rDraft, rPublished, rPriority] = responses;
+    
     if (rTotal.error) throw rTotal.error;
     if (rAvg.error) throw rAvg.error;
     if (rDraft.error) throw rDraft.error;
@@ -82,23 +63,11 @@ export const analyticsRepository = {
     cutOffDate.setDate(cutOffDate.getDate() - days);
     const dateStr = cutOffDate.toISOString().split('T')[0];
 
-    const runQuery = async (useHotelFilter: boolean) => {
-      let query = supabase
-        .from('reviews')
-        .select('created_at, review_date, rating, sentiment, platform')
-        .gte('created_at', dateStr);
-
-      if (useHotelFilter && hotelId) {
-        query = query.eq('hotel_id', hotelId);
-      }
-      return await query;
-    };
-
-    let response = await runQuery(true);
-    if (response.error && (response.error.code === '42703' || response.error.message.includes('hotel_id'))) {
-      // Fallback
-      response = await runQuery(false);
-    }
+    const response = await supabase
+      .from('reviews')
+      .select('created_at, review_date, rating, sentiment, platform')
+      .gte('created_at', dateStr)
+      .eq('hotel_id', hotelId);
 
     if (response.error) throw response.error;
 
@@ -106,7 +75,6 @@ export const analyticsRepository = {
     const dailyMap: Record<string, { date: string; count: number; sumRating: number; positive: number; neutral: number; negative: number; [platform: string]: any }> = {};
 
     records.forEach((r) => {
-      // Format date part from created_at or review_date
       const dateVal = r.review_date || r.created_at || '';
       const date = dateVal ? dateVal.split('T')[0] : 'N/A';
       const platform = r.platform || 'Other';
@@ -133,20 +101,10 @@ export const analyticsRepository = {
       return [];
     }
 
-    const runQuery = async (useHotelFilter: boolean) => {
-      // Map 'source' to 'platform' as 'source' doesn't exist in database
-      let query = supabase.from('reviews').select('platform, rating');
-      if (useHotelFilter && hotelId) {
-        query = query.eq('hotel_id', hotelId);
-      }
-      return await query;
-    };
-
-    let response = await runQuery(true);
-    if (response.error && (response.error.code === '42703' || response.error.message.includes('hotel_id'))) {
-      // Fallback
-      response = await runQuery(false);
-    }
+    const response = await supabase
+      .from('reviews')
+      .select('platform, rating')
+      .eq('hotel_id', hotelId);
 
     if (response.error) throw response.error;
 

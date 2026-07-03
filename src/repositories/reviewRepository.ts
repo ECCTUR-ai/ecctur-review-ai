@@ -74,58 +74,47 @@ export const reviewRepository = {
       return { reviews: [], total: 0 };
     }
 
-    const runQuery = async (useHotelFilter: boolean) => {
-      let query = supabase
-        .from('reviews')
-        .select('*', { count: 'exact' });
+    let query = supabase
+      .from('reviews')
+      .select('*', { count: 'exact' })
+      .eq('hotel_id', params.hotelId);
 
-      if (useHotelFilter && params.hotelId) {
-        query = query.eq('hotel_id', params.hotelId);
+    if (params.source) {
+      if (params.source.toLowerCase() === 'booking') {
+        query = query.or('platform.eq.booking,platform.eq.Booking');
+      } else if (params.source.toLowerCase() === 'tripadvisor') {
+        query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
+      } else if (params.source.toLowerCase() === 'google') {
+        query = query.or('platform.eq.google,platform.eq.Google');
+      } else {
+        query = query.eq('platform', params.source);
       }
-      if (params.source) {
-          if (params.source.toLowerCase() === 'booking') {
-            query = query.or('platform.eq.booking,platform.eq.Booking');
-          } else if (params.source.toLowerCase() === 'tripadvisor') {
-            query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
-          } else if (params.source.toLowerCase() === 'google') {
-            query = query.or('platform.eq.google,platform.eq.Google');
-          } else {
-            query = query.eq('platform', params.source);
-          }
-        }
-        if (params.sentiment) {
-          query = query.eq('sentiment', params.sentiment);
-        }
-        if (params.status) {
-          // Keep database casing compatibility (e.g. 'Draft' vs 'draft')
-          const statusVal = params.status.charAt(0).toUpperCase() + params.status.slice(1);
-          query = query.or(`status.eq.${params.status},status.eq.${statusVal}`);
-        }
-        if (params.priority) {
-          query = query.eq('priority', params.priority);
-        }
-        if (params.rating) {
-          query = query.eq('rating', params.rating);
-        }
-        if (params.search) {
-          query = query.ilike('review_text', `%${params.search}%`);
-        }
-
-        const limit = params.limit || 20;
-        const offset = params.offset || 0;
-        query = query.range(offset, offset + limit - 1);
-
-      query = query.order('created_at', { ascending: false });
-      return await query;
-    };
-
-    let response = await runQuery(true);
-    if (response.error && (response.error.code === '42703' || response.error.message.includes('hotel_id'))) {
-      // Fallback: hotel_id column doesn't exist yet in DB
-      response = await runQuery(false);
+    }
+    if (params.sentiment) {
+      query = query.eq('sentiment', params.sentiment);
+    }
+    if (params.status) {
+      const statusVal = params.status.charAt(0).toUpperCase() + params.status.slice(1);
+      query = query.or(`status.eq.${params.status},status.eq.${statusVal}`);
+    }
+    if (params.priority) {
+      query = query.eq('priority', params.priority);
+    }
+    if (params.rating) {
+      query = query.eq('rating', params.rating);
+    }
+    if (params.search) {
+      query = query.ilike('review_text', `%${params.search}%`);
     }
 
+    const limit = params.limit || 20;
+    const offset = params.offset || 0;
+    query = query.range(offset, offset + limit - 1);
+    query = query.order('created_at', { ascending: false });
+
+    const response = await query;
     if (response.error) throw response.error;
+
     const reviews = (response.data || []).map(mapReview);
     return { reviews, total: response.count || 0 };
   },
@@ -143,12 +132,6 @@ export const reviewRepository = {
 
   async submitResponse(id: string, responseText: string): Promise<Review> {
     console.log(`[Repository submitResponse] reviewId: ${id}`);
-    const { data: checkData, error: checkError } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('id', id);
-    console.log(`[Repository submitResponse] Check result:`, checkData, `Error:`, checkError);
-
     const updateData: any = {
       ai_reply: responseText,
       status: 'Published',
@@ -180,12 +163,6 @@ export const reviewRepository = {
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
     console.log(`[Repository saveResponseDraft] reviewId: ${id}`);
-    const { data: checkData, error: checkError } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('id', id);
-    console.log(`[Repository saveResponseDraft] Check result:`, checkData, `Error:`, checkError);
-
     const updateData: any = {
       ai_reply: responseText,
       status: 'Draft',
@@ -217,12 +194,6 @@ export const reviewRepository = {
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
     console.log(`[Repository updateReviewNotes] reviewId: ${id}`);
-    const { data: checkData, error: checkError } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('id', id);
-    console.log(`[Repository updateReviewNotes] Check result:`, checkData, `Error:`, checkError);
-
     const updateData: any = {
       notes: managerNotes,
       manager_notes: managerNotes,
@@ -252,12 +223,6 @@ export const reviewRepository = {
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
     console.log(`[Repository updateReviewStatus] reviewId: ${id}, status: ${status}`);
-    const { data: checkData, error: checkError } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('id', id);
-    console.log(`[Repository updateReviewStatus] Check result:`, checkData, `Error:`, checkError);
-
     const statusVal = status.charAt(0).toUpperCase() + status.slice(1);
     let mappedStatus = statusVal;
     if (status === 'pending_approval') mappedStatus = 'Pending Approval';

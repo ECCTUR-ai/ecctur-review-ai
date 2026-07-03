@@ -66,32 +66,36 @@ export default function Dashboard() {
   };
 
   const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
+  
+  // Strict tenant security check
+  const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
+  const queriedHotelId = isAuthorized ? activeHotelId : '00000000-0000-0000-0000-000000000000';
 
   // 1. Load backend metrics
   const {
     data: metrics,
     loading: metricsLoading,
     refetch: refetchMetrics
-  } = useFetch(() => analyticsService.getMetrics(activeHotelId), [activeHotelId]);
+  } = useFetch(() => analyticsService.getMetrics(queriedHotelId), [queriedHotelId]);
 
   // 2. Load recent reviews
   const {
     data: recentReviewsData,
     loading: reviewsLoading,
     refetch: refetchReviews
-  } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: activeHotelId }), [activeHotelId]);
+  } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: queriedHotelId }), [queriedHotelId]);
 
   // 3. Load trends
   const {
     data: trends,
     loading: trendsLoading,
-  } = useFetch(() => analyticsService.getTrends('30d', activeHotelId), [activeHotelId]);
+  } = useFetch(() => analyticsService.getTrends('30d', queriedHotelId), [queriedHotelId]);
 
   // 4. Load platform share
   const {
     data: platformShare,
     loading: platformLoading,
-  } = useFetch(() => analyticsService.getPlatformShare(activeHotelId), [activeHotelId]);
+  } = useFetch(() => analyticsService.getPlatformShare(queriedHotelId), [queriedHotelId]);
 
   // 5. Load rating distribution raw values to calculate star rating counts
   const {
@@ -101,9 +105,9 @@ export default function Dashboard() {
     const { data } = await supabase
       .from('reviews')
       .select('rating')
-      .eq('hotel_id', activeHotelId);
+      .eq('hotel_id', queriedHotelId);
     return data || [];
-  }, [activeHotelId]);
+  }, [queriedHotelId]);
 
   if (hasNoAssignedHotels) {
     return (
@@ -160,8 +164,35 @@ export default function Dashboard() {
     if (rawPub !== undefined) publishedReviews = Number(rawPub);
   }
 
-  // Determine if using demo data (0 real database records)
-  const isDemoData = totalReviews === 0;
+  // We completely disable demo fallback
+  const isDemoData = false;
+
+  const isLoading = metricsLoading || reviewsLoading || ratingsLoading;
+  const hasNoReviews = !isLoading && totalReviews === 0;
+
+  if (hasNoReviews) {
+    return (
+      <div className="space-y-6 text-slate-800">
+        {/* Title Header */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-slate-900 m-0">Dashboard</h1>
+            <p className="text-xs text-slate-500">Genel bakış ve önemli istatistikler</p>
+          </div>
+        </div>
+
+        <div className="min-h-[50vh] bg-white border border-slate-100 rounded-2xl flex flex-col justify-center items-center text-center p-8 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 mb-4">
+            <MessageSquare size={28} />
+          </div>
+          <h3 className="text-base font-bold text-slate-800 mb-1">Yorum Bulunmuyor</h3>
+          <p className="text-xs text-slate-500 max-w-sm">
+            Bu otel için henüz yorum bulunmuyor.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Hardcoded Demo Values mapping
   const finalTotalReviews = isDemoData ? 1248 : totalReviews;
