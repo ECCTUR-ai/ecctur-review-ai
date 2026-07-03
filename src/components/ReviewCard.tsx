@@ -36,6 +36,29 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
     }
   };
 
+  // Helper to choose platform badge style and label
+  const getPlatformBadge = () => {
+    const rawPlat = review.source || (review as any).platform || '';
+    const name = rawPlat ? (rawPlat.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' : rawPlat.toLowerCase() === 'google' ? 'Google' : rawPlat.toLowerCase() === 'booking' ? 'Booking' : rawPlat) : 'Platform Yok';
+    
+    let colorClass = 'bg-slate-50 text-slate-600 border-slate-100';
+    if (name === 'Google') {
+      colorClass = 'bg-blue-50 text-blue-600 border-blue-100';
+    } else if (name === 'TripAdvisor') {
+      colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    } else if (name === 'Booking') {
+      colorClass = 'bg-sky-50 text-sky-600 border-sky-100';
+    } else if (name === 'Expedia') {
+      colorClass = 'bg-amber-50 text-amber-600 border-amber-100';
+    }
+    
+    return (
+      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${colorClass}`}>
+        {name}
+      </span>
+    );
+  };
+
   // Helper for relative time calculation
   const getRelativeTime = (dateStr: string) => {
     try {
@@ -85,6 +108,7 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <StarRating rating={review.rating} />
           <div className="flex items-center gap-1.5">
+            {getPlatformBadge()}
             <PriorityBadge priority={review.priority} />
             <StatusBadge status={review.status} />
             {((review as any).google_reply_status === 'published' || (review as any).google_reply_status === 'mock_published') && (
@@ -98,7 +122,7 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
 
       {/* Review comments */}
       <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 italic">
-        "{review.comment}"
+        "{review.comment?.trim() ? review.comment : 'Yorum metni bulunmuyor'}"
       </p>
 
       {/* Department tags */}

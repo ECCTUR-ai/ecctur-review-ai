@@ -18,7 +18,8 @@ import {
   ArrowLeft,
   Bell,
   Sparkles,
-  ShieldAlert
+  ShieldAlert,
+  ChevronDown
 } from 'lucide-react';
 
 import { hotelRepository } from '@/repositories/hotelRepository';
@@ -87,6 +88,8 @@ export default function Reviews() {
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [backendLimit, setBackendLimit] = useState(200);
+
   // Fetch reviews using clean repository service
   const {
     data,
@@ -99,8 +102,9 @@ export default function Reviews() {
     source: source || undefined,
     rating: rating ? Number(rating) : undefined,
     status: status || undefined,
-    priority: priority || undefined
-  }), [queriedHotelId, search, source, rating, status, priority]);
+    priority: priority || undefined,
+    limit: backendLimit
+  }), [queriedHotelId, search, source, rating, status, priority, backendLimit]);
 
   if (hasNoAssignedHotels) {
     return (
@@ -1002,6 +1006,24 @@ export default function Reviews() {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Load More from database if there are more reviews in db */}
+              {data && data.total > data.reviews.length && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={() => setBackendLimit(prev => prev + 200)}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/[0.08] text-xs font-semibold text-slate-300 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <div className="w-3.5 h-3.5 border-2 border-slate-500 border-t-white animate-spin rounded-full" />
+                    ) : (
+                      <ChevronDown size={14} />
+                    )}
+                    Daha Fazla Yorum Yükle ({data.reviews.length} / {data.total})
+                  </button>
                 </div>
               )}
             </div>
