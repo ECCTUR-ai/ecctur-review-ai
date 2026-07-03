@@ -1441,6 +1441,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const bookingReviews = await fetchBookingReviews(bookingUrl, limit);
 
       let successCount = 0;
+      let updatedCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
       const detailedErrors: any[] = [];
@@ -1448,19 +1449,86 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (let r of bookingReviews) {
         try {
-          const isDuplicate = await checkIsDuplicate(
-            hotelId,
-            'booking',
-            r.externalId || null,
-            r.guestName,
-            r.rating,
-            r.reviewText
-          );
+          // Find existing review for Booking platform to see if it qualifies as duplicate or update candidate
+          let existingBookingReview: any = null;
+          if (r.externalId) {
+            const { data: existing, error } = await supabaseAdmin
+              .from('reviews')
+              .select('id, review_text')
+              .eq('platform', 'booking')
+              .eq('platform_review_id', r.externalId)
+              .limit(1)
+              .maybeSingle();
+            if (!error && existing) {
+              existingBookingReview = existing;
+            }
+          }
 
-          if (isDuplicate) {
-            duplicateCount++;
-            importDetails.push({ reviewId: r.externalId, status: 'duplicate_skipped' });
-            continue;
+          if (!existingBookingReview) {
+            const { data: existingSec, error: errorSec } = await supabaseAdmin
+              .from('reviews')
+              .select('id, review_text')
+              .eq('hotel_id', hotelId)
+              .eq('platform', 'booking')
+              .eq('guest_name', r.guestName)
+              .eq('rating', r.rating)
+              .eq('review_text', r.reviewText)
+              .limit(1)
+              .maybeSingle();
+            if (!errorSec && existingSec) {
+              existingBookingReview = existingSec;
+            }
+          }
+
+          if (existingBookingReview) {
+            const currentText = (existingBookingReview.review_text || '').trim();
+            const newText = (r.reviewText || '').trim();
+            const hasNewRealText = newText && newText !== 'No comment review.';
+
+            if (currentText === 'No comment review.' && hasNewRealText) {
+              let parsedDateStr = new Date().toISOString();
+              if (r.reviewDate) {
+                const dateObj = new Date(r.reviewDate);
+                if (!isNaN(dateObj.getTime())) {
+                  parsedDateStr = dateObj.toISOString();
+                }
+              }
+
+              const updatePayload: any = {
+                review_text: newText,
+                review_date: parsedDateStr,
+                rating: r.rating,
+                guest_name: r.guestName || 'Booking Guest',
+                sentiment: r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative',
+                updated_at: new Date().toISOString()
+              };
+
+              let { error: updErr } = await supabaseAdmin
+                .from('reviews')
+                .update(updatePayload)
+                .eq('id', existingBookingReview.id);
+
+              if (updErr) {
+                if (updErr.code === '42703' || updErr.message?.includes('updated_at')) {
+                  delete updatePayload.updated_at;
+                  const { error: retryErr } = await supabaseAdmin
+                    .from('reviews')
+                    .update(updatePayload)
+                    .eq('id', existingBookingReview.id);
+                  if (retryErr) throw retryErr;
+                } else {
+                  throw updErr;
+                }
+              }
+
+              updatedCount++;
+              importDetails.push({ reviewId: r.externalId, status: 'updated' });
+              continue;
+            } else {
+              duplicateCount++;
+              importDetails.push({ reviewId: r.externalId, status: 'duplicate_skipped' });
+              continue;
+            }
           }
 
           // Parse and guarantee review date
@@ -1524,6 +1592,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         effectiveMode: mode,
         fetchedCount: bookingReviews.length,
         insertedCount: successCount,
+        updatedCount: updatedCount,
         duplicateCount,
         failedCount,
         totalAfterImport: totalAfterImport || 0

@@ -680,9 +680,15 @@ export default function Reviews() {
       console.log('[DEBUG-BOOKING-IMPORT-RESPONSE-SUCCESS]', res);
 
       const insertedCount = res.insertedCount ?? res.importedCount ?? 0;
-      const duplicateCount = res.duplicateCount;
+      const updatedCount = res.updatedCount ?? 0;
+      const duplicateCount = res.duplicateCount ?? 0;
+      const failedCount = res.failedCount ?? 0;
 
-      const alertMsg = `Booking.com yorumları içe aktarıldı:\nYeni: ${insertedCount}\nDuplicate: ${duplicateCount}`;
+      const alertMsg = `Booking.com yorumları içe aktarıldı:\n` +
+                       `Yeni Eklenen: ${insertedCount}\n` +
+                       `Güncellenen: ${updatedCount}\n` +
+                       `Duplicate Atlanan: ${duplicateCount}\n` +
+                       `Hata: ${failedCount}`;
       
       alert(alertMsg);
       setToastMessage(alertMsg);
@@ -868,7 +874,8 @@ export default function Reviews() {
             const res = await response.json();
             if (response.ok) {
               const count = res.insertedCount ?? res.importedCount ?? 0;
-              results.push(`Booking.com: ${count} yeni yorum`);
+              const updated = res.updatedCount ?? 0;
+              results.push(`Booking.com: ${count} yeni, ${updated} güncellendi`);
             } else {
               results.push(`Booking.com: Hata (${res.error || 'İçe aktarılamadı'})`);
             }

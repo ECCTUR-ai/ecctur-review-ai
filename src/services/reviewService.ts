@@ -1344,6 +1344,7 @@ export const reviewService = {
 
   async importBookingReviews(hotelId: string, range: string = '365', mode?: string): Promise<{
     insertedCount?: number;
+    updatedCount?: number;
     importedCount?: number;
     duplicateCount: number;
     failedCount: number;
