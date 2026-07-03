@@ -30,29 +30,29 @@ export const userRepository = {
     console.log("GET_ALL_USERS_CURRENT_ROLE", callerRole);
 
     const allUsers: UserProfile[] = (profiles || []).map((item: any) => {
-      const userRoles = item.user_roles || [];
+      const userRoles = item?.user_roles ?? [];
       const primaryRole = userRoles[0];
       const roleId = primaryRole?.role_id;
-      const roleName = primaryRole?.roles?.name;
-      const hotelIds = (item.user_hotels || []).map((uh: any) => uh.hotel_id);
+      const roleName = primaryRole?.roles?.name || 'Staff';
+      const hotelIds = (item?.user_hotels ?? []).map((uh: any) => uh.hotel_id);
 
       return {
         id: item.id,
         email: item.email,
-        firstName: item.first_name || item.firstName,
-        lastName: item.last_name || item.lastName,
-        status: item.status,
-        createdAt: item.created_at || item.createdAt,
+        firstName: item.first_name || item.firstName || '',
+        lastName: item.last_name || item.lastName || '',
+        status: item.status || 'active',
+        createdAt: item.created_at || item.createdAt || '',
         roleId,
         roleName,
         hotelIds,
         organizationId: item.organization_id || item.organizationId,
-        phone: item.phone,
-        title: item.title,
-        department: item.department,
-        avatarUrl: item.avatar_url,
-        language: item.language,
-        timezone: item.timezone
+        phone: item.phone || '',
+        title: item.title || '',
+        department: item.department || '',
+        avatarUrl: item.avatar_url || '',
+        language: item.language || 'tr',
+        timezone: item.timezone || 'Europe/Istanbul'
       };
     });
 
@@ -180,30 +180,33 @@ export const userRepository = {
       .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      throw new Error("Kullanıcı bulunamadı veya yetki bilgisi eksik");
+    }
 
-    const userRoles = data.user_roles || [];
+    const userRoles = data?.user_roles ?? [];
     const primaryRole = userRoles[0];
     const roleId = primaryRole?.role_id;
-    const roleName = primaryRole?.roles?.name;
-    const hotelIds = (data.user_hotels || []).map((uh: any) => uh.hotel_id);
+    const roleName = primaryRole?.roles?.name || 'Staff';
+    const hotelIds = (data?.user_hotels ?? []).map((uh: any) => uh.hotel_id);
 
     return {
       id: data.id,
       email: data.email,
-      firstName: data.first_name || data.firstName,
-      lastName: data.last_name || data.lastName,
-      status: data.status,
-      createdAt: data.created_at || data.createdAt,
-      roleId,
-      roleName,
+      firstName: data.first_name || data.firstName || '',
+      lastName: data.last_name || data.lastName || '',
+      status: data.status || 'active',
+      createdAt: data.created_at || data.createdAt || '',
+      roleId: roleId || undefined,
+      roleName: roleName,
       hotelIds,
-      organizationId: data.organization_id || data.organizationId,
-      phone: data.phone,
-      title: data.title,
-      department: data.department,
-      avatarUrl: data.avatar_url,
-      language: data.language,
-      timezone: data.timezone
+      organizationId: data.organization_id || data.organizationId || undefined,
+      phone: data.phone || '',
+      title: data.title || '',
+      department: data.department || '',
+      avatarUrl: data.avatar_url || '',
+      language: data.language || 'tr',
+      timezone: data.timezone || 'Europe/Istanbul'
     };
   }
 };
