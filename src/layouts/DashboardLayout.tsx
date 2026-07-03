@@ -80,63 +80,37 @@ export default function DashboardLayout() {
   useEffect(() => {
     if (!userId) return;
     const loadHotels = async () => {
-      console.log('[Hotel Loader] Initializing...');
-      console.log('[Hotel Loader] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
       try {
         const userHotelsClearance = authHotelIds || [];
         const userOrgId = authOrgId || null;
-        console.log('[Hotel Loader] Loaded from Auth Context clearances:', userHotelsClearance);
-        console.log('[Hotel Loader] Loaded from Auth Context organization ID:', userOrgId);
 
         // 1. Fetch organizations dynamically
-        console.log('[Hotel Loader] Querying organizations...');
         const orgs = await hotelService.getOrganizations();
-        console.log('[Hotel Loader] Organizations result:', orgs);
         
-        // 2. Find the user's organization, or GuestReview.ai, or fall back to the first one
-        const activeOrg = orgs.find(o => o.id === userOrgId) || 
-                          orgs.find(o => o.name === 'GuestReview.ai' || o.name === 'ECCTUR') || 
-                          orgs[0];
+        // 2. Find active organization
+        const activeOrg = orgs.find(o => o.id === userOrgId) || orgs[0];
         if (activeOrg) {
           setCurrentOrg(activeOrg);
         }
-        const orgId = activeOrg ? activeOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
-        console.log('[Hotel Loader] Selected Organization ID:', orgId);
 
-        // 3. Load hotels filtered by resolved organization ID from Supabase
-        console.log('[Hotel Loader] Querying hotels...');
-        let data = await hotelService.getHotels(orgId);
-        console.log('[Hotel Loader] Hotels result:', data);
-        console.log('[Hotel Loader] Number of hotels returned:', data.length);
-
-        // Filter hotels list by user's clearance access list (unless super_admin)
-        if (roleKey !== 'super_admin') {
-          data = data.filter(h => userHotelsClearance.includes(h.id));
-          console.log('[Hotel Loader] Filtered hotels for non-super_admin by clearances:', data);
-        }
+        // 3. Fetch hotels for that organization
+        const allHotels = await hotelService.getHotels(activeOrg?.id);
+        const filteredHotels = (roleKey === 'super_admin' || !authHotelIds)
+          ? allHotels
+          : allHotels.filter(h => userHotelsClearance.includes(h.id));
         
-        setHotels(data);
+        setHotels(filteredHotels);
         
-        if (data.length > 0) {
-          if (data.length === 1) {
-            // If only one hotel exists, select it automatically
-            setCurrentHotelId(data[0].id);
-            localStorage.setItem('saas_selected_hotel_id', data[0].id);
-          } else {
-            // Restore last selected hotel from localStorage
-            const cached = localStorage.getItem('saas_selected_hotel_id');
-            if (cached && data.some(h => h.id === cached)) {
-              setCurrentHotelId(cached);
-            } else {
-              setCurrentHotelId(data[0].id);
-              localStorage.setItem('saas_selected_hotel_id', data[0].id);
-            }
+        // Ensure currentHotelId is valid
+        if (!currentHotelId || !filteredHotels.find(h => h.id === currentHotelId)) {
+          const firstHotel = filteredHotels[0];
+          if (firstHotel) {
+            setCurrentHotelId(firstHotel.id);
+            localStorage.setItem('saas_selected_hotel_id', firstHotel.id);
           }
         }
-      } catch (err: any) {
-        console.error('[Hotel Loader] Query failed with error:', err);
-        // Show the error in browser console explicitly
-        console.error('[Hotel Loader] Detailed Error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      } catch (err) {
+        console.error('Error loading organization context:', err);
       }
     };
     loadHotels();

@@ -432,17 +432,7 @@ export default function Reports() {
         source_period: activePeriod,
         resolved_by: user?.id || null
       });
-
-      if (error) {
-        console.warn('[Database] Failed to save action resolution. Migration might be required:', error.message);
-      } else {
-        console.log('[Database] Action resolution saved successfully.');
-        // Optionally refresh data in the background from db
-        const dbResolved = await loadResolutions();
-        if (dbResolved.length > 0) {
-          setResolvedKeys(dbResolved);
-        }
-      }
+      if (error) throw error;
     } catch (err) {
       console.warn('[Database] Exception saving action resolution:', err);
     }
