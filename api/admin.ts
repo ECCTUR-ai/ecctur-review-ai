@@ -261,16 +261,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let hotelIds = (userHotels || []).map(uh => uh.hotel_id);
 
-      // Super Admin can see all hotels in their organization
+      // Super Admin can see all hotels in their organization, true Super Admin sees all hotels in database
       if (roleKey === 'super_admin') {
-        const orgId = profile?.organization_id;
         let query = supabaseAdmin.from('hotels').select('id');
-        if (orgId) {
-          query = query.eq('organization_id', orgId);
+        if (!isTrueSuperAdmin) {
+          const orgId = profile?.organization_id;
+          if (orgId) {
+            query = query.eq('organization_id', orgId);
+          }
         }
         const { data: allOrgsHotels } = await query;
         if (allOrgsHotels) {
-          hotelIds = allOrgsHotels.map(h => h.id);
+          hotelIds = allOrgsHotels.map((h: any) => h.id);
         }
       }
 

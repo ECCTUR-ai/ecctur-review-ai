@@ -56,7 +56,8 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 export default function DashboardLayout() {
-  const { hasPermission, permissions, role, roleKey, userId, hotelIds: authHotelIds, organizationId: authOrgId } = useAuth();
+  const { hasPermission, permissions, role, roleKey, userId, hotelIds: authHotelIds, organizationId: authOrgId, email } = useAuth();
+  const isTrueSuperAdmin = email === 'cemil.sezgin@ecctur.com';
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const { t, i18n } = useTranslation();
@@ -93,9 +94,9 @@ export default function DashboardLayout() {
           setCurrentOrg(activeOrg);
         }
 
-        // 3. Fetch hotels for that organization
-        const allHotels = await hotelService.getHotels(activeOrg?.id);
-        const filteredHotels = (roleKey === 'super_admin' || !authHotelIds)
+        // 3. Fetch hotels for that organization (fetch all if true super admin)
+        const allHotels = await hotelService.getHotels(isTrueSuperAdmin ? undefined : activeOrg?.id);
+        const filteredHotels = (isTrueSuperAdmin || roleKey === 'super_admin' || !authHotelIds)
           ? allHotels
           : allHotels.filter(h => userHotelsClearance.includes(h.id));
         
@@ -114,7 +115,7 @@ export default function DashboardLayout() {
       }
     };
     loadHotels();
-  }, [userId, authHotelIds, authOrgId, roleKey]);
+  }, [userId, authHotelIds, authOrgId, roleKey, email]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -125,6 +126,26 @@ export default function DashboardLayout() {
       console.error('Failed to load notifications:', e);
     }
   }, [currentHotelId]);
+
+  // Load organization context dynamically when active hotel changes
+  useEffect(() => {
+    if (!currentHotelId || !hotels || hotels.length === 0) return;
+    const activeHotel = hotels.find(h => h.id === currentHotelId);
+    if (activeHotel) {
+      const loadOrg = async () => {
+        try {
+          const orgs = await hotelService.getOrganizations();
+          const targetOrg = orgs.find(o => o.id === activeHotel.organizationId);
+          if (targetOrg) {
+            setCurrentOrg(targetOrg);
+          }
+        } catch (err) {
+          console.error('Failed to load active hotel organization:', err);
+        }
+      };
+      loadOrg();
+    }
+  }, [currentHotelId, hotels]);
 
   useEffect(() => {
     if (!currentHotelId) return;

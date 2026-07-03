@@ -440,6 +440,34 @@ export default function Analytics() {
     );
   }
 
+  if (!loading && reviews.length === 0) {
+    return (
+      <div className="space-y-6 text-slate-800">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/[0.04] pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <Activity size={18} className="text-blue-500" />
+              {isTr ? 'Executive Analytics Dashboard' : 'Executive Analytics Dashboard'}
+            </h2>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+              {isTr ? 'Otelinizin operasyon, kanal dağılımı ve performans analitikleri' : 'Realtime performance metrics, channels and guest experience trends'}
+            </p>
+          </div>
+        </div>
+
+        <div className="min-h-[50vh] bg-slate-900 border border-white/[0.04] rounded-2xl flex flex-col justify-center items-center text-center p-8 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 mb-4">
+            <MessageSquare size={28} />
+          </div>
+          <h3 className="text-base font-bold text-slate-200 mb-1">{isTr ? 'Yorum Bulunmuyor' : 'No Reviews Found'}</h3>
+          <p className="text-xs text-slate-400 max-w-sm">
+            {isTr ? 'Bu otel için henüz yorum bulunmuyor.' : 'There are no reviews found for the selected hotel.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Title / Time Selection */}
