@@ -2044,6 +2044,144 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
   }
 
   // -------------------------------------------------------------
+  // Action: import-hotelscom
+  // -------------------------------------------------------------
+  if (action === 'import-hotelscom') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    let { hotelId, hotelName, hotelscomUrl, limit, mode = 'initial_import' } = req.body;
+    if (!hotelId) {
+      return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
+    }
+
+    try {
+      const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+      let userRole = userRolesData?.[0]?.roles?.name;
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
+        userRole = 'Super Admin';
+      }
+      const roleNameLower = (userRole || 'staff').toLowerCase();
+
+      // Rule 4: backfill_import is only for Owner (allowing Super Admin as system admin)
+      const isOwner = roleNameLower === 'owner' || roleNameLower === 'super admin';
+      if (mode === 'backfill_import' && !isOwner) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Only Owner role can trigger backfill import.' });
+      }
+
+      const { data: hotelData, error: hotelError } = await supabaseAdmin.from('hotels').select('organization_id, name, hotelscom_url').eq('id', hotelId).maybeSingle();
+      if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
+
+      const orgId = hotelData.organization_id;
+      if (!hotelName) {
+        hotelName = hotelData.name;
+      }
+      if (!hotelscomUrl) {
+        hotelscomUrl = hotelData.hotelscom_url;
+      }
+
+      if (!hotelscomUrl) {
+        return res.status(400).json({ success: false, error: 'Bu otel için Hotels.com linki tanımlanmamış. Lütfen Admin panelinden tanımlayın.' });
+      }
+
+      console.log('[Hotels.com Import Request]', { hotelId, hotelName, hotelscomUrl });
+
+      // Rules 1 & 2: check existing count to determine effective mode
+      const { count: existingCount, error: countErr } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'hotels.com');
+
+      if (countErr) throw countErr;
+
+      let effectiveMode = mode;
+      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
+        effectiveMode = 'daily_sync';
+      }
+
+      // Rule 3: daily_sync limit is 50, otherwise 100
+      const limitVal = limit || (effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 100 : 50);
+      const scrapedReviews = await reviewImportService.importReviews('hotels.com', hotelscomUrl, limitVal);
+
+      let importedCount = 0;
+      let duplicateCount = 0;
+      let failedCount = 0;
+
+      for (const r of scrapedReviews) {
+        try {
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            'hotels.com',
+            r.externalId || null,
+            r.guestName,
+            r.rating,
+            r.reviewText
+          );
+
+          if (isDuplicate) {
+            duplicateCount++;
+            continue;
+          }
+
+          const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
+
+          const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
+            hotel_id: hotelId,
+            organization_id: orgId,
+            guest_name: r.guestName,
+            rating: r.rating,
+            review_text: r.reviewText,
+            platform: 'hotels.com',
+            platform_review_id: r.externalId || null,
+            sentiment,
+            status: 'Draft',
+            publish_status: 'Draft',
+            published: 'No',
+            created_at: new Date().toISOString(),
+            review_date: reviewDateVal
+          });
+
+          if (insertErr) {
+            console.error('[Hotels.com Import] Database insert error:', insertErr);
+            failedCount++;
+          } else {
+            importedCount++;
+          }
+        } catch (loopErr) {
+          console.error('[Hotels.com Import] Loop exception:', loopErr);
+          failedCount++;
+        }
+      }
+
+      console.log(`[Hotels.com Import] inserted/duplicate count: ${importedCount}/${duplicateCount}`);
+
+      const { count: totalAfterImport } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'hotels.com');
+
+      return res.status(200).json({
+        success: true,
+        platform: 'hotels.com',
+        requestedMode: mode,
+        effectiveMode,
+        fetchedCount: scrapedReviews.length,
+        insertedCount: importedCount,
+        duplicateCount,
+        failedCount,
+        totalAfterImport: totalAfterImport || 0
+      });
+    } catch (err: any) {
+      console.error('[Hotels.com Import] error:', err);
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  }
+
+  // -------------------------------------------------------------
   // Action: publish-google-reply
   // -------------------------------------------------------------
   if (action === 'publish-google-reply') {

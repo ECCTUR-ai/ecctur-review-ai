@@ -317,6 +317,8 @@ export default function AiReplies() {
           query = query.or('platform.eq.booking,platform.eq.Booking,platform.eq.Booking.com');
         } else if (selectedPlatform === 'HolidayCheck') {
           query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
+        } else if (selectedPlatform === 'Hotels.com') {
+          query = query.or('platform.eq.hotels.com,platform.eq.hotelscom');
         }
       }
 
@@ -1039,6 +1041,7 @@ export default function AiReplies() {
               <option value="TripAdvisor">TripAdvisor</option>
               <option value="Booking">Booking.com</option>
               <option value="HolidayCheck">HolidayCheck</option>
+              <option value="Hotels.com">Hotels.com</option>
             </select>
           </div>
 
@@ -1238,7 +1241,8 @@ export default function AiReplies() {
                             review.source === 'TripAdvisor' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50' :
                             review.source === 'Booking' ? 'bg-sky-50 text-sky-700 border border-sky-100/50' :
                             review.source === 'HolidayCheck' ? 'bg-rose-50 text-rose-700 border border-rose-100/50' :
-                            'bg-indigo-50 text-indigo-600 border border-indigo-100/50'
+                            review.source === 'Hotels.com' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100/50' :
+                            'bg-slate-50 text-slate-600 border border-slate-200/50'
                           }`}>
                             {review.source}
                           </span>

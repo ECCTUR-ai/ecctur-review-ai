@@ -896,7 +896,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to create hotels' });
     }
     try {
-      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl } = req.body;
+      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl, hotelscomUrl } = req.body;
       if (!name || !organizationId) {
         return res.status(400).json({ error: 'Missing name or organizationId parameter' });
       }
@@ -907,7 +907,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         google_maps_url: googleMapsUrl || googleMapsLink || null,
         tripadvisor_url: tripadvisorUrl || null,
         booking_url: cleanBookingUrl(bookingUrl) || null,
-        holidaycheck_url: holidaycheckUrl || null
+        holidaycheck_url: holidaycheckUrl || null,
+        hotelscom_url: hotelscomUrl || null
       };
       console.log("[SUPABASE UPDATE]", updatePayload);
 
@@ -922,7 +923,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!error && data) {
         const { data: selectCheck, error: selectError } = await supabaseAdmin
           .from('hotels')
-          .select('holidaycheck_url')
+          .select('holidaycheck_url, hotelscom_url')
           .eq('id', data.id)
           .maybeSingle();
         console.log("[SUPABASE SELECT VERIFICATION]", selectCheck, selectError);
@@ -946,7 +947,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Admin permissions required to update hotels' });
     }
     try {
-      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl } = req.body;
+      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl, hotelscomUrl } = req.body;
       if (!id || !name || !organizationId) {
         return res.status(400).json({ error: 'Missing id, name or organizationId parameter' });
       }
@@ -966,7 +967,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         google_maps_url: googleMapsUrl || googleMapsLink || null,
         tripadvisor_url: tripadvisorUrl || null,
         booking_url: cleanBookingUrl(bookingUrl) || null,
-        holidaycheck_url: holidaycheckUrl || null
+        holidaycheck_url: holidaycheckUrl || null,
+        hotelscom_url: hotelscomUrl || null
       };
       console.log("[SUPABASE UPDATE]", updatePayload);
 
@@ -982,7 +984,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!error && data) {
         const { data: selectCheck, error: selectError } = await supabaseAdmin
           .from('hotels')
-          .select('holidaycheck_url')
+          .select('holidaycheck_url, hotelscom_url')
           .eq('id', data.id)
           .maybeSingle();
         console.log("[SUPABASE SELECT VERIFICATION]", selectCheck, selectError);

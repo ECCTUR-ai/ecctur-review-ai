@@ -34,6 +34,8 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
         return <Plane size={13} className="text-amber-600" />;
       case 'HolidayCheck':
         return <Sun size={13} className="text-rose-500" />;
+      case 'Hotels.com':
+        return <Building size={13} className="text-indigo-500" />;
       default:
         return <MessageCircle size={13} className="text-slate-500" />;
     }
@@ -62,6 +64,9 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
       } else if (lower === 'holidaycheck') {
         name = 'HolidayCheck';
         colorClass = 'bg-rose-50 text-rose-600 border-rose-100';
+      } else if (lower === 'hotels.com' || lower === 'hotelscom') {
+        name = 'Hotels.com';
+        colorClass = 'bg-indigo-50 text-indigo-600 border-indigo-100';
       } else {
         name = rawPlat;
       }

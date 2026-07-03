@@ -500,6 +500,7 @@ export default function Admin() {
   const [hotelTripadvisorLink, setHotelTripadvisorLink] = useState('');
   const [hotelBookingUrl, setHotelBookingUrl] = useState('');
   const [hotelHolidaycheckUrl, setHotelHolidaycheckUrl] = useState('');
+  const [hotelHotelscomUrl, setHotelHotelscomUrl] = useState('');
 
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
@@ -676,6 +677,7 @@ export default function Admin() {
     setHotelTripadvisorLink(h.tripadvisorUrl || '');
     setHotelBookingUrl(h.bookingUrl || '');
     setHotelHolidaycheckUrl(h.holidaycheckUrl || '');
+    setHotelHotelscomUrl(h.hotelscomUrl || '');
   };
 
   const handleSaveHotel = async (e: React.FormEvent) => {
@@ -687,7 +689,8 @@ export default function Admin() {
         googleMapsUrl: hotelGoogleMapsLink,
         tripadvisorUrl: hotelTripadvisorLink,
         bookingUrl: hotelBookingUrl,
-        holidaycheckUrl: hotelHolidaycheckUrl
+        holidaycheckUrl: hotelHolidaycheckUrl,
+        hotelscomUrl: hotelHotelscomUrl
       };
       console.log("[ADMIN SAVE PAYLOAD]", payload);
 
@@ -705,6 +708,7 @@ export default function Admin() {
       setHotelTripadvisorLink('');
       setHotelBookingUrl('');
       setHotelHolidaycheckUrl('');
+      setHotelHotelscomUrl('');
       refetchHotels();
     } catch (err: any) {
       console.error(err);
@@ -1358,6 +1362,17 @@ export default function Admin() {
                       value={hotelHolidaycheckUrl}
                       onChange={(e) => setHotelHolidaycheckUrl(e.target.value)}
                       placeholder="https://www.holidaycheck.de/hi/..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Hotels.com Linki</label>
+                    <input
+                      type="url"
+                      value={hotelHotelscomUrl}
+                      onChange={(e) => setHotelHotelscomUrl(e.target.value)}
+                      placeholder="https://www.hotels.com/..."
                       className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                     />
                   </div>

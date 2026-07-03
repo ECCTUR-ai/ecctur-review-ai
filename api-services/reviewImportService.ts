@@ -2,6 +2,7 @@ import { fetchGoogleReviews } from './providers/googleProvider.js';
 import { fetchTripadvisorReviews } from './providers/tripadvisorProvider.js';
 import { fetchBookingReviews } from './providers/bookingProvider.js';
 import { fetchHolidaycheckReviews } from './providers/holidaycheckProvider.js';
+import { fetchHotelscomReviews } from './providers/hotelscomProvider.js';
 
 export interface NormalizedReview {
   platform: string;
@@ -25,6 +26,8 @@ export const reviewImportService = {
       return await fetchBookingReviews(url, limit);
     } else if (normalizedPlatform === 'holidaycheck') {
       return await fetchHolidaycheckReviews(url, limit);
+    } else if (normalizedPlatform === 'hotels.com' || normalizedPlatform === 'hotelscom') {
+      return await fetchHotelscomReviews(url, limit);
     } else {
       throw new Error(`Unsupported platform: ${platform}`);
     }

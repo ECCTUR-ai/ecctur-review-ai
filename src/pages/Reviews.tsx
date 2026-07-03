@@ -101,6 +101,7 @@ export default function Reviews() {
   const [isImportingTripadvisor, setIsImportingTripadvisor] = useState(false);
   const [isImportingBooking, setIsImportingBooking] = useState(false);
   const [isImportingHolidaycheck, setIsImportingHolidaycheck] = useState(false);
+  const [isImportingHotelscom, setIsImportingHotelscom] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
   
@@ -814,6 +815,94 @@ export default function Reviews() {
     }
   };
 
+  const handleSyncHotelscomReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('id, name, hotelscom_url')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error('[DEBUG] Direct Supabase query failed:', e);
+    }
+
+    const hotelscomUrl = currentHotel?.hotelscomUrl || dbRow?.hotelscom_url;
+
+    if (!hotelscomUrl) {
+      alert('Bu otel için Hotels.com linki kayıtlı değil.');
+      return;
+    }
+
+    if (isImportingHotelscom) return;
+    setIsImportingHotelscom(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      // Check existing count to determine mode
+      let existingCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', currentHotelId)
+          .eq('platform', 'hotels.com');
+        if (!error && count !== null) {
+          existingCount = count;
+        }
+      } catch (e) {
+        console.error('Failed to get existing Hotels.com review count:', e);
+      }
+
+      const mode = existingCount === 0 ? 'initial_import' : 'daily_sync';
+
+      const response = await fetch('/api/reviews?action=import-hotelscom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          hotelId: currentHotelId,
+          hotelName: currentHotel?.name || dbRow?.name || '',
+          hotelscomUrl,
+          mode
+        })
+      });
+
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || 'İçe aktarım başarısız oldu.');
+      }
+
+      const insertedCount = res.insertedCount ?? 0;
+      const duplicateCount = res.duplicateCount ?? 0;
+      const failedCount = res.failedCount ?? 0;
+
+      const alertMsg = `Hotels.com yorumları içe aktarıldı:\n` +
+                       `Yeni: ${insertedCount} Duplicate: ${duplicateCount} Hata: ${failedCount}`;
+      
+      alert(alertMsg);
+      setToastMessage(alertMsg);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
+    } finally {
+      setIsImportingHotelscom(false);
+    }
+  };
+
   const handleSyncAllPlatforms = () => {
     if (!currentHotelId) {
       alert('Lütfen bir otel seçin.');
@@ -828,7 +917,7 @@ export default function Reviews() {
       try {
         const { data } = await supabase
           .from('hotels')
-          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url')
+          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, hotelscom_url')
           .eq('id', currentHotelId)
           .maybeSingle();
         dbRow = data;
@@ -840,8 +929,9 @@ export default function Reviews() {
       const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
       const bookingUrl = currentHotel?.bookingUrl || dbRow?.booking_url || '';
       const holidaycheckUrl = currentHotel?.holidaycheckUrl || dbRow?.holidaycheck_url;
+      const hotelscomUrl = currentHotel?.hotelscomUrl || dbRow?.hotelscom_url;
 
-      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl && !holidaycheckUrl) {
+      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl && !holidaycheckUrl && !hotelscomUrl) {
         alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
         setIsSyncingAll(false);
         return;
@@ -901,6 +991,18 @@ export default function Reviews() {
           if (count !== null) hcExistingCount = count;
         } catch (e) {}
         const hcMode = hcExistingCount === 0 ? 'initial_import' : 'daily_sync';
+
+        // Check existing Hotels.com reviews count
+        let hotelscomExistingCount = 0;
+        try {
+          const { count } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('hotel_id', currentHotelId)
+            .eq('platform', 'hotels.com');
+          if (count !== null) hotelscomExistingCount = count;
+        } catch (e) {}
+        const hotelscomMode = hotelscomExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
         // 1. Google
         if (googleMapsUrl) {
@@ -1030,6 +1132,34 @@ export default function Reviews() {
             }
           } catch (e: any) {
             results.push(`HolidayCheck: Hata (${e.message})`);
+          }
+        }
+
+        // 5. Hotels.com
+        if (hotelscomUrl) {
+          try {
+            const response = await fetch('/api/reviews?action=import-hotelscom', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                hotelId: currentHotelId,
+                hotelName: currentHotel?.name || dbRow?.name || '',
+                hotelscomUrl,
+                mode: hotelscomMode
+              })
+            });
+            const res = await response.json();
+            if (response.ok) {
+              const count = res.insertedCount ?? 0;
+              results.push(`Hotels.com: ${count} yeni yorum`);
+            } else {
+              results.push(`Hotels.com: Hata (${res.error || 'İçe aktarılamadı'})`);
+            }
+          } catch (e: any) {
+            results.push(`Hotels.com: Hata (${e.message})`);
           }
         }
 
@@ -1222,7 +1352,8 @@ export default function Reviews() {
             const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
             const hasBooking = !!(currentHotel?.bookingUrl);
             const hasHolidaycheck = !!(currentHotel?.holidaycheckUrl);
-            const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking || hasHolidaycheck;
+            const hasHotelscom = !!(currentHotel?.hotelscomUrl);
+            const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking || hasHolidaycheck || hasHotelscom;
 
             return (
               <>
@@ -1264,6 +1395,16 @@ export default function Reviews() {
                 >
                   <RefreshCw size={14} className={isImportingHolidaycheck ? 'animate-spin' : ''} />
                   <span>{isImportingHolidaycheck ? 'HolidayCheck Çekiliyor...' : 'HolidayCheck Yorumlarını Çek'}</span>
+                </button>
+
+                <button
+                  onClick={handleSyncHotelscomReviews}
+                  disabled={isImportingHotelscom || !hasHotelscom}
+                  title={!hasHotelscom ? "Bu otel için Hotels.com URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Hotels.com yorumlarını çek"}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-sky-600 to-indigo-500 hover:from-sky-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 min-h-[36px] cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isImportingHotelscom ? 'animate-spin' : ''} />
+                  <span>{isImportingHotelscom ? 'Hotels.com Çekiliyor...' : 'Hotels.com Yorumlarını Çek'}</span>
                 </button>
 
                 <button
