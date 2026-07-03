@@ -1166,11 +1166,8 @@ export default function Reviews() {
         setPriority={setPriority}
       />
 
-      {/* Main split grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left pane: Review cards list */}
-        <div className="lg:col-span-2 space-y-4">
+      {/* Reviews list container (Full Width) */}
+      <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -1313,37 +1310,6 @@ export default function Reviews() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Right pane: Review detail card */}
-        <div className="lg:col-span-1">
-          {isLoadingDetail ? (
-            <div className="rounded-2xl p-12 text-center h-[60vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white shadow-sm">
-              <RefreshCw className="animate-spin text-blue-600" size={32} />
-              <p className="text-xs text-slate-500 font-semibold">Detay analiz verileri yükleniyor...</p>
-            </div>
-          ) : selectedReviewDetail ? (
-            <ReviewDetailPanel
-              review={selectedReviewDetail}
-              onUpdateStatus={handleUpdateStatus}
-              onSubmitResponse={handleSubmitResponse}
-              onSaveDraft={handleSaveDraft}
-              onGenerateAiReply={handleGenerateAiReply}
-              onUpdateNotes={handleUpdateNotes}
-              onPublishGoogleReply={handlePublishGoogleReply}
-            />
-          ) : (
-            <div className="rounded-2xl p-12 text-center h-[60vh] flex flex-col justify-center items-center space-y-4 border border-slate-200 bg-white shadow-sm">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500/10 to-purple-500/10 flex items-center justify-center text-blue-600 mb-2">
-                <Sparkles size={28} className="animate-pulse" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-800">Bir yorum seçin</h3>
-              <p className="text-xs text-slate-500 max-w-[220px] mx-auto leading-relaxed font-medium">
-                AI analizi ve cevap taslağı burada görünecek.
-              </p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Import Debug Summary Modal */}
