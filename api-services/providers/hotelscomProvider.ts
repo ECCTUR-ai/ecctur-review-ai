@@ -1,4 +1,5 @@
 import { NormalizedReview } from '../reviewImportService.js';
+import { normalizeHotelsComReview } from '../utils/reviewNormalizer.js';
 
 const HOTELS_COM_ACTOR_ID = 'memo23/hotels-scraper';
 
@@ -123,55 +124,8 @@ export async function fetchHotelscomReviews(url: string, limit?: number): Promis
   }
 
   // Normalize dataset items
-  const normalized = items.map((item: any) => {
-    const guestName = 
-      item.authorName || 
-      item.author || 
-      item.reviewerName || 
-      'Hotels.com Guest';
-
-    let score = item.reviewRating || item.rating || item.score || item.overallRating || 10;
-    if (typeof score === 'string') {
-      score = parseFloat(score);
-    }
-
-    let rating = 5;
-    if (score > 5 && score <= 10) {
-      rating = Math.max(1, Math.min(5, Math.round(score / 2)));
-    } else {
-      rating = Math.max(1, Math.min(5, Math.round(score)));
-    }
-
-    const reviewText = item.reviewText || item.text || item.description || item.comment || item.content || '';
-
-    const reviewDate = 
-      item.reviewDate || 
-      item.date || 
-      item.publishedDate || 
-      item.createdAt || 
-      new Date().toISOString();
-
-    const externalId = 
-      item.id || 
-      item.reviewId || 
-      `${guestName}_${rating}_${reviewDate}`;
-
-    const sourceUrl =
-      item.hotelscomUrl ||
-      item.url ||
-      item.sourceUrl ||
-      targetUrl;
-
-    return {
-      platform: 'hotels.com',
-      guestName: String(guestName).trim(),
-      rating: Number(rating),
-      reviewText: String(reviewText).trim(),
-      reviewDate: String(reviewDate).trim(),
-      externalId: String(externalId).trim(),
-      sourceUrl: String(sourceUrl).trim(),
-      raw: item
-    };
+  const normalized = items.map((item: any, idx: number) => {
+    return normalizeHotelsComReview(item, targetUrl, idx);
   });
 
   return normalized;

@@ -1590,6 +1590,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             published: 'No',
             created_at: new Date().toISOString(),
             review_date: r.reviewDate || null,
+            travel_date: r.travelDate || null,
+            owner_response_text: r.ownerResponseText || null,
+            owner_response_date: r.ownerResponseDate || null,
             hotel_id: hotelId,
             hotel_name: hotelName,
             organization_id: orgId,
@@ -1717,7 +1720,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
-          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -1732,7 +1734,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             status: 'draft',
             published: 'No',
             created_at: new Date().toISOString(),
-            review_date: reviewDateVal
+            review_date: r.reviewDate || null,
+            travel_date: r.travelDate || null,
+            owner_response_text: r.ownerResponseText || null,
+            owner_response_date: r.ownerResponseDate || null,
+            metadata: r.metadata || null
           });
 
           if (insertErr) {
@@ -1846,7 +1852,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
-          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -1861,7 +1866,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             status: 'draft',
             published: 'No',
             created_at: new Date().toISOString(),
-            review_date: reviewDateVal
+            review_date: r.reviewDate || null,
+            travel_date: r.travelDate || null,
+            owner_response_text: r.ownerResponseText || null,
+            owner_response_date: r.ownerResponseDate || null,
+            metadata: r.metadata || null
           });
 
           if (insertErr) {
@@ -1986,7 +1995,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
-          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -2002,7 +2010,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             publish_status: 'Draft',
             published: 'No',
             created_at: new Date().toISOString(),
-            review_date: reviewDateVal
+            review_date: r.reviewDate || null,
+            travel_date: r.travelDate || null,
+            owner_response_text: r.ownerResponseText || null,
+            owner_response_date: r.ownerResponseDate || null,
+            metadata: r.metadata || null
           });
 
           if (insertErr) {
@@ -2132,7 +2144,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
-          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -2148,7 +2159,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             publish_status: 'Draft',
             published: 'No',
             created_at: new Date().toISOString(),
-            review_date: reviewDateVal
+            review_date: r.reviewDate || null,
+            travel_date: r.travelDate || null,
+            owner_response_text: r.ownerResponseText || null,
+            owner_response_date: r.ownerResponseDate || null,
+            metadata: r.metadata || null
           });
 
           if (insertErr) {

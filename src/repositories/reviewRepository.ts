@@ -28,8 +28,12 @@ export function mapReview(item: any): Review {
     rating: item.rating,
     comment: item.review_text || item.comment || '',
     date: item.review_date || item.date || item.created_at || '',
-    review_date: item.review_date || undefined,
+    review_date: item.review_date || null,
+    travel_date: item.travel_date || null,
     created_at: item.created_at || undefined,
+    metadata: item.metadata || null,
+    owner_response_text: item.owner_response_text || null,
+    owner_response_date: item.owner_response_date || null,
     source: (item.platform?.toLowerCase() === 'booking' ? 'Booking' :
              item.platform?.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' :
              item.platform?.toLowerCase() === 'google' ? 'Google' :

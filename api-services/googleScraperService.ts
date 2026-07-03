@@ -6,7 +6,7 @@ export interface ScrapedReview {
   reviewId?: string | null;
 }
 
-export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: number): Promise<ScrapedReview[]> {
+export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: number): Promise<any[]> {
   const targetUrl = (googleMapsUrl || '').trim();
   if (!targetUrl) {
     throw new Error('no_reviews_found');
@@ -94,49 +94,5 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: num
     throw new Error('no_reviews_found');
   }
 
-  // Normalize items to ScrapedReview format
-  const parsed = items.map((item: any) => {
-    const guestName = item.name || item.authorName || 'Anonymous Guest';
-    const rating = item.starsScore || item.stars || 5;
-    const reviewText = item.text || item.textTranslated || '';
-
-    // Log specified fields for debugging
-    console.log('[GOOGLE RAW FIELD TRACE]', {
-      reviewId: item.reviewId || item.id || null,
-      reviewDate: item.reviewDate || item.date || item.datePublished || null,
-      publishAt: item.publishAt || null,
-      publishedAt: item.publishedAt || null,
-      publishedAtDate: item.publishedAtDate || null,
-      createTime: item.createTime || null,
-      relativeTimeDate: item.relativeTimeDate || null,
-      relativeTime: item.relativeTime || null
-    });
-    
-    // Rule 2: Chronologically check fields for date
-    const rawDate = 
-      item.reviewTime ||
-      item.relativeTimeDescription ||
-      item.createTime ||
-      item.updateTime ||
-      item.publishedAt ||
-      item.date ||
-      item.publishAt || 
-      item.publishedAtDate || 
-      item.relativeTimeDate || 
-      item.relativeTime || 
-      'recently';
-      
-    const reviewId = item.reviewId || item.id || null;
-
-    return {
-      guestName: String(guestName).trim(),
-      rating: Number(rating),
-      reviewText: String(reviewText).trim(),
-      relativeDate: String(rawDate).trim(),
-      reviewId: reviewId ? String(reviewId).trim() : null
-    };
-  });
-
-  console.log(`Google Parsed Reviews: ${parsed.length}`);
-  return parsed;
+  return items;
 }

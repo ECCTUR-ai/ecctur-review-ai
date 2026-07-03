@@ -17,8 +17,12 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
-  review_date?: string;
+  review_date?: string | null;
+  travel_date?: string | null;
   created_at?: string;
+  metadata?: any;
+  owner_response_text?: string | null;
+  owner_response_date?: string | null;
   source: ReviewSource;
   status: ReviewStatus;
   priority: ReviewPriority;

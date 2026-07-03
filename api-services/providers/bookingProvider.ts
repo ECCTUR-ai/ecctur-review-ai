@@ -1,4 +1,5 @@
 import { NormalizedReview } from '../reviewImportService.js';
+import { normalizeBookingReview } from '../utils/reviewNormalizer.js';
 
 export async function fetchBookingReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
   const targetUrl = (url || '').trim();
@@ -113,42 +114,10 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
   });
 
   const normalized = items.map((item: any, idx: number) => {
-    const rawRating = Number(item.rating || 0);
-    const rating = rawRating > 5 ? Math.max(1, Math.min(5, Math.round(rawRating / 2))) : Math.max(1, Math.min(5, Math.round(rawRating)));
-
-    const reviewText = [
-      item.reviewTitle,
-      item.likedText,
-      item.dislikedText
-    ]
-      .filter(Boolean)
-      .join("\n\n") || 'No comment review.';
-
-    const normalizedReview = {
-      platform: 'Booking',
-      guestName: item.userName || "Booking Guest",
-      rating: rating,
-      reviewTitle: item.reviewTitle || "",
-      reviewText,
-      reviewDate: item.reviewDate || null,
-      travelerType: item.travelerType || null,
-      numberOfNights: item.numberOfNights || null,
-      likedText: item.likedText || null,
-      dislikedText: item.dislikedText || null,
-      sourceUrl: targetUrl,
-      externalId: item.id || item.reviewId || `${item.userName || 'guest'}_${rating}_${item.reviewDate || 'nodate'}_${idx}`,
-      metadata: {
-        travelerType: item.travelerType || null,
-        numberOfNights: item.numberOfNights || null,
-        likedText: item.likedText || null,
-        dislikedText: item.dislikedText || null,
-        reviewTitle: item.reviewTitle || ""
-      },
-      raw: item
-    };
+    const normalizedReview = normalizeBookingReview(item, targetUrl, idx);
 
     if (idx < 3) {
-      console.log("[BOOKING NORMALIZED]", normalizedReview);
+      console.log("[NORMALIZED BOOKING REVIEW]", normalizedReview);
     }
 
     return normalizedReview;

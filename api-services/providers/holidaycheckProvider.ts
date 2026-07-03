@@ -1,4 +1,5 @@
 import { NormalizedReview } from '../reviewImportService.js';
+import { normalizeHolidayCheckReview } from '../utils/reviewNormalizer.js';
 
 export async function fetchHolidaycheckReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
   const targetUrl = (url || '').trim();
@@ -118,58 +119,8 @@ export async function fetchHolidaycheckReviews(url: string, limit?: number): Pro
   }
 
   // Normalize HolidayCheck items with robust key mapping
-  const normalized = items.map((item: any) => {
-    const guestName = 
-      item.author || 
-      item.authorName || 
-      item.userName || 
-      item.reviewerName || 
-      item.name || 
-      'HolidayCheck Guest';
-
-    // HolidayCheck rating is usually out of 6. Normalize 1-6 scale to 1-5 scale:
-    let score = item.rating || item.score || item.overallRating || item.totalRating || item.stars || 6;
-    if (typeof score === 'string') {
-      score = parseFloat(score);
-    }
-    
-    // Scale 6-point to 5-point scale:
-    let rating = 5;
-    if (score <= 6 && score > 0) {
-      rating = Math.max(1, Math.min(5, Math.round((score / 6) * 5)));
-    } else {
-      rating = Math.max(1, Math.min(5, Math.round(score)));
-    }
-
-    const text = item.reviewText || item.text || item.description || item.comment || item.content || '';
-    const title = item.title || item.reviewTitle || item.headline || '';
-    
-    let reviewText = text;
-    if (title && title.trim()) {
-      reviewText = `${title.trim()}\n\n${text.trim()}`;
-    }
-
-    const reviewDate = 
-      item.date || 
-      item.reviewDate || 
-      item.publishedDate || 
-      item.createdAt || 
-      new Date().toISOString();
-
-    const externalId = 
-      item.id || 
-      item.reviewId || 
-      `${guestName}_${rating}_${reviewDate}`;
-
-    return {
-      platform: 'holidaycheck',
-      guestName: String(guestName).trim(),
-      rating: Number(rating),
-      reviewText: String(reviewText).trim(),
-      reviewDate: String(reviewDate).trim(),
-      externalId: String(externalId).trim(),
-      raw: item
-    };
+  const normalized = items.map((item: any, idx: number) => {
+    return normalizeHolidayCheckReview(item, targetUrl, idx);
   });
 
   return normalized;

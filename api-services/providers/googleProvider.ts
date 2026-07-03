@@ -1,14 +1,16 @@
 import { scrapeGoogleMapsReviews } from '../googleScraperService.js';
 import { NormalizedReview } from '../reviewImportService.js';
+import { normalizeGoogleReview } from '../utils/reviewNormalizer.js';
 
 export async function fetchGoogleReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
   const scraped = await scrapeGoogleMapsReviews(url, limit);
-  return scraped.map(r => ({
-    platform: 'Google',
-    guestName: r.guestName,
-    rating: r.rating,
-    reviewText: r.reviewText,
-    reviewDate: r.relativeDate,
-    externalId: r.reviewId || `${r.guestName}_${r.rating}_${r.reviewText.substring(0, 50)}`
-  }));
+  return scraped.map((r, idx) => {
+    const normalizedReview = normalizeGoogleReview(r, url, idx);
+
+    if (idx < 3) {
+      console.log("[NORMALIZED GOOGLE REVIEW]", normalizedReview);
+    }
+
+    return normalizedReview;
+  });
 }

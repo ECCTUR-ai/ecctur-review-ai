@@ -95,7 +95,7 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
   };
 
   const getReviewDateToShow = () => {
-    const rawDate = review.review_date || review.created_at || review.date;
+    const rawDate = review.review_date;
     if (!rawDate) return 'Tarih yok';
     return getRelativeTime(rawDate);
   };

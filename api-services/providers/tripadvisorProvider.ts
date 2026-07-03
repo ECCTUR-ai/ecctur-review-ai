@@ -1,4 +1,5 @@
 import { NormalizedReview } from '../reviewImportService.js';
+import { normalizeTripAdvisorReview } from '../utils/reviewNormalizer.js';
 
 export async function fetchTripadvisorReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
   const targetUrl = (url || '').trim();
@@ -92,68 +93,14 @@ export async function fetchTripadvisorReviews(url: string, limit?: number): Prom
   }
 
   // 3. Normalize TripAdvisor items with robust key mapping
-  const normalized = items.map((item: any) => {
-    const guestName = 
-      item.reviewerName || 
-      item.userName || 
-      item.username || 
-      item.author || 
-      item.authorName || 
-      item.user?.username || 
-      item.user?.name || 
-      item.reviewer?.name || 
-      item.title || 
-      'Tripadvisor Guest';
-
-    let rawRating = item.rating || item.reviewRating || item.ratingRange || item.ratingScore || item.stars || 5;
-    if (typeof rawRating === 'string') {
-      rawRating = parseFloat(rawRating);
+  const normalized = items.map((item: any, idx: number) => {
+    const normalizedReview = normalizeTripAdvisorReview(item, targetUrl, idx);
+    
+    if (idx < 3) {
+      console.log("[NORMALIZED TRIPADVISOR REVIEW]", normalizedReview);
     }
-    if (rawRating > 5) {
-      rawRating = rawRating / 10;
-    }
-    const rating = Math.max(1, Math.min(5, Math.round(rawRating)));
-
-    const reviewText = 
-      item.text || 
-      item.reviewText || 
-      item.textReview || 
-      item.comment || 
-      item.commentReview || 
-      item.description || 
-      '';
-
-    const reviewDate = 
-      item.publishedDate || 
-      item.reviewDate || 
-      item.date || 
-      item.createdAt || 
-      item.writtenDate || 
-      item.publishAt || 
-      item.publishedAt || 
-      item.publishedAtDate || 
-      item.createTime || 
-      item.relativeTimeDate || 
-      item.relativeTime || 
-      item.datePublished || 
-      item.publishDate || 
-      item.created || 
-      'recently';
-
-    const externalId = 
-      item.id || 
-      item.reviewId || 
-      item.url || 
-      `${guestName}_${rating}_${reviewText.substring(0, 50)}`;
-
-    return {
-      platform: 'Tripadvisor',
-      guestName: String(guestName).trim(),
-      rating: Number(rating),
-      reviewText: String(reviewText).trim(),
-      reviewDate: String(reviewDate).trim(),
-      externalId: String(externalId).trim()
-    };
+    
+    return normalizedReview;
   });
 
   // 4. Normalize edilen sonuç sayısını logla
