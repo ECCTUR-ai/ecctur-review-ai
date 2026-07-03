@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { reviewService } from '@/services/reviewService';
@@ -76,7 +76,13 @@ export default function Reports() {
   const [translatingStates, setTranslatingStates] = useState<Record<string, boolean>>({});
   const [translationErrorStates, setTranslationErrorStates] = useState<Record<string, string | null>>({});
 
-  const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
+  const [searchParams] = useSearchParams();
+  const paramHotelId = searchParams.get('hotelId') || searchParams.get('hotel_id');
+  const activeHotelId = paramHotelId || currentHotelId || '00000000-0000-0000-0000-000000000000';
+  
+  // Strict tenant security check
+  const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
+  const queriedHotelId = isAuthorized ? activeHotelId : '00000000-0000-0000-0000-000000000000';
 
   const handleTranslateReview = async (reviewId: string, text: string, lang: 'tr' | 'en' | 'ru') => {
     const currentSelected = selectedLangs[reviewId];
@@ -119,7 +125,7 @@ export default function Reports() {
     setTranslatingStates({});
     setTranslationErrorStates({});
     try {
-      const result = await reviewService.getReviews({ hotelId: activeHotelId, limit: 1000 });
+      const result = await reviewService.getReviews({ hotelId: queriedHotelId, limit: 1000 });
       setReviews(result.reviews || []);
     } catch (error) {
       console.error('Failed to load reviews for reports:', error);
@@ -130,7 +136,7 @@ export default function Reports() {
 
   useEffect(() => {
     fetchReviews();
-  }, [activeHotelId]);
+  }, [queriedHotelId]);
 
   if (hasNoAssignedHotels) {
     return (
@@ -317,7 +323,7 @@ export default function Reports() {
       const { data, error } = await supabase
         .from('action_resolutions')
         .select('action_key')
-        .eq('hotel_id', activeHotelId);
+        .eq('hotel_id', queriedHotelId);
         
       if (error) throw error;
       const keys = (data || []).map(d => d.action_key);
@@ -356,7 +362,7 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    if (filteredReviews.length === 0 || !activeHotelId) {
+    if (filteredReviews.length === 0 || !queriedHotelId) {
       setInsights({ issues: [], highlights: [], actions: [] });
       return;
     }
@@ -388,17 +394,17 @@ export default function Reports() {
     };
 
     loadInsightsAndResolutions();
-  }, [filteredReviews, activeHotelId, dateFilter, startDate, endDate]);
+  }, [filteredReviews, queriedHotelId, dateFilter, startDate, endDate]);
 
   // Compute filtered unresolved actions sliced to exactly 5
   const unresolvedActions = useMemo(() => {
     return (insights.actions || [])
       .filter(act => {
-        const key = createActionKey(act, activeHotelId);
+        const key = createActionKey(act, queriedHotelId);
         return !resolvedKeys.includes(key) && !localResolvedKeys.includes(key);
       })
       .slice(0, 5);
-  }, [insights.actions, resolvedKeys, localResolvedKeys, activeHotelId]);
+  }, [insights.actions, resolvedKeys, localResolvedKeys, queriedHotelId]);
 
   // Click handler to mark action completed
   const handleResolveAction = async (act: { title: string; description: string; category: string }) => {
@@ -409,7 +415,7 @@ export default function Reports() {
     if (!window.confirm(confirmMessage)) return;
 
     const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-    const actionKey = createActionKey(act, activeHotelId);
+    const actionKey = createActionKey(act, queriedHotelId);
 
     // Update local keys immediately for responsive rendering
     setLocalResolvedKeys(prev => [...prev, actionKey]);
@@ -418,14 +424,14 @@ export default function Reports() {
     // Dynamically filter it out from the raw insights data structure to trigger immediate re-render
     setInsights(prev => ({
       ...prev,
-      actions: (prev.actions || []).filter(a => createActionKey(a, activeHotelId) !== actionKey)
+      actions: (prev.actions || []).filter(a => createActionKey(a, queriedHotelId) !== actionKey)
     }));
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error } = await supabase.from('action_resolutions').insert({
-        hotel_id: activeHotelId,
+        hotel_id: queriedHotelId,
         action_key: actionKey,
         action_title: act.title,
         action_description: act.description,
@@ -469,7 +475,46 @@ export default function Reports() {
     }
   };
 
-  const currentHotel = hotels?.find(h => h.id === activeHotelId);
+  const currentHotel = hotels?.find(h => h.id === queriedHotelId);
+
+  const hasNoReviews = !loading && reviews.length === 0;
+
+  if (hasNoReviews) {
+    return (
+      <div className="space-y-6">
+        {/* Toast Notification */}
+        {toast && (
+          <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 border border-emerald-500/20 text-emerald-400 text-xs font-semibold shadow-xl flex items-center gap-2 animate-bounce">
+            <CheckCircle size={14} />
+            {toast}
+          </div>
+        )}
+
+        {/* Header Panel */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+              <FileText className="text-blue-500" size={20} />
+              {isTr ? 'Yönetici Performans Raporları' : 'Manager Performance Reports'}
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              {currentHotel?.name || 'Hotel'} - {isTr ? 'Geri bildirim analizi ve AI performans kırılımı' : 'Feedback analysis and AI performance summary'}
+            </p>
+          </div>
+        </div>
+
+        <div className="min-h-[50vh] bg-white border border-slate-100 rounded-2xl flex flex-col justify-center items-center text-center p-8 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 mb-4">
+            <MessageSquare size={28} />
+          </div>
+          <h3 className="text-base font-bold text-slate-800 mb-1">Yorum Bulunmuyor</h3>
+          <p className="text-xs text-slate-500 max-w-sm">
+            Bu otel için henüz yorum bulunmuyor.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const exportReport = (format: 'pdf' | 'excel') => {
     showToast(
