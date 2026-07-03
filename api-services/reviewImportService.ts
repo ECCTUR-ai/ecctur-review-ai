@@ -9,6 +9,7 @@ export interface NormalizedReview {
   reviewText: string;
   reviewDate: string;
   externalId?: string;
+  raw?: any;
 }
 
 export const reviewImportService = {

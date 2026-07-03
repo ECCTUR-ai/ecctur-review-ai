@@ -128,19 +128,20 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     }
     const rating = Math.max(1, Math.min(5, Math.round(score / 2)));
 
-    // Priority order: reviewText, review, text, comment
-    let rText = item.reviewText || item.review || item.text || item.comment || '';
+    // Priority order: reviewText || text || comment || review || content || userReview || localizedReview
+    let rText = item.reviewText || item.text || item.comment || item.review || item.content || item.userReview || item.localizedReview || '';
 
-    // If those are empty, try fallback to pros/cons (also check for liked/disliked keys as they map to pros/cons in some scrapers)
+    // If those are empty, fall back to positive / negative (including pros/cons and liked/disliked variants)
     if (!rText) {
-      const pVal = item.pros || item.liked || '';
-      const cVal = item.cons || item.disliked || '';
-      if (pVal && cVal) {
-        rText = `${pVal}\n\n${cVal}`;
-      } else if (pVal) {
-        rText = pVal;
-      } else if (cVal) {
-        rText = cVal;
+      const positivePart = (item.positive || item.positiveText || item.pros || item.liked || '').trim();
+      const negativePart = (item.negative || item.negativeText || item.cons || item.disliked || '').trim();
+
+      if (positivePart && negativePart) {
+        rText = `Pozitif: ${positivePart}\nNegatif: ${negativePart}`;
+      } else if (positivePart) {
+        rText = `Pozitif: ${positivePart}`;
+      } else if (negativePart) {
+        rText = `Negatif: ${negativePart}`;
       }
     }
 
@@ -167,7 +168,8 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
       rating: Number(rating),
       reviewText: String(rText).trim(),
       reviewDate: String(reviewDate).trim(),
-      externalId: String(externalId).trim()
+      externalId: String(externalId).trim(),
+      raw: item
     };
   });
 

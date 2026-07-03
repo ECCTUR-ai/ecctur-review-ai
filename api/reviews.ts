@@ -1440,6 +1440,23 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const { fetchBookingReviews } = await import('../api-services/providers/bookingProvider.js');
       const bookingReviews = await fetchBookingReviews(bookingUrl, limit);
 
+      // Console log raw items fields for debugging
+      bookingReviews.slice(0, 3).forEach((r: any, idx: number) => {
+        const item = r.raw || {};
+        console.log(`[API Booking Debug Item #${idx + 1}]`);
+        console.log(`  - Keys:`, Object.keys(item));
+        console.log(`  - reviewText:`, item.reviewText);
+        console.log(`  - text:`, item.text);
+        console.log(`  - comment:`, item.comment);
+        console.log(`  - positive:`, item.positive);
+        console.log(`  - negative:`, item.negative);
+        console.log(`  - review:`, item.review);
+        console.log(`  - content:`, item.content);
+        console.log(`  - userReview:`, item.userReview);
+        console.log(`  - localizedReview:`, item.localizedReview);
+        console.log(`  - title:`, item.title);
+      });
+
       let successCount = 0;
       let updatedCount = 0;
       let duplicateCount = 0;
