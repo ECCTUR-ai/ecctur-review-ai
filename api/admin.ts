@@ -243,9 +243,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', user.id).maybeSingle();
       const { data: userHotels } = await supabaseAdmin.from('user_hotels').select('hotel_id').eq('profile_id', user.id);
-      const hotelIds = (userHotels || []).map(uh => uh.hotel_id);
+      
+      const getRoleKey = (name: string | null) => {
+        if (!name) return 'staff';
+        return name.toLowerCase().trim().replace(/\s+/g, '_');
+      };
 
       let displayRoleName = userRole || null;
+      const roleKey = getRoleKey(displayRoleName);
+
+      let hotelIds = (userHotels || []).map(uh => uh.hotel_id);
+
+      // Super Admin can see all hotels in their organization
+      if (roleKey === 'super_admin') {
+        const orgId = profile?.organization_id;
+        let query = supabaseAdmin.from('hotels').select('id');
+        if (orgId) {
+          query = query.eq('organization_id', orgId);
+        }
+        const { data: allOrgsHotels } = await query;
+        if (allOrgsHotels) {
+          hotelIds = allOrgsHotels.map(h => h.id);
+        }
+      }
 
       // Define every permission available in the platform
       const ALL_PERMISSIONS = [
@@ -263,10 +283,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ];
 
       let permissions: string[] = [];
-      const currentRoleLower = (displayRoleName || '').toLowerCase();
-      if (currentRoleLower === 'super admin' || currentRoleLower === 'admin') {
+      if (roleKey === 'super_admin' || roleKey === 'admin') {
         permissions = ALL_PERMISSIONS;
-      } else if (currentRoleLower === 'manager' || currentRoleLower === 'hotel manager') {
+      } else if (roleKey === 'manager' || roleKey === 'hotel_manager') {
         permissions = [
           'view:dashboard',
           'view:reviews',
@@ -277,14 +296,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'manage:reviews',
           'manage:users'
         ];
-      } else if (currentRoleLower === 'staff' || currentRoleLower === 'department manager') {
+      } else if (roleKey === 'staff' || roleKey === 'department_manager') {
         permissions = [
           'view:dashboard',
           'view:reviews',
           'view:tasks',
           'manage:tasks'
         ];
-      } else if (currentRoleLower) {
+      } else if (roleKey) {
         permissions = [
           'view:dashboard',
           'view:reviews',
@@ -292,12 +311,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ];
       }
 
-      const getRoleKey = (name: string | null) => {
-        if (!name) return 'staff';
-        return name.toLowerCase().replace(' ', '_');
-      };
-
-      console.log('[API Admin get-current-user] Resolved:', { userId: user.id, email: user.email, role: displayRoleName, permissionsCount: permissions.length });
+      console.log('[API Admin get-current-user] Resolved:', { userId: user.id, email: user.email, roleKey, hotelIdsCount: hotelIds.length });
 
       return res.status(200).json({
         user: {
@@ -309,9 +323,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organizationId: profile?.organization_id || null,
           hotelIds,
           role: displayRoleName,
-          roleKey: getRoleKey(displayRoleName),
+          roleKey,
           permissions
-        }
+        },
+        profileId: user.id,
+        roleKey: roleKey,
+        hotelIds: hotelIds,
+        hotelCount: hotelIds.length
       });
     } catch (err: any) {
       console.error('[API Admin get-current-user Error]:', err);
