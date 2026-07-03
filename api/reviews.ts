@@ -354,244 +354,460 @@ async function translateText(text: string, targetLang: string): Promise<string> 
   return 'Çeviri yapılamadı.';
 }
 
-function compileLocalInsights(reviews: Array<{ comment: string; rating: number; sentiment: string }>) {
-  const categories = [
-    { id: 'reception', name: 'Resepsiyon ve Giriş', keywords: ['resepsiyon', 'reception', 'check-in', 'check in', 'lobby', 'lobi', 'karşılama', 'giriş', 'bekleme', 'front desk'] },
-    { id: 'housekeeping', name: 'Temizlik ve Düzen', keywords: ['temiz', 'kirli', 'havlu', 'çarşaf', 'oda temizliği', 'clean', 'dirty', 'towel', 'sheet', 'dust', 'hijyen'] },
-    { id: 'wifi', name: 'Wi-Fi ve Bağlantı', keywords: ['wifi', 'wi-fi', 'internet', 'bağlantı', 'yavaş', 'çekmiyor', 'connection'] },
-    { id: 'room', name: 'Oda Konforu ve Klima', keywords: ['oda', 'yatak', 'banyo', 'klima', 'soğuk', 'sıcak', 'ses', 'gürültü', 'noise', 'ac', 'tv'] },
-    { id: 'food', name: 'Restoran ve Kahvaltı', keywords: ['yemek', 'kahvaltı', 'restoran', 'lezzet', 'açık büfe', 'garson', 'mutfak', 'food', 'breakfast', 'dinner', 'buffet'] },
-    { id: 'spa', name: 'Havuz ve Spa', keywords: ['spa', 'havuz', 'masaj', 'hamam', 'sauna', 'pool', 'massage', 'wellness'] },
-    { id: 'location', name: 'Konum ve Çevre', keywords: ['konum', 'merkez', 'yakın', 'manzara', 'plaj', 'deniz', 'location', 'view'] },
-    { id: 'staff', name: 'Hizmet Standartları', keywords: ['personel', 'çalışan', 'ilgi', 'güler yüz', 'yardımsever', 'ekip', 'recep', 'garson', 'staff', 'friendly'] }
-  ];
+interface CategorySummary {
+  category: string;
+  positiveCount: number;
+  negativeCount: number;
+  neutralCount: number;
+  totalCount: number;
+  negativeRatio: number;
+  positiveRatio: number;
+  topPositiveKeywords: string[];
+  topNegativeKeywords: string[];
+  samplePositiveReviews: string[];
+  sampleNegativeReviews: string[];
+  confidenceScore: number;
+  subtopicsMatched: string[];
+}
 
-  const negativeCounts: Record<string, number> = {};
-  const positiveCounts: Record<string, number> = {};
-  categories.forEach(c => {
-    negativeCounts[c.id] = 0;
-    positiveCounts[c.id] = 0;
+function buildCategorySummaries(reviews: Array<{ comment: string; rating: number; sentiment: string }>): CategorySummary[] {
+  const taxonomy: Record<string, { name: string; keywords: Record<string, string[]> }> = {
+    ROOM: {
+      name: 'Oda',
+      keywords: {
+        klima: ['klima', 'ac', 'soğutma', 'ısıtma', 'air conditioning', 'ventilation', 'havalandırma'],
+        'ses yalıtımı': ['ses yalıtımı', 'gürültü', 'gürültülü', 'yalıtım', 'noise', 'sound', 'sesler'],
+        yatak: ['yatak', 'bed', 'pillow', 'yastık', 'çarşaf', 'sheets', 'comfort', 'konfor'],
+        banyo: ['banyo', 'duş', 'shower', 'bathroom', 'wc', 'tuvalet'],
+        balkon: ['balkon', 'balcony'],
+        manzara: ['manzara', 'view']
+      }
+    },
+    CLEANLINESS: {
+      name: 'Temizlik',
+      keywords: {
+        'oda temizliği': ['oda temiz', 'oda temizliği', 'çarşaf temiz', 'housekeeping', 'cleanliness'],
+        'banyo temizliği': ['banyo temiz', 'duş temiz', 'banyo kirli'],
+        havlu: ['havlu', 'çarşaf', 'towel', 'linen'],
+        'ortak alan': ['ortak alan', 'lobi temiz', 'genel temizlik', 'hijyen', 'kirli', 'pis', 'dirty', 'dust', 'toz']
+      }
+    },
+    FOOD: {
+      name: 'Yiyecek & İçecek',
+      keywords: {
+        kahvaltı: ['kahvaltı', 'breakfast'],
+        'açık büfe': ['açık büfe', 'buffet'],
+        'akşam yemeği': ['akşam yemeği', 'yemekler', 'dinner', 'restaurant', 'restoran'],
+        lezzet: ['lezzet', 'delicious', 'tat', 'tadı', 'lezzetli', 'lezzetsiz'],
+        çeşitlilik: ['çeşit', 'variety', 'alternatif'],
+        'servis hızı': ['servis hızı', 'garson', 'mutfak', 'yavaş servis', 'waiter']
+      }
+    },
+    STAFF: {
+      name: 'Personel',
+      keywords: {
+        'güler yüz': ['güler yüz', 'friendly', 'smiling'],
+        yardımseverlik: ['yardımsever', 'helpful', 'ilgi'],
+        ilgilesizlik: ['ilgilenmedi', 'ilgisiz', 'unfriendly', 'rude', 'umursamaz'],
+        'çözüm hızı': ['çözüm', 'hızlı yardımcı', 'solve', 'destek']
+      }
+    },
+    RECEPTION: {
+      name: 'Resepsiyon',
+      keywords: {
+        'check-in': ['check-in', 'check in', 'giriş', 'checkin'],
+        bekleme: ['bekleme', 'sıra', 'waiting', 'queue', 'bekledik'],
+        karşılama: ['karşılama', 'welcome', 'ikram'],
+        'check-out': ['check-out', 'check out', 'çıkış', 'checkout']
+      }
+    },
+    LOCATION: {
+      name: 'Konum',
+      keywords: {
+        konum: ['konum', 'location', 'yer'],
+        ulaşım: ['ulaşım', 'taksi', 'otobüs', 'yakın', 'mesafe'],
+        manzara: ['manzara', 'view'],
+        plaj: ['plaj', 'beach', 'deniz', 'sea'],
+        merkez: ['merkez', 'çarşı', 'center', 'downtown']
+      }
+    },
+    WIFI: {
+      name: 'Wi-Fi',
+      keywords: {
+        hız: ['hız', 'yavaş', 'slow', 'fast', 'speed'],
+        kopma: ['kopma', 'bağlanmıyor', 'kesiliyor', 'kopuyor', 'disconnect'],
+        kapsama: ['çekmiyor', 'oda wifi', 'signal', 'sinyal']
+      }
+    },
+    SPA: {
+      name: 'Spa',
+      keywords: {
+        hamam: ['hamam', 'turkish bath'],
+        sauna: ['sauna'],
+        masaj: ['masaj', 'massage', 'terapist'],
+        temizlik: ['spa temizlik', 'hijyen']
+      }
+    },
+    POOL: {
+      name: 'Havuz',
+      keywords: {
+        havuz: ['havuz', 'pool', 'kaydırak'],
+        şezlong: ['şezlong', 'şemsiye', 'sunbed'],
+        temizlik: ['havuz temiz', 'klor']
+      }
+    },
+    PRICE: {
+      name: 'Fiyat',
+      keywords: {
+        fiyat: ['fiyat', 'pahalı', 'expensive', 'cheap', 'ucuz', 'odeme', 'ödeme', 'price'],
+        değer: ['değer', 'worth', 'fiyat performans', 'price quality'],
+        'ekstra ücret': ['ekstra ücret', 'ücretli', 'paralı', 'charge']
+      }
+    },
+    SERVICE: {
+      name: 'Hizmet',
+      keywords: {
+        'genel hizmet': ['hizmet', 'servis', 'service'],
+        iletişim: ['iletişim', 'telefon', 'call', 'communication'],
+        sipariş: ['sipariş', 'order'],
+        hız: ['hız', 'yavaş', 'bekledik', 'speed']
+      }
+    }
+  };
+
+  const summaries: CategorySummary[] = Object.keys(taxonomy).map(catKey => {
+    return {
+      category: catKey,
+      positiveCount: 0,
+      negativeCount: 0,
+      neutralCount: 0,
+      totalCount: 0,
+      negativeRatio: 0,
+      positiveRatio: 0,
+      topPositiveKeywords: [],
+      topNegativeKeywords: [],
+      samplePositiveReviews: [],
+      sampleNegativeReviews: [],
+      confidenceScore: 0,
+      subtopicsMatched: []
+    };
   });
 
   reviews.forEach(r => {
     const text = (r.comment || '').toLowerCase();
-    const isNeg = r.rating <= 3 || r.sentiment === 'negative';
     const isPos = r.rating >= 4 || r.sentiment === 'positive';
+    const isNeg = r.rating <= 2 || r.sentiment === 'negative';
+    const isNeu = !isPos && !isNeg;
 
-    categories.forEach(c => {
-      if (c.keywords.some(k => text.includes(k))) {
-        if (isNeg) negativeCounts[c.id]++;
-        if (isPos) positiveCounts[c.id]++;
+    Object.entries(taxonomy).forEach(([catKey, catData]) => {
+      const summary = summaries.find(s => s.category === catKey)!;
+      let matchedAny = false;
+      const matchedSubtopics: string[] = [];
+
+      Object.entries(catData.keywords).forEach(([subtopic, keywords]) => {
+        const matches = keywords.some(kw => text.includes(kw));
+        if (matches) {
+          matchedAny = true;
+          if (!matchedSubtopics.includes(subtopic)) {
+            matchedSubtopics.push(subtopic);
+          }
+          if (isPos) {
+            if (summary.topPositiveKeywords.length < 5 && !summary.topPositiveKeywords.includes(subtopic)) {
+              summary.topPositiveKeywords.push(subtopic);
+            }
+          } else if (isNeg) {
+            if (summary.topNegativeKeywords.length < 5 && !summary.topNegativeKeywords.includes(subtopic)) {
+              summary.topNegativeKeywords.push(subtopic);
+            }
+          }
+        }
+      });
+
+      if (matchedAny) {
+        summary.totalCount++;
+        if (isPos) {
+          summary.positiveCount++;
+          if (summary.samplePositiveReviews.length < 2 && r.comment && r.comment.length > 10) {
+            summary.samplePositiveReviews.push(r.comment.slice(0, 150));
+          }
+        } else if (isNeg) {
+          summary.negativeCount++;
+          if (summary.sampleNegativeReviews.length < 2 && r.comment && r.comment.length > 10) {
+            summary.sampleNegativeReviews.push(r.comment.slice(0, 150));
+          }
+        } else {
+          summary.neutralCount++;
+        }
+
+        matchedSubtopics.forEach(sub => {
+          if (!summary.subtopicsMatched.includes(sub)) {
+            summary.subtopicsMatched.push(sub);
+          }
+        });
       }
     });
   });
 
-  const sortedNegatives = Object.entries(negativeCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([id]) => id);
+  return summaries
+    .map(s => {
+      if (s.totalCount > 0) {
+        s.positiveRatio = Number((s.positiveCount / s.totalCount).toFixed(2));
+        s.negativeRatio = Number((s.negativeCount / s.totalCount).toFixed(2));
+        s.confidenceScore = Number(Math.min(1.0, s.totalCount / 10).toFixed(2));
+      }
+      return s;
+    })
+    .filter(s => s.totalCount > 0);
+}
 
-  const sortedPositives = Object.entries(positiveCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([id]) => id);
+function compileLocalInsights(reviews: Array<{ comment: string; rating: number; sentiment: string }>) {
+  const summaries = buildCategorySummaries(reviews);
 
-  const issueTemplates: Record<string, { title: string; description: string }> = {
-    reception: {
-      title: 'Resepsiyon Yoğunluğu ve Karşılama',
-      description: 'Misafirler pik saatlerde giriş ve karşılama süreçlerindeki bekleme sürelerinden şikayetçi olup operasyonel yavaşlık bildirmektedir.'
-    },
-    housekeeping: {
-      title: 'Kat Hizmetleri ve Oda Hijyeni',
-      description: 'Odalarda banyo temizliği, tozlanma ve havlu değişimlerindeki gecikmeler misafirlerin konaklama konforunu olumsuz etkilemektedir.'
-    },
-    wifi: {
-      title: 'Wi-Fi Altyapı Hızı ve Bağlantı',
-      description: 'Odalar ve genel alanlardaki kablosuz ağın yavaşlığı ve sık sık kopması iş seyahati ve dijital kullanım yapan misafirlerde memnuniyetsizlik yaratmaktadır.'
-    },
-    room: {
-      title: 'Oda Donanımı ve Ses Yalıtımı',
-      description: 'Klima soğutma yetersizliği ve yan odalardan gelen gürültüler misafirlerin gece dinlenme kalitesini düşürmektedir.'
-    },
-    food: {
-      title: 'Açık Büfe Çeşitliliği ve Hizmet',
-      description: 'Özellikle uzun süreli konaklayan misafirlerde açık büfe kahvaltı çeşitliliğinin azlığı ve restorandaki servis hızı eleştirilmektedir.'
-    },
-    spa: {
-      title: 'Havuz Temizliği ve Spa Bakımı',
-      description: 'Havuz sıcaklık ayarları, şezlong yetersizliği ve spa alanlarındaki hijyen standartları iyileştirme bekleyen alanlar arasında yer almaktadır.'
-    },
-    location: {
-      title: 'Gürültü ve Dış Çevre Faktörleri',
-      description: 'Tesis çevresindeki ses yalıtım yetersizliği ve ulaşım gürültüleri misafirlerin oda dinlenme konforunu zedelemektedir.'
-    },
-    staff: {
-      title: 'Hizmet Standartları ve İletişim',
-      description: 'Yoğun dönemlerde personelin ilgisi ve sipariş süreçlerindeki aksaklıklar misafirlerin hizmet deneyimi algısını düşürmektedir.'
-    }
+  // 1. 5 Issues
+  const sortedNegatives = [...summaries]
+    .filter(s => s.negativeCount > 0)
+    .sort((a, b) => {
+      if (b.negativeCount !== a.negativeCount) return b.negativeCount - a.negativeCount;
+      return b.negativeRatio - a.negativeRatio;
+    });
+
+  const categoryNames: Record<string, string> = {
+    ROOM: 'Oda',
+    CLEANLINESS: 'Temizlik',
+    FOOD: 'Yiyecek & İçecek',
+    STAFF: 'Personel',
+    RECEPTION: 'Resepsiyon',
+    LOCATION: 'Konum',
+    WIFI: 'Wi-Fi',
+    SPA: 'Spa',
+    POOL: 'Havuz',
+    PRICE: 'Fiyat',
+    SERVICE: 'Hizmet',
+    OTHER: 'Diğer'
   };
 
-  const highlightTemplates: Record<string, { title: string; description: string }> = {
-    staff: {
-      title: 'Personel İlgisi ve Misafirperverlik',
-      description: 'Misafirlerimiz tüm departmanlardaki çalışanların güler yüzlü, samimi ve proaktif yardımlarını memnuniyetle dile getirmektedir.'
-    },
-    location: {
-      title: 'Konum Avantajı ve Manzara',
-      description: 'Otelin merkezi yerleşimi, plaja ve turistik noktalara olan elverişli mesafesi tatil konforunu artıran en önemli unsurlardan biri olmuştur.'
-    },
-    food: {
-      title: 'Yemek Kalitesi ve Sunum Zenginliği',
-      description: 'Açık büfe akşam yemeklerindeki lezzet zenginliği ve sunum kalitesi misafirlerden son derece pozitif yorumlar almaktadır.'
-    },
-    room: {
-      title: 'Oda Konforu ve Manzara',
-      description: 'Misafirler odaların genişliğini, yatakların konforunu ve oda balkonlarından sunulan manzarayı beğeniyle vurgulamaktadır.'
-    },
-    reception: {
-      title: 'Hızlı ve Sorunsuz Giriş İşlemleri',
-      description: 'Resepsiyondaki hızlı check-in prosedürü ve ikramlı karşılama, misafirlerin otele girişteki olumlu izlenimini pekiştirmektedir.'
-    },
-    spa: {
-      title: 'Spa Deneyimi ve Havuz Konforu',
-      description: 'Misafirlerimiz masaj terapistlerinin kalitesini, spa alanlarındaki sakinliği ve havuz konforunu sıklıkla övmektedir.'
-    },
-    housekeeping: {
-      title: 'Genel Temizlik ve Oda Hijyeni',
-      description: 'Odalarda ve ortak alanlarda sergilenen üst düzey temizlik standartları misafirlerin kendilerini güvende hissetmelerini sağlamaktadır.'
-    },
-    location_view: {
-      title: 'Tesis Peyzajı ve Bahçe Bakımı',
-      description: 'Ortak alanların peyzaj kalitesi, yemyeşil bahçeler ve yürüme yolları misafirlerin huzurlu zaman geçirmesine olanak tanımaktadır.'
-    }
+  const issueTitles: Record<string, string> = {
+    ROOM: 'Klima ve Ses Yalıtımı Yetersizlikleri',
+    CLEANLINESS: 'Oda ve Banyo Hijyen Şikayetleri',
+    FOOD: 'Kahvaltı Çeşitliliği ve Servis Hızı',
+    STAFF: 'Personel Yoğunluğu ve İletişim Aksaklıkları',
+    RECEPTION: 'Check-in Giriş Sırası ve Bekleme Süresi',
+    LOCATION: 'Çevre Ulaşım ve Sokak Gürültüsü',
+    WIFI: 'Wi-Fi Bağlantı Hızı ve Kopma Sorunları',
+    SPA: 'Spa Alanı Hijyeni ve Havalandırma',
+    POOL: 'Havuz Hijyeni ve Şezlong Yetersizliği',
+    PRICE: 'Ekstra Hizmetlerin Fiyat Yüksekliği',
+    SERVICE: 'Sipariş ve Oda Servisi Gecikmeleri',
+    OTHER: 'Tesis Operasyonel Hizmet Aksaklıkları'
   };
 
-  const issues = sortedNegatives.slice(0, 5).map(id => {
-    const template = issueTemplates[id] || { title: 'Tesis Operasyonu', description: 'Operasyonel detaylar ve genel iyileştirme yapılması önerilen alanlar.' };
+  const issueSummaries: Record<string, string> = {
+    ROOM: 'Odalardaki klima soğutma/ısıtma performansı ve pencerelerden gelen dış gürültü şikayetleri misafir konforunu olumsuz etkilemektedir.',
+    CLEANLINESS: 'Odalarda banyo hijyeni, genel tozlanma ve havlu değişimlerindeki gecikmeler misafirler tarafından olumsuz puanlanmıştır.',
+    FOOD: 'Açık büfe yiyecek çeşitliliğinin az olması ve restoran siparişlerinin masaya geç ulaşması şikayet konusu olmuştur.',
+    STAFF: 'Yoğun dönemlerde çalışanların ilgisizliği ve hizmet taleplerine dönüş hızlarındaki yavaşlık memnuniyetsizlik yaratmaktadır.',
+    RECEPTION: 'Giriş (check-in) saatlerindeki resepsiyon önü birikmeleri ve bekleme süreleri misafir karşılama deneyimini zedelemektedir.',
+    LOCATION: 'Tesis çevresindeki ses yalıtım yetersizlikleri ve toplu ulaşıma/merkeze olan mesafe şikayet edilmiştir.',
+    WIFI: 'Odalar içindeki internet bağlantı kopmaları ve düşük ağ hızı misafirlerin iş ve dijital kullanımlarını kısıtlamaktadır.',
+    SPA: 'Spa hamam sıcaklık ayarları ile dinlenme alanlarındaki dezenfeksiyon standartları iyileştirme beklemektedir.',
+    POOL: 'Havuz suyunun klor dengesi, havuz çevresi temizliği ve şezlong kapasitesinin kısıtlı olması eleştirilmektedir.',
+    PRICE: 'Oda fiyatlarına oranla ekstra sunulan hizmet ve ürünlerin fiyat dengesi misafirler tarafından yüksek bulunmuştur.',
+    SERVICE: 'Oda servisi hızındaki gecikmeler ve genel sipariş teslimat süreçlerindeki kopukluklar memnuniyetsizlik yaratmıştır.',
+    OTHER: 'Tesis genelindeki diğer operasyonel hizmetlerde aksamalar ve yavaşlıklar bildirilmiştir.'
+  };
+
+  const highlightTitles: Record<string, string> = {
+    ROOM: 'Oda Donanımı ve Yatak Konforu',
+    CLEANLINESS: 'Oda ve Genel Alan Hijyen Kalitesi',
+    FOOD: 'Restoran Lezzet Standartları',
+    STAFF: 'Personel Güler Yüzü ve İlgi',
+    RECEPTION: 'Hızlı ve Sorunsuz Check-in Süreci',
+    LOCATION: 'Konum Avantajı ve Turistik Ulaşım',
+    WIFI: 'Ücretsiz Yüksek Hızlı İnternet Erişimi',
+    SPA: 'Kaliteli Masaj ve Profesyonel Spa Deneyimi',
+    POOL: 'Geniş Havuz ve Plaj İmkânları',
+    PRICE: 'Fiyat Performans Memnuniyeti',
+    SERVICE: 'Genel Hizmet Standartları',
+    OTHER: 'Huzurlu Tesis Peyzajı ve Düzeni'
+  };
+
+  const highlightSummaries: Record<string, string> = {
+    ROOM: 'Geniş ve manzaralı odalar, yatak kalitesi ve banyo düzeni misafirlerimizin en çok takdir ettiği özellikler arasındadır.',
+    CLEANLINESS: 'Odalarda ve tüm ortak alanlarda sergilenen üst düzey temizlik standartları misafirlerin kendilerini güvende hissetmelerini sağlamaktadır.',
+    FOOD: 'Açık büfe akşam yemeklerindeki lezzet kalitesi ve sunum zenginliği misafirlerden pozitif yorumlar almaktadır.',
+    STAFF: 'Çalışanlarımızın güler yüzlü, proaktif ve samimi yaklaşımları misafirlerimizin konaklama deneyimini doğrudan taçlandırmaktadır.',
+    RECEPTION: 'Resepsiyondaki hızlı karşılama süreci ve ikram eşliğinde yapılan check-in işlemleri olumlu izlenim oluşturmuştur.',
+    LOCATION: 'Otelin plaja yakınlığı, merkezi noktalara ve turistik alanlara olan elverişli mesafesi büyük bir memnuniyet sebebidir.',
+    WIFI: 'Misafirlerimiz tesis genelinde sunulan kablosuz internetin bağlantı kalitesini ve hızını memnuniyetle belirtmiştir.',
+    SPA: 'Profesyonel terapistler tarafından sunulan masaj hizmetleri ve spa alanındaki sakinlik misafirlerimizin beğenisini toplamıştır.',
+    POOL: 'Havuzun büyüklüğü, çocuk kaydırakları ve plaj kullanım imkânları konaklamaya keyif katmaktadır.',
+    PRICE: 'Ödenen konaklama ücretinin sunulan tesis olanakları ve hizmet standartları karşısındaki dengesi misafirlerimizce takdir edilmiştir.',
+    SERVICE: 'Otel içi genel hizmetlerin sunum kalitesi ve iletişim hızı misafirlerimizden olumlu not almıştır.',
+    OTHER: 'Peyzaj düzenlemesi, bahçe bakımı ve ortak alanlardaki konforlu dinlenme köşeleri huzurlu bir ortam sunmaktadır.'
+  };
+
+  const issues = sortedNegatives.slice(0, 5).map(s => {
+    const title = issueTitles[s.category] || 'Operasyonel İyileştirme Fırsatı';
+    const summary = issueSummaries[s.category] || 'Tesis hizmetlerinde iyileştirilmesi gereken alanlar tespit edilmiştir.';
     return {
-      title: template.title,
-      description: template.description,
-      category: id
+      title,
+      summary,
+      description: summary,
+      category: s.category,
+      subtopics: s.subtopicsMatched,
+      count: s.totalCount,
+      sentimentRatio: s.negativeRatio,
+      confidence: s.confidenceScore
     };
   });
 
-  const highlights = sortedPositives.slice(0, 5).map(id => {
-    const template = highlightTemplates[id] || { title: 'Tesis Konforu', description: 'Genel tesis konsepti ve misafirlerin beğendiği detaylar.' };
-    return {
-      title: template.title,
-      description: template.description,
-      category: id
-    };
+  // 2. 5 Highlights
+  const sortedPositives = [...summaries]
+    .filter(s => s.positiveCount > 0)
+    .sort((a, b) => {
+      if (b.positiveCount !== a.positiveCount) return b.positiveCount - a.positiveCount;
+      return b.positiveRatio - a.positiveRatio;
+    });
+
+  const highlightsList: any[] = [];
+  
+  sortedPositives.forEach(s => {
+    if (highlightsList.length >= 5) return;
+    
+    const catName = categoryNames[s.category] || s.category;
+    const isConflict = issues.some(issue => issue.category === s.category);
+    
+    let title = highlightTitles[s.category] || 'Tesis Memnuniyeti';
+    let summary = '';
+    
+    if (isConflict) {
+      const topNegSub = s.topNegativeKeywords.slice(0, 2).join(' ve ');
+      summary = `${catName} kategorisinde genel memnuniyet yüksek; ancak ${topNegSub || 'bazı alt'} başlıklarında tekrar eden şikayetler var.`;
+    } else {
+      summary = highlightSummaries[s.category] || 'Misafirlerin beğenisini toplayan genel tesis imkanları.';
+    }
+
+    highlightsList.push({
+      title,
+      summary,
+      description: summary,
+      category: s.category,
+      subtopics: s.subtopicsMatched,
+      count: s.totalCount,
+      sentimentRatio: s.positiveRatio,
+      confidence: s.confidenceScore
+    });
   });
 
-  const allActionTemplates: Record<string, { title: string; description: string }> = {
-    reception: {
-      title: 'Resepsiyon Kadro ve Giriş Yönetimi',
-      description: 'Pik giriş saatlerinde resepsiyon kadrosunu desteklemek için esnek vardiya planı uygulanmalı ve bekleme süreleri minimize edilmelidir.'
+  const highlights = highlightsList;
+
+  // 3. Actions (Exactly 10 items)
+  const actionTemplates: Record<string, { title: string; summary: string }> = {
+    ROOM: {
+      title: 'Klima soğutma yetersizliği ve ses yalıtımı revizyonu',
+      summary: 'Oda klima filtre temizlikleri hızlandırılmalı, kapı altı fitilleri yenilenerek ses yalıtımı güçlendirilmelidir.'
     },
-    housekeeping: {
-      title: 'Kat Hizmetleri Hijyen Standartları',
-      description: 'Kat hizmetleri departmanında banyo ve genel oda temizliği kontrol listeleri (checklist) revize edilerek denetim sıklığı artırılmalıdır.'
+    CLEANLINESS: {
+      title: 'Kat hizmetleri banyo hijyen denetimi',
+      summary: 'Odalarda ve banyolarda detaylı temizlik kontrol listesi (checklist) güncellenmeli ve denetim sıklığı artırılmalıdır.'
     },
-    wifi: {
-      title: 'Wi-Fi ve Network Altyapı Denetimi',
-      description: 'Odalar ve genel alanlardaki kablosuz erişim noktalarının (AP) sinyal güçleri ve internet bant genişliği teknik olarak test edilp optimize edilmelidir.'
+    FOOD: {
+      title: 'Kahvaltıda sıcak çeşitliliği ve servis hızı artırılması',
+      summary: 'Açık büfe menüsüne sıcak alternatifler eklenmeli ve yoğun kahvaltı saatlerinde mutfak-servis koordinasyonu güçlendirilmelidir.'
     },
-    room: {
-      title: 'Oda Donanımları ve Klima Bakımı',
-      description: 'Klimaların periyodik filtre temizliği ile ses yalıtım fitillerinin bakımları hızlandırılarak misafir uyku konforu korunmalıdır.'
+    STAFF: {
+      title: 'Personel iletişim ve güler yüz eğitimleri',
+      summary: 'Tüm departmanlara yönelik müşteri ilişkileri, empati ve yoğun dönem kriz yönetimi eğitimleri planlanmalıdır.'
     },
-    food: {
-      title: 'Yiyecek & İçecek Operasyonel Revizyonu',
-      description: 'Açık büfede sıcak alternatif çeşitliliği artırılmalı ve yoğun kahvaltı saatlerinde restoran servis koordinasyonu yeniden planlanmalıdır.'
+    RECEPTION: {
+      title: 'Check-in sırasında bekleme süresi iyileştirmesi',
+      summary: 'Giriş yoğunluğunu azaltmak amacıyla pik saatlerde resepsiyon desk kadrosuna takviye yapılmalı ve online giriş seçenekleri sunulmalıdır.'
     },
-    spa: {
-      title: 'Spa ve Havuz Hijyen Kontrolü',
-      description: 'Havuz sıcaklık ve klor değerleri daha sık ölçülmeli, spa dinlenme alanlarında genel dezenfeksiyon takvimi sıklaştırılmalıdır.'
+    LOCATION: {
+      title: 'Çevre gürültüsü engelleme fitil kontrolleri',
+      summary: 'Gürültü şikayetlerini azaltmak için odaların pencere izolasyon fitilleri elden geçirilmeli, misafirlere ulaşım rehberi sunulmalıdır.'
     },
-    location: {
-      title: 'Dış Çevre Gürültü İzolasyonu',
-      description: 'Dış sokak gürültüsünü engellemek için oda pencerelerinin fitil kontrolleri yapılmalı ve gerekli izolasyon önlemleri alınmalıdır.'
+    WIFI: {
+      title: 'Wi-Fi bağlantı kopmaları ve hız tespiti',
+      summary: 'Odalardaki kablosuz ağ erişim noktalarının (AP) sinyal gücü ölçülmeli ve network bant genişliği artırılmalıdır.'
     },
-    staff: {
-      title: 'Personel Hizmet ve İletişim Eğitimi',
-      description: 'Hizmet sunum kalitesini yükseltmek amacıyla tüm servis personeline yönelik iletişim ve problem çözme eğitimleri düzenlenmelidir.'
+    SPA: {
+      title: 'Spa dinlenme alanları ve hamam dezenfeksiyonu',
+      summary: 'Spa departmanındaki sauna ve hamam alanlarında temizlik periyodu sıklaştırılmalı ve ısı dereceleri optimize edilmelidir.'
+    },
+    POOL: {
+      title: 'Havuz temizlik klor ölçümü ve şezlong takviyesi',
+      summary: 'Havuz suyu ölçümleri gün içine yayılarak kontrol altında tutulmalı, yoğun dönemler için şezlong sayısı artırılmalıdır.'
+    },
+    PRICE: {
+      title: 'Ekstra hizmet ücretlendirmelerinde şeffaflık',
+      summary: 'Ekstra ürün ve hizmet ücret politikaları misafirlere önceden bildirilmeli ve fiyat-değer dengesi revize edilmelidir.'
+    },
+    SERVICE: {
+      title: 'Oda servisi ve mutfak sipariş hızlandırılması',
+      summary: 'Oda servis siparişlerinin masaya ulaşım süreleri analiz edilmeli ve departmanlar arası operasyonel gecikmeler gecikmeden giderilmelidir.'
+    },
+    OTHER: {
+      title: 'Genel tesis bakım ve onarım planı',
+      summary: 'Tesis genelinde bildirilen tüm aksaklıkların çözülmesi amacıyla periyodik bakım takvimi uygulanmalıdır.'
     }
   };
 
-  const highlightActionTemplates: Record<string, { title: string; description: string }> = {
-    staff: {
-      title: 'Personel Motivasyon Programı',
-      description: 'Misafirlerimizin memnuniyetle bahsettiği çalışanların başarılarını ödüllendiren motivasyon ve prim programları sürdürülmelidir.'
-    },
-    location: {
-      title: 'Konum Odaklı Tanıtım Stratejileri',
-      description: 'Tesisin plaja ve turistik alanlara yakınlığı gibi güçlü konum avantajları pazarlama ve sosyal medya kanallarında daha fazla öne çıkarılmalıdır.'
-    },
-    food: {
-      title: 'Açık Büfe Sunum Standartları',
-      description: 'Misafirlerden tam not alan akşam yemekleri zenginliği ve sunum kalitesi korunmalı, mevsimlik lezzetler eklenerek zenginleştirilmelidir.'
-    },
-    room: {
-      title: 'Oda Kalite Standartları Korunması',
-      description: 'Odalardaki yatak konforu ve peyzaj bütünlüğü korunmalı, yatak takımları ve tekstil ürünleri periyodik olarak yenilenmelidir.'
-    },
-    reception: {
-      title: 'Karşılama İkramları ve Hızlı Check-in',
-      description: 'Otele girişte sunulan karşılama ikramları çeşitlendirilmeli ve hızlı giriş süreçlerindeki dijital kolaylıklar artırılmalıdır.'
-    },
-    spa: {
-      title: 'Spa Tanıtım ve Masaj Kampanyaları',
-      description: 'Misafirlerin beğenisini toplayan profesyonel masaj terapisi hizmetleri giriş esnasında broşür ve özel indirim paketleriyle teşvik edilmelidir.'
-    },
-    housekeeping: {
-      title: 'Hijyen ve Temizlik Eğitimleri',
-      description: 'Misafirlerimizin takdir ettiği temiz odalar standardının devamlılığı için kat hizmetleri eğitimleri periyodik olarak sürdürülmelidir.'
-    },
-    general: {
-      title: 'Genel Tesis Bakım ve Onarım Planı',
-      description: 'Ortak alanlardaki peyzaj, bahçe yolları ve aydınlatma armatürlerinin periyodik teknik kontrolleri aksatılmadan sürdürülmelidir.'
-    }
-  };
-
-  const actions: Array<{ title: string; description: string; category: string }> = [];
-
-  // 1. Add actions based on negative feedback categories first (sorted by priority)
-  sortedNegatives.forEach(id => {
-    const template = allActionTemplates[id];
-    if (template && actions.length < 10) {
+  const actions: any[] = [];
+  
+  // Use negative categories first
+  sortedNegatives.forEach(s => {
+    if (actions.length >= 10) return;
+    const template = actionTemplates[s.category];
+    if (template) {
       actions.push({
         title: template.title,
-        description: template.description,
-        category: id
+        summary: template.summary,
+        description: template.summary,
+        category: s.category,
+        subtopics: s.subtopicsMatched,
+        count: s.totalCount,
+        sentimentRatio: s.negativeRatio,
+        confidence: s.confidenceScore
       });
     }
   });
 
-  // 2. Add actions based on positive feedback categories (sorted by priority) to fill up to 10
-  sortedPositives.forEach(id => {
-    const template = highlightActionTemplates[id];
-    if (template && actions.length < 10) {
-      const exists = actions.some(a => a.title === template.title);
-      if (!exists) {
-        actions.push({
-          title: template.title,
-          description: template.description,
-          category: id
-        });
-      }
+  // Use positive categories next
+  sortedPositives.forEach(s => {
+    if (actions.length >= 10) return;
+    const template = actionTemplates[s.category];
+    if (template && !actions.some(a => a.category === s.category)) {
+      actions.push({
+        title: template.title,
+        summary: template.summary,
+        description: template.summary,
+        category: s.category,
+        subtopics: s.subtopicsMatched,
+        count: s.totalCount,
+        sentimentRatio: s.positiveRatio,
+        confidence: s.confidenceScore
+      });
     }
   });
 
-  // 3. Fallbacks if we still don't have 10
-  const fallbacks = [
-    { title: 'Tesis Genel Teknik Bakımı', description: 'Ortak alan aydınlatmaları, kapı kilit sistemleri ve asansörlerin periyodik bakımları zamanında yapılmalıdır.', category: 'room' },
-    { title: 'Otopark ve Karşılama Düzeni', description: 'Otel girişinde vale ve otopark yönlendirme süreçleri optimize edilerek ilk izlenim iyileştirilmelidir.', category: 'reception' },
-    { title: 'Güvenlik Protokolleri Denetimi', description: 'Ortak alanlardaki güvenlik kameraları ve cankurtaran hizmetlerinin kontrolü periyodik olarak sürdürülmelidir.', category: 'general' }
+  // Fillers if still less than 10
+  const defaultActions = [
+    { title: 'Oda konfor standartlarının korunması', summary: 'Tekstil ve yatak takımları periyodik olarak kontrol edilerek yıpranmış ürünler değiştirilmelidir.', category: 'ROOM' },
+    { title: 'Tesis bahçe peyzaj ve aydınlatma bakımları', summary: 'Genel alan peyzajı ve ortak yolların aydınlatma sistemleri teknik ekiplerce kontrol edilmelidir.', category: 'OTHER' },
+    { title: 'Hızlı ve kolay check-out prosedürleri', summary: 'Misafirlerin otelden çıkış yaparken beklemesini önlemek için ekspres check-out sistemleri devreye alınmalıdır.', category: 'RECEPTION' }
   ];
 
-  for (const fallback of fallbacks) {
-    if (actions.length < 10) {
-      actions.push(fallback);
-    }
+  for (const act of defaultActions) {
+    if (actions.length >= 10) break;
+    actions.push({
+      ...act,
+      description: act.summary,
+      subtopics: [],
+      count: 0,
+      sentimentRatio: 1.0,
+      confidence: 1.0
+    });
   }
 
   return { issues, highlights, actions };
@@ -654,44 +870,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { reviews = [] } = req.body;
-    const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+    
+    // Minimum reviews threshold check
+    if (reviews.length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'insufficient_data',
+        message: 'Analiz için yeterli veri yok. En az 10 yorum gereklidir.'
+      });
+    }
 
-    if (apiKey && reviews.length > 0) {
+    const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+    const summaries = buildCategorySummaries(reviews);
+
+    if (apiKey && summaries.length > 0) {
       try {
-        console.log(`[Insights API] Generating business insights via OpenAI for ${reviews.length} reviews...`);
-        
-        const reviewsSample = reviews.slice(0, 100).map((r: any) => ({
-          comment: r.comment || '',
-          rating: r.rating || 5,
-          sentiment: r.sentiment || 'neutral'
-        }));
+        console.log(`[Insights API] Generating business insights via OpenAI for ${reviews.length} reviews using structured summaries...`);
 
         const prompt = `
-You are a hospitality Business Intelligence expert. Analyze the following guest reviews for a hotel.
-Identify the top 5 operational issues/complaints and top 5 positive highlights/praises, and provide exactly 10 strategic, prioritized action recommendations.
+You are a hospitality Business Intelligence expert. Analyze the following categorySummary JSON data compiled from guest reviews:
+${JSON.stringify(summaries)}
 
-Combine similar reviews into single topics (e.g., check-in, queue, lobi waiting should be merged into "Check-in Yoğunluğu").
-Write the descriptions using professional Business Intelligence insights phrasing. Make it sound like advice to a hotel board, not just a complaint list.
-For example, instead of "Kahvaltı kötü", write "Açık büfe kahvaltıdaki sıcak ürün çeşitliliğinin az olması, özellikle uzun konaklayan misafirlerde memnuniyet kaybına neden oluyor."
+Your task is to generate:
+1. Top 5 operational issues/complaints ("issues")
+2. Top 5 positive highlights/praises ("highlights")
+3. Exactly 10 strategic, prioritized action recommendations ("actions")
+
+CRITICAL RULES:
+1. MUTUALLY EXCLUSIVE CATEGORIES: Do NOT repeat the same category in both "issues" and "highlights" lists.
+If a category has high positive counts but also has negative issues (mixed feedback), you must NOT list it as a positive highlight. Instead, if you do mention it in highlights, use the following description/summary format:
+"[CategoryName] kategorisinde genel memnuniyet yüksek; ancak [Subtopic1] ve [Subtopic2] alt başlıklarında tekrar eden şikayetler var." (e.g., "Oda kategorisinde genel memnuniyet yüksek; ancak klima ve ses yalıtımı alt başlıklarında tekrar eden şikayetler var.")
+2. SPECIFIC & ACTIONABLE TITLES: Write specific, actionable titles in Turkish. Avoid generic titles.
+Kötü örnek: "Hizmet standartları ve iletişim"
+İyi örnek: "Check-in sırasında bekleme süresi", "Kahvaltıda çeşit azlığı", "Klima soğutma yetersizliği"
+3. All titles and summaries must be in Turkish.
+4. Each object in "issues", "highlights", and "actions" must contain exactly these fields:
+- "title": Specific and actionable title.
+- "summary": A detailed BI description.
+- "category": The matched main category key (e.g. ROOM, CLEANLINESS, FOOD, STAFF, RECEPTION, LOCATION, WIFI, SPA, POOL, PRICE, SERVICE, OTHER).
+- "subtopics": Array of matched subtopics strings.
+- "count": Number of reviews in this category.
+- "sentimentRatio": The ratio of positive reviews for highlights, or negative reviews for issues (number between 0 and 1).
+- "confidence": A confidence score based on data volume (number between 0 and 1).
 
 Respond ONLY with a JSON object in this format (no markdown, no code block backticks, no extra text):
 {
   "issues": [
-    { "title": "Check-in Süreçleri", "description": "Öğleden sonraki giriş saatlerinde resepsiyonda yaşanan yoğunluklar misafir karşılama deneyimini zedelemektedir.", "category": "reception" },
-    ... (exactly 5 items, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff)
+    { "title": "Check-in Bekleme Süresi", "summary": "Giriş saatlerindeki resepsiyon bekleme süreleri misafir memnuniyetini olumsuz etkilemektedir.", "category": "RECEPTION", "subtopics": ["check-in", "bekleme"], "count": 12, "sentimentRatio": 0.75, "confidence": 0.9 }
   ],
   "highlights": [
-    { "title": "Çalışan Tutumu ve İlgi", "description": "Resepsiyon ve restoran ekiplerinin güler yüzlü ve proaktif hizmet anlayışı misafir memnuniyetine büyük katkı sunmaktadır.", "category": "staff" },
-    ... (exactly 5 items, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff)
+    { "title": "Personel Güler Yüzü", "summary": "Çalışanların güler yüzlü yaklaşımı misafir memnuniyetini artırmaktadır.", "category": "STAFF", "subtopics": ["güler yüz"], "count": 25, "sentimentRatio": 0.88, "confidence": 1.0 }
   ],
   "actions": [
-    { "title": "Klima Sistemleri Revizyonu", "description": "Sıcak yaz aylarında artan şikayetlerin önüne geçmek amacıyla oda klimalarının filtre temizliği ve kompresör bakımları hızlandırılmalıdır.", "category": "room" },
-    ... (exactly 10 items, ordered by priority, category must be one of: reception, housekeeping, wifi, room, food, spa, location, staff, general)
+    { "title": "Klima soğutma yetersizliği giderilmesi", "summary": "Klima bakımlarının hızlandırılması planlanmalıdır.", "category": "ROOM", "subtopics": ["klima"], "count": 8, "sentimentRatio": 0.62, "confidence": 0.8 }
   ]
 }
-
-Reviews to analyze:
-${JSON.stringify(reviewsSample)}
 `;
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -723,6 +956,19 @@ ${JSON.stringify(reviewsSample)}
             const cleaned = content.replace(/^```json/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(cleaned);
             if (parsed.issues && parsed.highlights && parsed.actions) {
+              const mapFields = (item: any) => ({
+                title: item.title || '',
+                summary: item.summary || item.description || '',
+                description: item.summary || item.description || '',
+                category: item.category || 'OTHER',
+                subtopics: item.subtopics || [],
+                count: typeof item.count === 'number' ? item.count : 0,
+                sentimentRatio: typeof item.sentimentRatio === 'number' ? item.sentimentRatio : 0,
+                confidence: typeof item.confidence === 'number' ? item.confidence : 0
+              });
+              parsed.issues = (parsed.issues || []).map(mapFields);
+              parsed.highlights = (parsed.highlights || []).map(mapFields);
+              parsed.actions = (parsed.actions || []).map(mapFields);
               return res.status(200).json({ success: true, insights: parsed });
             }
           }

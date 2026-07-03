@@ -303,6 +303,7 @@ export default function Reports() {
   }>({ issues: [], highlights: [], actions: [] });
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [insufficientData, setInsufficientData] = useState(false);
 
   // Resolutions states
   const [resolvedKeys, setResolvedKeys] = useState<string[]>([]);
@@ -362,8 +363,16 @@ export default function Reports() {
   };
 
   useEffect(() => {
+    setInsufficientData(false);
+
     if (filteredReviews.length === 0 || !queriedHotelId) {
       setInsights({ issues: [], highlights: [], actions: [] });
+      return;
+    }
+
+    if (filteredReviews.length < 10) {
+      setInsights({ issues: [], highlights: [], actions: [] });
+      setInsufficientData(true);
       return;
     }
 
@@ -850,6 +859,16 @@ export default function Reports() {
                 <div className="w-8 h-8 rounded-full border-2 border-t-indigo-500 border-white/[0.04] animate-spin" />
                 <span className="text-xs text-slate-500 font-semibold">
                   {isTr ? 'Yorum verileri analiz ediliyor...' : 'Analyzing review data insights...'}
+                </span>
+              </div>
+            ) : insufficientData ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Frown className="text-slate-500 mb-2 animate-bounce" size={28} />
+                <span className="text-xs text-slate-300 font-semibold">
+                  {isTr ? 'Analiz için yeterli veri yok' : 'Insufficient data for analysis'}
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1">
+                  {isTr ? 'AI analizi yapılabilmesi için en az 10 yorum gereklidir.' : 'At least 10 reviews are required for AI analysis.'}
                 </span>
               </div>
             ) : (
