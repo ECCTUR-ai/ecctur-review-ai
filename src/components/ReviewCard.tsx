@@ -120,6 +120,11 @@ export function ReviewCard({ review, isSelected, onClick }: ReviewCardProps) {
           <div className="flex items-center gap-1.5">
             <PriorityBadge priority={review.priority} />
             <StatusBadge status={review.status} />
+            {((review as any).google_reply_status === 'published' || (review as any).google_reply_status === 'mock_published') && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-700 border-blue-200">
+                Google'da Yayınlandı
+              </span>
+            )}
           </div>
         </div>
       </div>

@@ -168,7 +168,7 @@ export function ReviewDetailPanel({
     }
 
     if (!onPublishGoogleReply) return;
-    const confirmPublish = window.confirm("Bu cevabı Google yorumuna işletmeci yanıtı olarak yayınlamak istiyor musunuz?");
+    const confirmPublish = window.confirm("Bu cevabı Google Business üzerinde yayınlamak istiyor musunuz?");
     if (!confirmPublish) return;
 
     setIsPublishing(true);
@@ -449,6 +449,21 @@ export function ReviewDetailPanel({
                 </div>
 
                 <div className="flex gap-1.5">
+                  {/* Google’da Yayınla (Approved veya Pending Approval durumlarında, ai_reply varsa gösterilir) */}
+                  {((review.source || '').toLowerCase() === 'google') && 
+                   !!(responseVal.trim() || review.response || (review as any).owner_reply_text) && 
+                   (review.status === 'pending_approval' || review.status === 'waiting_approval') && (
+                    <button
+                      type="button"
+                      disabled={isPublishing}
+                      onClick={handlePublishGoogleClick}
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500 disabled:opacity-50 text-[10px] font-bold text-white transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <Send size={11} />
+                      {isPublishing ? 'Yayınlanıyor...' : "Google'a Yayınla"}
+                    </button>
+                  )}
+
                   {isEditable && (
                     <>
                       <button
@@ -459,7 +474,10 @@ export function ReviewDetailPanel({
                         Onaya Gönder
                       </button>
                       
-                      {review.source === 'Google' && (
+                      {/* Default publish button for other statuses when editable */}
+                      {!(((review.source || '').toLowerCase() === 'google') && 
+                         (review.status === 'pending_approval' || review.status === 'waiting_approval')) && 
+                       review.source === 'Google' && (
                         <button
                           type="button"
                           disabled={!(responseVal.trim() || review.response || (review as any).owner_reply_text) || isPublishing}

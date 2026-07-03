@@ -124,7 +124,6 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
   const isMockReview = String(externalReviewId).startsWith('mock-');
   const useMockEnv = process.env.USE_MOCK_GOOGLE_PROVIDER;
   const isMockMode = useMockEnv === 'true' ? true : useMockEnv === 'false' ? false : (!googleLocationId || isMockReview);
-
   if (isMockMode) {
     console.log('--- [GOOGLE BUSINESS PUBLISH MOCK MODE - SERVER] ---');
     console.log(`Review ID: ${reviewId}`);
@@ -134,7 +133,7 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
     console.log(`Reply Content:\n${finalReplyText}`);
     console.log('----------------------------------------------------');
 
-    await updateReviewDatabaseRecord(reviewId, finalReplyText);
+    await updateReviewDatabaseRecord(reviewId, finalReplyText, 'mock_published', null);
 
     return {
       success: true,
@@ -144,15 +143,21 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
   }
 
   if (!gSetting && !refreshToken && !accessTokenInConfig) {
-    throw new Error('Bu otel için Google Business bağlantısı yapılmamış.');
+    const noConnErr = new Error('Bu otel için Google Business bağlantısı yapılmamış.');
+    await updateReviewDatabaseRecord(reviewId, finalReplyText, 'error', noConnErr.message);
+    throw noConnErr;
   }
 
   if (!googleLocationId) {
-    throw new Error('Google Business location seçilmemiş.');
+    const noLocErr = new Error('Google Business location seçilmemiş.');
+    await updateReviewDatabaseRecord(reviewId, finalReplyText, 'error', noLocErr.message);
+    throw noLocErr;
   }
 
   if (!googleAccountId || !externalReviewId) {
-    throw new Error('Google Business location seçilmemiş.');
+    const noAccErr = new Error('Google Business location seçilmemiş.');
+    await updateReviewDatabaseRecord(reviewId, finalReplyText, 'error', noAccErr.message);
+    throw noAccErr;
   }
 
 
@@ -215,14 +220,15 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
         .eq('id', gSetting.id);
     }
   } catch (apiErr: any) {
-    const errorMsg = String(apiErr.message || apiErr);
+    let errorMsg = String(apiErr.message || apiErr);
     if (errorMsg.includes('Invalid credentials') || errorMsg.includes('invalid_grant') || errorMsg.includes('401') || errorMsg.includes('Unauthorized') || errorMsg.includes('Google Business yetkisi')) {
-      throw new Error('Google Business yetkisi eksik veya süresi dolmuş.');
+      errorMsg = 'Google Business yetkisi eksik veya süresi dolmuş.';
     }
-    throw apiErr;
+    await updateReviewDatabaseRecord(reviewId, finalReplyText, 'error', errorMsg);
+    throw new Error(errorMsg);
   }
 
-  await updateReviewDatabaseRecord(reviewId, finalReplyText);
+  await updateReviewDatabaseRecord(reviewId, finalReplyText, 'published', null);
 
   return {
     success: true,
@@ -230,42 +236,38 @@ export async function publishGoogleReply(reviewId: string, replyText?: string): 
   };
 }
 
-async function updateReviewDatabaseRecord(reviewId: string, replyText: string) {
+async function updateReviewDatabaseRecord(reviewId: string, replyText: string, statusText: string, errorText: string | null) {
+  const isError = statusText === 'error';
+  
   const updateData: any = {
-    status: 'Published',
-    published: 'Yes',
-    ai_reply: replyText,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    google_reply_status: statusText,
+    google_reply_error: errorText
   };
+
+  if (!isError) {
+    updateData.status = 'published';
+    updateData.published = true; // both Boolean true and 'Yes'/'Published' fallbacks supported
+    updateData.published_at = new Date().toISOString();
+    updateData.google_reply_published_at = new Date().toISOString();
+    updateData.ai_reply = replyText;
+    updateData.owner_reply_text = replyText;
+    updateData.owner_reply_status = 'published';
+    updateData.published_platform = 'google';
+  }
 
   try {
     const { error: updateErr } = await supabaseAdmin!
       .from('reviews')
-      .update({
-        ...updateData,
-        published_at: new Date().toISOString(),
-        published_platform: 'google',
-        owner_reply_text: replyText,
-        owner_reply_status: 'published'
-      })
-      .eq('id', reviewId);
-
-    if (updateErr) {
-      console.warn('[GoogleReplyService] Log columns update failed (likely missing), falling back:', updateErr);
-      const { error: fbErr } = await supabaseAdmin!
-        .from('reviews')
-        .update(updateData)
-        .eq('id', reviewId);
-
-      if (fbErr) throw fbErr;
-    }
-  } catch (err) {
-    console.warn('[GoogleReplyService] Exception updating with log columns, trying fallback:', err);
-    const { error: fbErr } = await supabaseAdmin!
-      .from('reviews')
       .update(updateData)
       .eq('id', reviewId);
 
-    if (fbErr) throw fbErr;
+    if (updateErr) {
+      console.warn('[GoogleReplyService] Database update failed:', updateErr.message);
+      throw updateErr;
+    }
+  } catch (err) {
+    console.error('[GoogleReplyService] Exception updating database record:', err);
+    throw err;
   }
 }

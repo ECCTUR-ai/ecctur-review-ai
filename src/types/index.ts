@@ -31,6 +31,9 @@ export interface Review {
   organizationId?: string;
   hotelId?: string;
   platformReviewId?: string;
+  google_reply_status?: 'published' | 'mock_published' | 'error' | null;
+  google_reply_published_at?: string | null;
+  google_reply_error?: string | null;
 }
 
 export interface Department {
