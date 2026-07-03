@@ -907,7 +907,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // 2. Tenant isolation check
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
-      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
         userRole = 'Super Admin';
       }
       const roleKey = (userRole || 'staff').toLowerCase();
@@ -1181,7 +1181,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     try {
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
-      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
         userRole = 'Super Admin';
       }
       const roleNameLower = (userRole || 'staff').toLowerCase();
@@ -1402,7 +1402,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     try {
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
-      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
         userRole = 'Super Admin';
       }
       const roleNameLower = (userRole || 'staff').toLowerCase();
@@ -1666,7 +1666,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     try {
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
-      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
         userRole = 'Super Admin';
       }
       const roleNameLower = (userRole || 'staff').toLowerCase();
@@ -1793,7 +1793,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     try {
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
-      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
         userRole = 'Super Admin';
       }
       const roleNameLower = (userRole || 'staff').toLowerCase();
@@ -1942,7 +1942,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       // 2. Authorization and clearance check
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
-      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
         userRole = 'Super Admin';
       }
       const roleNameLower = (userRole || 'staff').toLowerCase();

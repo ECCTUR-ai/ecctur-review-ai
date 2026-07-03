@@ -249,7 +249,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const isTrueSuperAdmin = user.email === 'cemil.sezgin@ecctur.com';
 
-  if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+  if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
     userRole = 'Super Admin';
   }
 

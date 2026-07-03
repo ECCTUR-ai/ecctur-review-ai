@@ -534,7 +534,22 @@ export default function AiReplies() {
     const draftText = editTexts[review.id];
     setSavingId(review.id);
     try {
-      await reviewService.saveResponseDraft(review.id, draftText);
+      const platform = String(review.source || (review as any).platform || '').toLowerCase();
+      if (platform !== 'google') {
+        const { error } = await supabase
+          .from('reviews')
+          .update({
+            ai_reply: draftText,
+            publish_status: 'Draft',
+            published: 'No',
+            status: 'Draft'
+          })
+          .eq('id', review.id);
+        if (error) throw error;
+      } else {
+        await reviewService.saveResponseDraft(review.id, draftText);
+      }
+
       setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: draftText, status: 'draft' } : r));
       if (activePanelReview?.id === review.id) {
         setActivePanelReview(prev => prev ? { ...prev, response: draftText, status: 'draft' } : null);
@@ -556,7 +571,22 @@ export default function AiReplies() {
       const result = await reviewService.generateAiResponse(review.id);
       const aiReply = result.response;
       handleTextChange(review.id, aiReply);
-      await reviewService.saveResponseDraft(review.id, aiReply);
+
+      if (platform !== 'google') {
+        const { error } = await supabase
+          .from('reviews')
+          .update({
+            ai_reply: aiReply,
+            publish_status: 'Draft',
+            published: 'No',
+            status: 'Draft'
+          })
+          .eq('id', review.id);
+        if (error) throw error;
+      } else {
+        await reviewService.saveResponseDraft(review.id, aiReply);
+      }
+
       setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: aiReply, status: 'draft' } : r));
       if (activePanelReview?.id === review.id) {
         setActivePanelReview(prev => prev ? { ...prev, response: aiReply, status: 'draft' } : null);
@@ -734,10 +764,29 @@ export default function AiReplies() {
     let success = 0;
     for (const id of selectedReviewIds) {
       try {
-        const result = await reviewService.generateAiResponse(id);
-        await reviewService.saveResponseDraft(id, result.response);
-        handleTextChange(id, result.response);
-        success++;
+        const review = reviews.find(r => r.id === id);
+        if (review) {
+          const platform = String(review.source || (review as any).platform || '').toLowerCase();
+          const result = await reviewService.generateAiResponse(id);
+
+          if (platform !== 'google') {
+            const { error } = await supabase
+              .from('reviews')
+              .update({
+                ai_reply: result.response,
+                publish_status: 'Draft',
+                published: 'No',
+                status: 'Draft'
+              })
+              .eq('id', id);
+            if (error) throw error;
+          } else {
+            await reviewService.saveResponseDraft(id, result.response);
+          }
+
+          handleTextChange(id, result.response);
+          success++;
+        }
       } catch (e) {
         console.error(`Bulk AI failure for review ${id}:`, e);
       }
