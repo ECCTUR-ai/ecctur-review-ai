@@ -6,6 +6,7 @@ export async function fetchHolidaycheckReviews(url: string, limit?: number): Pro
     throw new Error('no_reviews_found');
   }
 
+  console.log("[HolidayCheck Apify Token Exists]", Boolean(process.env.APIFY_TOKEN));
   const apifyToken = process.env.APIFY_TOKEN;
   if (!apifyToken) {
     throw new Error('apify_token_missing');
@@ -15,56 +16,102 @@ export async function fetchHolidaycheckReviews(url: string, limit?: number): Pro
   const encodedActorId = encodeURIComponent(rawActorId);
   const apifyUrl = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  // Easy to modify input schema payload
-  const payload = {
-    startUrls: [
-      { url: targetUrl }
-    ],
-    maxReviews: limit || 50,
-    maxItems: limit || 50
-  };
+  const payloads = [
+    {
+      startUrls: [{ url: targetUrl }],
+      maxItems: limit || 50
+    },
+    {
+      urls: [{ url: targetUrl }],
+      maxItems: limit || 50
+    },
+    {
+      url: targetUrl,
+      maxItems: limit || 50
+    }
+  ];
 
-  console.log("[HolidayCheck Import] started");
-  console.log("HOLIDAYCHECK URL:", targetUrl);
-  console.log("ACTOR PAYLOAD:", JSON.stringify(payload, null, 2));
+  let items: any[] = [];
+  let lastError: any = null;
 
-  let response;
-  try {
-    response = await fetch(apifyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-  } catch (err: any) {
-    console.error('[HolidayCheck Import] Fetch execution failed:', err);
-    throw new Error('apify_actor_failed');
+  for (let i = 0; i < payloads.length; i++) {
+    const input = payloads[i];
+    console.log("[HolidayCheck Apify Actor]", rawActorId);
+    console.log("[HolidayCheck Apify Input]", input);
+
+    try {
+      const response = await fetch(apifyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(input)
+      });
+
+      const responseText = await response.text().catch(() => '');
+      if (!response.ok) {
+        let apifyErrMessage = '';
+        try {
+          const parsed = JSON.parse(responseText);
+          apifyErrMessage = parsed.error?.message || parsed.message || '';
+        } catch (_) {}
+
+        lastError = {
+          status: response.status,
+          responseText,
+          apifyErrMessage
+        };
+        console.warn(`[HolidayCheck Import] Option ${i + 1} failed with status ${response.status}:`, responseText);
+        continue;
+      }
+
+      let parsedItems: any;
+      try {
+        parsedItems = JSON.parse(responseText);
+      } catch (err: any) {
+        console.warn(`[HolidayCheck Import] Option ${i + 1} JSON parsing failed:`, err);
+        lastError = err;
+        continue;
+      }
+
+      if (Array.isArray(parsedItems)) {
+        items = parsedItems;
+        console.log(`[HolidayCheck Option ${i + 1} Success] Fetched ${items.length} items`);
+        if (items.length > 0) {
+          break;
+        } else {
+          console.log(`[HolidayCheck Option ${i + 1}] Returned 0 items. Trying next fallback...`);
+        }
+      } else {
+        console.error('[HolidayCheck Import] Expected array response, got:', parsedItems);
+        lastError = new Error('response_not_array');
+      }
+    } catch (err: any) {
+      console.warn(`[HolidayCheck Import] Option ${i + 1} request error:`, err);
+      lastError = err;
+    }
   }
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'No error response body');
-    console.error(`[HolidayCheck Import] HTTP ${response.status} Error:`, errorText);
-    const errorObj = new Error('apify_actor_failed') as any;
-    errorObj.rawError = errorText;
-    errorObj.status = response.status;
-    throw errorObj;
-  }
+  console.log("[HolidayCheck Dataset Items Count]", items.length);
 
-  let items: any;
-  try {
-    items = await response.json();
-  } catch (err: any) {
-    console.error('[HolidayCheck Import] JSON parsing failed:', err);
-    throw new Error('apify_actor_failed');
-  }
+  if (items.length === 0 && lastError) {
+    const status = lastError.status || 'unknown_status';
+    const responseText = lastError.responseText || String(lastError);
+    const apifyMsg = lastError.apifyErrMessage || '';
 
-  if (!Array.isArray(items)) {
-    console.error('[HolidayCheck Import] Expected array, got:', items);
-    throw new Error('no_reviews_found');
-  }
+    let detailedMsg = `apify_actor_failed: ${status} ${responseText}`;
+    const lowerText = (responseText + ' ' + apifyMsg).toLowerCase();
+    
+    if (status === 401 || status === 403 || lowerText.includes('invalid-token') || lowerText.includes('invalid token') || lowerText.includes('unauthorized')) {
+      detailedMsg = "Apify token geçersiz veya yetkisiz.";
+    } else if (status === 404 || lowerText.includes('not found') || lowerText.includes('not-found') || lowerText.includes('cannot find')) {
+      detailedMsg = "HolidayCheck Apify actor erişimi yok veya çalıştırılamadı.";
+    } else if (status === 400 || lowerText.includes('validation') || lowerText.includes('input') || lowerText.includes('invalid field') || lowerText.includes('schema')) {
+      detailedMsg = "HolidayCheck actor input formatı uyumsuz.";
+    }
 
-  console.log(`[HolidayCheck Import] fetched count: ${items.length}`);
+    throw new Error(detailedMsg);
+  }
 
   if (items.length === 0) {
     return [];
