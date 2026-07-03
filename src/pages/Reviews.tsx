@@ -100,6 +100,7 @@ export default function Reviews() {
   const [isImportingGoogleMaps, setIsImportingGoogleMaps] = useState(false);
   const [isImportingTripadvisor, setIsImportingTripadvisor] = useState(false);
   const [isImportingBooking, setIsImportingBooking] = useState(false);
+  const [isImportingHolidaycheck, setIsImportingHolidaycheck] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
   
@@ -222,7 +223,7 @@ export default function Reviews() {
       try {
         const { data, error } = await supabase
           .from('hotels')
-          .select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, address, phone, website')
+          .select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, address, phone, website')
           .eq('id', currentHotelId)
           .maybeSingle();
 
@@ -237,6 +238,7 @@ export default function Reviews() {
             googleMapsUrl: data.google_maps_url || data.google_maps_link || '',
             tripadvisorUrl: data.tripadvisor_url || '',
             bookingUrl: data.booking_url || '',
+            holidaycheckUrl: data.holidaycheck_url || '',
             address: data.address || '',
             phone: data.phone || '',
             website: data.website || ''
@@ -299,6 +301,7 @@ export default function Reviews() {
   const googleCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'google').length;
   const tripadvisorCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'tripadvisor').length;
   const bookingCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'booking').length;
+  const holidaycheckCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'holidaycheck').length;
 
   let reviews = data?.reviews || [];
 
@@ -723,6 +726,89 @@ export default function Reviews() {
     }
   };
 
+  const handleSyncHolidaycheckReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('id, name, holidaycheck_url')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error('[DEBUG] Direct Supabase query failed:', e);
+    }
+
+    const holidaycheckUrl = currentHotel?.holidaycheckUrl || dbRow?.holidaycheck_url;
+
+    if (!holidaycheckUrl) {
+      alert('Bu otel için HolidayCheck linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+      return;
+    }
+
+    if (isImportingHolidaycheck) return;
+    setIsImportingHolidaycheck(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      // Check existing count to determine mode
+      let existingCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', currentHotelId)
+          .eq('platform', 'holidaycheck');
+        if (!error && count !== null) {
+          existingCount = count;
+        }
+      } catch (e) {
+        console.error('Failed to get existing HolidayCheck review count:', e);
+      }
+
+      const mode = existingCount === 0 ? 'initial_import' : 'daily_sync';
+
+      const response = await fetch('/api/reviews?action=import-holidaycheck', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode })
+      });
+
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || 'İçe aktarım başarısız oldu.');
+      }
+
+      const insertedCount = res.insertedCount ?? 0;
+      const duplicateCount = res.duplicateCount ?? 0;
+      const failedCount = res.failedCount ?? 0;
+
+      const alertMsg = `HolidayCheck yorumları içe aktarıldı:\n` +
+                       `Yeni: ${insertedCount} Duplicate: ${duplicateCount} Hata: ${failedCount}`;
+      
+      alert(alertMsg);
+      setToastMessage(alertMsg);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
+    } finally {
+      setIsImportingHolidaycheck(false);
+    }
+  };
+
   const handleSyncAllPlatforms = () => {
     if (!currentHotelId) {
       alert('Lütfen bir otel seçin.');
@@ -737,7 +823,7 @@ export default function Reviews() {
       try {
         const { data } = await supabase
           .from('hotels')
-          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url')
+          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url')
           .eq('id', currentHotelId)
           .maybeSingle();
         dbRow = data;
@@ -748,8 +834,9 @@ export default function Reviews() {
       const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
       const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
       const bookingUrl = currentHotel?.bookingUrl || dbRow?.booking_url || '';
+      const holidaycheckUrl = currentHotel?.holidaycheckUrl || dbRow?.holidaycheck_url;
 
-      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl) {
+      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl && !holidaycheckUrl) {
         alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
         setIsSyncingAll(false);
         return;
@@ -797,6 +884,18 @@ export default function Reviews() {
           if (count !== null) bookingExistingCount = count;
         } catch (e) {}
         const bookingMode = bookingExistingCount === 0 ? 'initial_import' : 'daily_sync';
+
+        // Check existing HolidayCheck reviews count
+        let hcExistingCount = 0;
+        try {
+          const { count } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('hotel_id', currentHotelId)
+            .eq('platform', 'holidaycheck');
+          if (count !== null) hcExistingCount = count;
+        } catch (e) {}
+        const hcMode = hcExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
         // 1. Google
         if (googleMapsUrl) {
@@ -903,6 +1002,29 @@ export default function Reviews() {
             }
           } catch (e: any) {
             results.push(`Booking.com: Hata (${e.message})`);
+          }
+        }
+
+        // 4. HolidayCheck
+        if (holidaycheckUrl) {
+          try {
+            const response = await fetch('/api/reviews?action=import-holidaycheck', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode: hcMode })
+            });
+            const res = await response.json();
+            if (response.ok) {
+              const count = res.insertedCount ?? 0;
+              results.push(`HolidayCheck: ${count} yeni yorum`);
+            } else {
+              results.push(`HolidayCheck: Hata (${res.error || 'İçe aktarılamadı'})`);
+            }
+          } catch (e: any) {
+            results.push(`HolidayCheck: Hata (${e.message})`);
           }
         }
 
@@ -1094,7 +1216,8 @@ export default function Reviews() {
             const hasTripadvisor = !!(currentHotel?.tripadvisorUrl);
             const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
             const hasBooking = !!(currentHotel?.bookingUrl);
-            const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking;
+            const hasHolidaycheck = !!(currentHotel?.holidaycheckUrl);
+            const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking || hasHolidaycheck;
 
             return (
               <>
@@ -1126,6 +1249,16 @@ export default function Reviews() {
                 >
                   <RefreshCw size={14} className={isImportingBooking ? 'animate-spin' : ''} />
                   <span>{isImportingBooking ? 'Booking Çekiliyor...' : 'Booking.com Yorumlarını Çek'}</span>
+                </button>
+
+                <button
+                  onClick={handleSyncHolidaycheckReviews}
+                  disabled={isImportingHolidaycheck || !hasHolidaycheck}
+                  title={!hasHolidaycheck ? "Bu otel için HolidayCheck URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "HolidayCheck yorumlarını çek"}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-rose-500/10 min-h-[36px] cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isImportingHolidaycheck ? 'animate-spin' : ''} />
+                  <span>{isImportingHolidaycheck ? 'HolidayCheck Çekiliyor...' : 'HolidayCheck Yorumlarını Çek'}</span>
                 </button>
 
                 <button
@@ -1210,6 +1343,21 @@ export default function Reviews() {
           <span>Booking.com</span>
           <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'Booking' ? 'bg-white/20 text-white' : 'bg-sky-50 text-sky-600'}`}>
             {bookingCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSource('HolidayCheck')}
+          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+            source === 'HolidayCheck'
+              ? 'bg-pink-600 border-pink-600 text-white shadow-sm shadow-pink-500/10'
+              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+          <span>HolidayCheck</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'HolidayCheck' ? 'bg-white/20 text-white' : 'bg-pink-50 text-pink-600'}`}>
+            {holidaycheckCount}
           </span>
         </button>
       </div>

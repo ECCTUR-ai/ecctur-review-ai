@@ -315,6 +315,8 @@ export default function AiReplies() {
           query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
         } else if (selectedPlatform === 'Booking') {
           query = query.or('platform.eq.booking,platform.eq.Booking,platform.eq.Booking.com');
+        } else if (selectedPlatform === 'HolidayCheck') {
+          query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
         }
       }
 
@@ -1036,6 +1038,7 @@ export default function AiReplies() {
               <option value="Google">Google Reviews</option>
               <option value="TripAdvisor">TripAdvisor</option>
               <option value="Booking">Booking.com</option>
+              <option value="HolidayCheck">HolidayCheck</option>
             </select>
           </div>
 
@@ -1232,7 +1235,9 @@ export default function AiReplies() {
                           {/* Platform Badge */}
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase ${
                             review.source === 'Google' ? 'bg-blue-50 text-blue-600 border border-blue-100/50' :
-                            review.source === 'TripAdvisor' ? 'bg-amber-50 text-amber-700 border border-amber-100/50' :
+                            review.source === 'TripAdvisor' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50' :
+                            review.source === 'Booking' ? 'bg-sky-50 text-sky-700 border border-sky-100/50' :
+                            review.source === 'HolidayCheck' ? 'bg-rose-50 text-rose-700 border border-rose-100/50' :
                             'bg-indigo-50 text-indigo-600 border border-indigo-100/50'
                           }`}>
                             {review.source}

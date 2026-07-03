@@ -1,4 +1,4 @@
-export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia';
+export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia' | 'HolidayCheck';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 export type ReviewPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ReviewStatus = 'draft' | 'waiting_approval' | 'pending_approval' | 'published';
@@ -156,6 +156,7 @@ export interface Hotel {
   googleBusinessName?: string;
   googleBusinessConnected?: boolean;
   bookingUrl?: string;
+  holidaycheckUrl?: string;
 }
 
 export interface UserProfile {

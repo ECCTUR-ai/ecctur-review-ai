@@ -10,7 +10,8 @@ import {
   Compass as TripAdvisorIcon,
   Bookmark,
   Plane,
-  MessageCircle
+  MessageCircle,
+  Sun
 } from 'lucide-react';
 
 interface ReviewCardProps {
@@ -31,6 +32,8 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
         return <Bookmark size={13} className="text-sky-600" />;
       case 'Expedia':
         return <Plane size={13} className="text-amber-600" />;
+      case 'HolidayCheck':
+        return <Sun size={13} className="text-rose-500" />;
       default:
         return <MessageCircle size={13} className="text-slate-500" />;
     }
@@ -56,6 +59,9 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
       } else if (lower === 'expedia') {
         name = 'Expedia';
         colorClass = 'bg-amber-50 text-amber-600 border-amber-100';
+      } else if (lower === 'holidaycheck') {
+        name = 'HolidayCheck';
+        colorClass = 'bg-rose-50 text-rose-600 border-rose-100';
       } else {
         name = rawPlat;
       }

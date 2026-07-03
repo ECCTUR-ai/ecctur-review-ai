@@ -272,12 +272,14 @@ export default function Dashboard() {
   const googleItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'google');
   const tripadvisorItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'tripadvisor');
   const bookingItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'booking');
+  const holidaycheckItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'holidaycheck');
 
   const googleShare = isDemoData ? 842 : (googleItem ? googleItem.count : 0);
   const tripadvisorShare = isDemoData ? 286 : (tripadvisorItem ? tripadvisorItem.count : 0);
   const bookingShare = isDemoData ? 84 : (bookingItem ? bookingItem.count : 0);
+  const holidaycheckShare = isDemoData ? 0 : (holidaycheckItem ? holidaycheckItem.count : 0);
 
-  const totalMapped = googleShare + tripadvisorShare + bookingShare;
+  const totalMapped = googleShare + tripadvisorShare + bookingShare + holidaycheckShare;
   const otherShare = finalTotalReviews > totalMapped ? finalTotalReviews - totalMapped : 0;
 
   // Fallback Reviews list
@@ -645,6 +647,22 @@ export default function Dashboard() {
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (bookingShare / finalTotalReviews) * 100 : 0}%` }}></div>
+              </div>
+            </div>
+
+            {/* HolidayCheck */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-semibold text-slate-600 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>
+                  HolidayCheck
+                </span>
+                <span className="text-slate-500 font-medium">
+                  {holidaycheckShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((holidaycheckShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-pink-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (holidaycheckShare / finalTotalReviews) * 100 : 0}%` }}></div>
               </div>
             </div>
 

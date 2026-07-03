@@ -241,7 +241,7 @@ export default function Reports() {
 
   // Platform Breakdown Chart Data
   const platformData = useMemo(() => {
-    const counts: Record<string, number> = { Google: 0, TripAdvisor: 0, Booking: 0, Other: 0 };
+    const counts: Record<string, number> = { Google: 0, TripAdvisor: 0, Booking: 0, HolidayCheck: 0, Other: 0 };
     filteredReviews.forEach(r => {
       const source = r.source || 'Other';
       if (counts[source] !== undefined) {

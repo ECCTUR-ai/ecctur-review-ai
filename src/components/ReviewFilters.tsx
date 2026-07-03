@@ -53,6 +53,7 @@ export function ReviewFilters({
           <option value="Booking">Booking</option>
           <option value="TripAdvisor">TripAdvisor</option>
           <option value="Expedia">Expedia</option>
+          <option value="HolidayCheck">HolidayCheck</option>
         </select>
       </div>
 

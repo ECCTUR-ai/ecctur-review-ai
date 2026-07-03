@@ -31,6 +31,7 @@ export function mapReview(item: any): Review {
     source: (item.platform?.toLowerCase() === 'booking' ? 'Booking' :
              item.platform?.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' :
              item.platform?.toLowerCase() === 'google' ? 'Google' :
+             item.platform?.toLowerCase() === 'holidaycheck' ? 'HolidayCheck' :
              item.platform || item.source || 'Google') as ReviewSource,
     status: (item.status || 'draft').toLowerCase() as ReviewStatus,
     priority: (item.priority || 'low').toLowerCase() as ReviewPriority,

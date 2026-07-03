@@ -4,7 +4,7 @@ import { Hotel } from '@/types';
 
 export const hotelRepository = {
   async getHotels(organizationId?: string): Promise<Hotel[]> {
-    let query = supabase.from('hotels').select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, address, phone, website, city, country, timezone, default_language, google_account_id, google_location_id, google_business_name, google_business_connected').order('name');
+    let query = supabase.from('hotels').select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, address, phone, website, city, country, timezone, default_language, google_account_id, google_location_id, google_business_name, google_business_connected').order('name');
     if (organizationId) {
       query = query.eq('organization_id', organizationId);
     }
@@ -98,11 +98,12 @@ export const hotelRepository = {
       googleLocationId: item.google_location_id,
       googleBusinessName: item.google_business_name,
       googleBusinessConnected: item.google_business_connected,
-      bookingUrl: item.booking_url || ''
+      bookingUrl: item.booking_url || '',
+      holidaycheckUrl: item.holidaycheck_url || ''
     }));
   },
 
-  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingUrl?: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingUrl?: string; holidaycheckUrl?: string }): Promise<Hotel> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Unauthenticated');
@@ -131,11 +132,12 @@ export const hotelRepository = {
       googleMapsLink: h.google_maps_url || h.google_maps_link || '',
       googleMapsUrl: h.google_maps_url || h.google_maps_link || '',
       tripadvisorUrl: h.tripadvisor_url || '',
-      bookingUrl: h.booking_url || ''
+      bookingUrl: h.booking_url || '',
+      holidaycheckUrl: h.holidaycheck_url || ''
     };
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingUrl?: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingUrl?: string; holidaycheckUrl?: string }): Promise<Hotel> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Unauthenticated');
@@ -164,7 +166,8 @@ export const hotelRepository = {
       googleMapsLink: h.google_maps_url || h.google_maps_link || '',
       googleMapsUrl: h.google_maps_url || h.google_maps_link || '',
       tripadvisorUrl: h.tripadvisor_url || '',
-      bookingUrl: h.booking_url || ''
+      bookingUrl: h.booking_url || '',
+      holidaycheckUrl: h.holidaycheck_url || ''
     };
   }
 };
