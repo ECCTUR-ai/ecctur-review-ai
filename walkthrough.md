@@ -54,6 +54,19 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
 - **Stable Callback References (`useCallback` / state setter passing)**:
   - Memoized all callback handlers inside `Reviews.tsx` (`handleUpdateStatus`, `handleSubmitResponse`, `handlePublishGoogleReply`, `handleSaveDraft`, `handleUpdateNotes`, `handleGenerateAiReply`) using React's `useCallback` hook.
   - Replaced inline arrow handlers `onClick={() => setSelectedReviewId(review.id)}` inside reviews list mappings with stable onSelect setter prop references `onSelect={setSelectedReviewId}` so that `ReviewCard`'s memoization is 100% effective.
+- **5. Actor Stabilization & Schema Explicit Selection**
+  - Replaced stale generic `select('*')` statements on `hotels` with explicit column selectors across `hotelRepository.ts`, `Reviews.tsx`, `api/reviews.ts`, and `api/admin.ts`. This resolves PostgREST schema cache errors.
+  - Updated Booking.com review scraper on Apify to target `voyager/booking-reviews-scraper` with appropriate limit variables. Added comprehensive error message propagation to client.
 
 ---
-Verified cleanly using `npm run build` and committed to main (`8c645f5`).
+
+## Verification & Deployment
+
+We verified the build:
+```bash
+$ npm run build
+vite v8.1.0 building client environment for production...
+built in 430ms
+```
+
+All modifications have been committed and pushed to `main` branch.
