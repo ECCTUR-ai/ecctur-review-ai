@@ -549,6 +549,9 @@ export default function AiReplies() {
   // Regenerate Response via AI
   const handleRegenerateAI = async (review: Review) => {
     setSavingId(review.id);
+    const action = 'regenerate';
+    const platform = String(review.source || (review as any).platform || '').toLowerCase();
+    const selectedReview = review;
     try {
       const result = await reviewService.generateAiResponse(review.id);
       const aiReply = result.response;
@@ -559,6 +562,12 @@ export default function AiReplies() {
         setActivePanelReview(prev => prev ? { ...prev, response: aiReply, status: 'draft' } : null);
       }
     } catch (err: any) {
+      console.log("REGENERATE_ERROR_SOURCE", {
+        action,
+        platform,
+        selectedReview,
+        stack: err
+      });
       alert(`Regenerate AI Error: ${err.message || String(err)}`);
     } finally {
       setSavingId(null);
