@@ -1,6 +1,6 @@
-# Walkthrough — AI Business Insights & Google Business Reply Publishing Flow
+# Walkthrough — AI Business Insights, Google Business Reply Publishing Flow & Chrome INP Optimization
 
-Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights**, **5 Kritik Aksiyon Önerisi** (5 Critical Actions), and **Google Business Profile (GBP) Reply Publishing** flow.
+Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights**, **5 Kritik Aksiyon Önerisi** (5 Critical Actions), **Google Business Profile (GBP) Reply Publishing** flow, and UI thread responsiveness enhancements targeting **Chrome INP (Interaction to Next Paint)**.
 
 ## 1. Upgraded 5 Critical Action Recommendations with Resolution
 - **Balanced 3-Column Layout**:
@@ -34,10 +34,10 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
   - Automatically shows a premium **"Google'da Yayınla"** action button in the Reviews detail panel when the review source is Google, has a generated `ai_reply`/`response`, and the current status is `pending_approval` or `waiting_approval` (manager approved state).
   - Prompts the user with a clean window confirmation: *"Bu cevabı Google Business üzerinde yayınlamak istiyor musunuz?"*.
 - **Database Status Logging Migration**:
-  - Created database migration: **`supabase/migrations/20260703120000_add_google_reply_fields.sql`** to append tracking columns to the `reviews` schema:
-    - `google_reply_status` (e.g. `'published'`, `'mock_published'`, `'error'`)
-    - `google_reply_published_at` (timestamp of publication)
-    - `google_reply_error` (log statement describing failure causes)
+  - Created database migration: **`supabase/migrations/20260703120000_add_google_reply_fields.sql`** and **`20260703122000_add_owner_reply_fields.sql`** to append tracking columns to the `reviews` schema:
+    - `google_reply_status` / `owner_reply_status` (e.g. `'published'`, `'mock_published'`, `'error'`)
+    - `google_reply_published_at` / `owner_reply_published_at` (timestamp of publication)
+    - `google_reply_error` / `owner_reply_error` (log statement describing failure causes)
 - **Status Badging**:
   - Reviews that have been successfully published on GBP render a clean, custom badge indicator next to their standard statuses in the main reviews cards list: **`Google'da Yayınlandı`**.
 - **Consolidated Endpoint Routing**:
@@ -45,33 +45,15 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
 
 ---
 
-## 3. Updated Components & Code Structure
-
-### Consolidated Serverless API
-- **[reviews.ts](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/api/reviews.ts)**:
-  - Added the `compileLocalInsights` function running keyword frequency matches.
-  - Set up the `action === 'generate-insights'` router post handler supporting OpenAI analysis and fallback execution.
-  - Linked the `publish-google-reply` action handler.
-
-### Client-side Invoker
-- **[reviewService.ts](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/services/reviewService.ts)**:
-  - Added the `generateInsights(reviews)` fetch caller routing requests to the consolidated endpoint `/api/reviews?action=generate-insights`.
-
-### Reports Page Layout
-- **[Reports.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/pages/Reports.tsx)**:
-  - Injected `insights`, `insightsLoading`, `lastUpdated`, `resolvedKeys`, and `localResolvedKeys` React states.
-  - Configured a `useEffect` hook to fetch new insights and completed actions whenever date presets or hotel selection filters update `filteredReviews`.
-  - Imported `getDepartmentStats` utility to compute department numbers consistently.
-  - Added `getActiveDateRange()` to forward date values on bar clicks.
-
-### Reviews Page & Cards Layout
-- **[Reviews.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/pages/Reviews.tsx)**:
-  - Configured `fromParam` and `toParam` searchParams lookups.
-  - Applied the centralized `matchesDepartment` parser and date window filtering logic to the review records.
-- **[ReviewCard.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/components/ReviewCard.tsx)**:
-  - Added visual conditional badges for Google-published reviews.
-- **[ReviewDetailPanel.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/components/ReviewDetailPanel.tsx)**:
-  - Configured conditional GBP publishing button triggers and window confirmation prompts.
+## 3. Chrome INP (Interaction to Next Paint) Performance Optimization
+- **Deferred Asynchronous Action Wrapper (setTimeout)**:
+  - Wrapped all heavy/blocking actions inside `ReviewDetailPanel.tsx` (AI response generation, translation, WhatsApp sharing, saving manager notes, GBP publishing, task creation) and `Reviews.tsx` (Sync all platforms) inside `setTimeout(() => ..., 50)` boundaries.
+  - This allows the main thread to immediately paint the active loader/disabled state (e.g. `setIsPublishing(true)`, `setIsSavingDraft(true)`, etc.) before executing heavy tasks or showing synchronous dialog windows (`window.confirm`/`window.alert`), avoiding Chrome INP warning blocks.
+- **Component Memoization (`React.memo`)**:
+  - Memoized the `ReviewCard` component to prevent all items in the reviews list from drawing again on every detail panel update or selection change.
+- **Stable Callback References (`useCallback` / state setter passing)**:
+  - Memoized all callback handlers inside `Reviews.tsx` (`handleUpdateStatus`, `handleSubmitResponse`, `handlePublishGoogleReply`, `handleSaveDraft`, `handleUpdateNotes`, `handleGenerateAiReply`) using React's `useCallback` hook.
+  - Replaced inline arrow handlers `onClick={() => setSelectedReviewId(review.id)}` inside reviews list mappings with stable onSelect setter prop references `onSelect={setSelectedReviewId}` so that `ReviewCard`'s memoization is 100% effective.
 
 ---
-Verified cleanly using `npm run build` and committed to main (`bec1f43`).
+Verified cleanly using `npm run build` and committed to main (`8c645f5`).
