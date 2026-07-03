@@ -61,7 +61,7 @@ export default function Analytics() {
     if (!currentHotelId) return;
     setLoading(true);
     try {
-      const data = await reviewService.getReviews({ hotelId: currentHotelId });
+      const data = await reviewService.getReviews({ hotelId: currentHotelId, limit: 1000 });
       setReviews(data?.reviews || []);
     } catch (err) {
       console.error('Failed to fetch reviews:', err);
