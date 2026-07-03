@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
-import { reviewService, testReviews } from '@/services/reviewService';
+import { reviewService } from '@/services/reviewService';
 import { matchesDepartment } from '@/utils/departmentMatcher';
 import { ReviewCard } from '@/components/ReviewCard';
 import { ReviewFilters } from '@/components/ReviewFilters';
@@ -59,12 +59,17 @@ export default function Reviews() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
+  const paramHotelId = searchParams.get('hotelId') || searchParams.get('hotel_id');
+  const activeHotelId = paramHotelId || currentHotelId || '00000000-0000-0000-0000-000000000000';
+  
+  // Strict tenant security check
+  const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
+  const queriedHotelId = isAuthorized ? activeHotelId : '00000000-0000-0000-0000-000000000000';
 
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeHotelId, search, source, rating, status, priority]);
+  }, [queriedHotelId, search, source, rating, status, priority]);
 
   // Scroll to top when page changes
   useEffect(() => {
@@ -89,13 +94,13 @@ export default function Reviews() {
     error,
     refetch
   } = useFetch(() => reviewService.getReviews({
-    hotelId: activeHotelId,
+    hotelId: queriedHotelId,
     search: search || undefined,
     source: source || undefined,
     rating: rating ? Number(rating) : undefined,
     status: status || undefined,
     priority: priority || undefined
-  }), [activeHotelId, search, source, rating, status, priority]);
+  }), [queriedHotelId, search, source, rating, status, priority]);
 
   if (hasNoAssignedHotels) {
     return (
@@ -199,11 +204,6 @@ export default function Reviews() {
       setSelectedReviewDetail(null);
       return;
     }
-    const foundTest = testReviews.find(r => r.id === selectedReviewId);
-    if (foundTest) {
-      setSelectedReviewDetail(foundTest);
-      return;
-    }
     setIsLoadingDetail(true);
     reviewService.getReviewById(selectedReviewId)
       .then((data) => {
@@ -218,19 +218,6 @@ export default function Reviews() {
   }, [selectedReviewId]);
 
   let reviews = data?.reviews || [];
-  if (reviews.length === 0) {
-    reviews = testReviews.filter(r => {
-      if (source && r.source !== source) return false;
-      if (status && r.status !== status) return false;
-      if (priority && r.priority !== priority) return false;
-      if (rating && r.rating !== Number(rating)) return false;
-      if (search) {
-        const term = search.toLowerCase();
-        return r.comment.toLowerCase().includes(term) || r.guestName.toLowerCase().includes(term);
-      }
-      return true;
-    });
-  }
 
   // Filter reviews by date query parameters if present (passed from Reports dashboard click)
   if (fromParam || toParam) {
@@ -909,7 +896,7 @@ export default function Reviews() {
           ) : reviews.length === 0 ? (
             <div className="rounded-2xl p-12 text-center space-y-4 bg-white border border-slate-200 shadow-sm">
               <Database className="mx-auto text-slate-300" size={40} />
-              <h3 className="text-sm font-bold text-slate-800">Henüz bu otele ait yorum bulunmuyor.</h3>
+              <h3 className="text-sm font-bold text-slate-800">Bu otel için henüz yorum bulunmuyor.</h3>
               <p className="text-xs text-slate-500 max-w-[280px] mx-auto leading-relaxed">
                 Yorumları içe aktarmak için yukarıdaki senkronizasyon butonlarını kullanabilirsiniz.
               </p>
