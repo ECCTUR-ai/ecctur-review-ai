@@ -748,7 +748,7 @@ export default function Reviews() {
     const holidaycheckUrl = currentHotel?.holidaycheckUrl || dbRow?.holidaycheck_url;
 
     if (!holidaycheckUrl) {
-      alert('Bu otel için HolidayCheck linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+      alert('Bu otel için HolidayCheck linki kayıtlı değil.');
       return;
     }
 
@@ -783,7 +783,12 @@ export default function Reviews() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode })
+        body: JSON.stringify({
+          hotelId: currentHotelId,
+          hotelName: currentHotel?.name || dbRow?.name || '',
+          holidaycheckUrl,
+          mode
+        })
       });
 
       const res = await response.json();

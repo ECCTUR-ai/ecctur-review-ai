@@ -1912,9 +1912,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    const { hotelId, holidaycheckUrl, mode = 'initial_import' } = req.body;
-    if (!hotelId || !holidaycheckUrl) {
-      return res.status(400).json({ success: false, error: 'Missing hotelId or holidaycheckUrl parameter' });
+    let { hotelId, hotelName, holidaycheckUrl, mode = 'initial_import' } = req.body;
+    if (!hotelId) {
+      return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
     }
 
     try {
@@ -1931,10 +1931,22 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         return res.status(403).json({ success: false, error: 'Forbidden: Only Owner role can trigger backfill import.' });
       }
 
-      const { data: hotelData, error: hotelError } = await supabaseAdmin.from('hotels').select('organization_id, name').eq('id', hotelId).maybeSingle();
+      const { data: hotelData, error: hotelError } = await supabaseAdmin.from('hotels').select('organization_id, name, holidaycheck_url').eq('id', hotelId).maybeSingle();
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
+      if (!hotelName) {
+        hotelName = hotelData.name;
+      }
+      if (!holidaycheckUrl) {
+        holidaycheckUrl = hotelData.holidaycheck_url;
+      }
+
+      if (!holidaycheckUrl) {
+        return res.status(400).json({ success: false, error: 'Bu otel için HolidayCheck linki tanımlanmamış. Lütfen Admin panelinden tanımlayın.' });
+      }
+
+      console.log('[HolidayCheck Import Request]', { hotelId, hotelName, holidaycheckUrl });
 
       // Rules 1 & 2: check existing count to determine effective mode
       const { count: existingCount, error: countErr } = await supabaseAdmin
@@ -1952,6 +1964,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       // Rule 3: daily_sync limit is 50, otherwise 200
       const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
+      console.log('[HolidayCheck Import] using url', holidaycheckUrl);
       const scrapedReviews = await reviewImportService.importReviews('holidaycheck', holidaycheckUrl, limit);
 
       let importedCount = 0;
