@@ -555,13 +555,15 @@ export default function AiReplies() {
       return;
     }
 
-    setSavingId(review.id);
+    const selectedReview = review;
+    setSavingId(selectedReview.id);
     try {
-      const isBooking = review.source?.toLowerCase() === 'booking';
-      const isTripAdvisor = review.source?.toLowerCase() === 'tripadvisor';
+      const platform = String(selectedReview.source || (selectedReview as any).platform || '').toLowerCase();
 
-      if (isBooking || isTripAdvisor) {
-        // Direct local update to bypass external API publishing
+      if (platform === 'google') {
+        await reviewService.publishGoogleReply(selectedReview.id, replyText);
+      } else {
+        // local publish only
         const { data: updatedRow, error } = await supabase
           .from('reviews')
           .update({
@@ -570,7 +572,7 @@ export default function AiReplies() {
             published: 'Yes',
             ai_reply: replyText
           })
-          .eq('id', review.id)
+          .eq('id', selectedReview.id)
           .select('*')
           .maybeSingle();
 
@@ -586,18 +588,18 @@ export default function AiReplies() {
           const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
 
           await supabase.from('review_action_logs').insert({
-            review_id: review.id,
-            hotel_id: review.hotelId,
-            organization_id: review.organizationId,
+            review_id: selectedReview.id,
+            hotel_id: selectedReview.hotelId,
+            organization_id: selectedReview.organizationId,
             action_type: 'published',
             action_by_user_id: currentUser?.id,
             action_by_user_email: userEmail,
             action_by_user_name: userName,
             action_at: new Date().toISOString(),
-            previous_status: review.status,
+            previous_status: selectedReview.status,
             new_status: 'published',
-            platform: review.source?.toLowerCase(),
-            guest_name: review.guestName,
+            platform: platform,
+            guest_name: selectedReview.guestName,
             review_reply_text: replyText,
             ai_generated: true,
             published_at: new Date().toISOString(),
@@ -608,34 +610,51 @@ export default function AiReplies() {
         }
 
         // Show platform-specific alert
-        if (isBooking) {
+        if (platform === 'booking') {
           alert("Booking.com cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.");
-        } else {
+        } else if (platform === 'tripadvisor') {
           alert("TripAdvisor cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.");
-        }
-      } else {
-        if (review.source === 'Google') {
-          await reviewService.publishGoogleReply(review.id, replyText);
         } else {
-          await reviewService.submitResponse(review.id, replyText);
+          alert(`${selectedReview.source} cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.`);
         }
+
+        // Instantly remove card from active list and move to archive list dynamically
+        if (activeTab === 'active') {
+          setReviews(prev => prev.filter(r => r.id !== selectedReview.id));
+          setSelectedReviewIds(prev => prev.filter(id => id !== selectedReview.id));
+        } else {
+          setReviews(prev => prev.map(r => r.id === selectedReview.id ? { ...r, response: replyText, status: 'published' } : r));
+        }
+
+        if (activePanelReview?.id === selectedReview.id) {
+          setActivePanelReview(prev => prev ? { ...prev, response: replyText, status: 'published' } : null);
+        }
+        
+        // Update statistics and reload the list
+        fetchKPIStats();
+        fetchUniquePublishers();
+        fetchReviewsList(false);
+
+        setSavingId(null);
+        return;
       }
 
       // Instantly remove card from active list and move to archive list dynamically
       if (activeTab === 'active') {
-        setReviews(prev => prev.filter(r => r.id !== review.id));
-        setSelectedReviewIds(prev => prev.filter(id => id !== review.id));
+        setReviews(prev => prev.filter(r => r.id !== selectedReview.id));
+        setSelectedReviewIds(prev => prev.filter(id => id !== selectedReview.id));
       } else {
-        setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: replyText, status: 'published' } : r));
+        setReviews(prev => prev.map(r => r.id === selectedReview.id ? { ...r, response: replyText, status: 'published' } : r));
       }
 
-      if (activePanelReview?.id === review.id) {
+      if (activePanelReview?.id === selectedReview.id) {
         setActivePanelReview(prev => prev ? { ...prev, response: replyText, status: 'published' } : null);
       }
       
-      // Update statistics
+      // Update statistics and reload the list
       fetchKPIStats();
       fetchUniquePublishers();
+      fetchReviewsList(false);
 
     } catch (err: any) {
       alert(`Publishing Failed: ${err.message || String(err)}`);
@@ -712,10 +731,9 @@ export default function AiReplies() {
         const review = reviews.find(r => r.id === id);
         const text = editTexts[id] || review?.response || '';
         if (text && review) {
-          const isBooking = review.source?.toLowerCase() === 'booking';
-          const isTripAdvisor = review.source?.toLowerCase() === 'tripadvisor';
+          const platform = String(review.source || (review as any).platform || '').toLowerCase();
 
-          if (isBooking || isTripAdvisor) {
+          if (platform !== 'google') {
             const { data: updatedRow, error } = await supabase
               .from('reviews')
               .update({
@@ -750,7 +768,7 @@ export default function AiReplies() {
                 action_at: new Date().toISOString(),
                 previous_status: review.status,
                 new_status: 'published',
-                platform: review.source?.toLowerCase(),
+                platform: platform,
                 guest_name: review.guestName,
                 review_reply_text: text,
                 ai_generated: true,
@@ -763,11 +781,7 @@ export default function AiReplies() {
 
             success++;
           } else {
-            if (review.source === 'Google') {
-              await reviewService.publishGoogleReply(id, text);
-            } else {
-              await reviewService.submitResponse(id, text);
-            }
+            await reviewService.publishGoogleReply(id, text);
             success++;
           }
         }
