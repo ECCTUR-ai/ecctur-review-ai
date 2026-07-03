@@ -248,12 +248,10 @@ async function updateReviewDatabaseRecord(reviewId: string, replyText: string, s
   if (!isError) {
     updateData.status = 'published';
     updateData.published = true; // both Boolean true and 'Yes'/'Published' fallbacks supported
-    updateData.published_at = new Date().toISOString();
     updateData.google_reply_published_at = new Date().toISOString();
     updateData.ai_reply = replyText;
     updateData.owner_reply_text = replyText;
     updateData.owner_reply_status = 'published';
-    updateData.published_platform = 'google';
   }
 
   try {
