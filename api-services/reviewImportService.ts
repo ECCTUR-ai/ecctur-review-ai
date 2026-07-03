@@ -1,5 +1,6 @@
 import { fetchGoogleReviews } from './providers/googleProvider.js';
 import { fetchTripadvisorReviews } from './providers/tripadvisorProvider.js';
+import { fetchBookingReviews } from './providers/bookingProvider.js';
 
 export interface NormalizedReview {
   platform: string;
@@ -19,8 +20,7 @@ export const reviewImportService = {
     } else if (normalizedPlatform === 'tripadvisor') {
       return await fetchTripadvisorReviews(url, limit);
     } else if (normalizedPlatform === 'booking') {
-      console.log(`[Booking Provider] Placeholder active for URL: ${url}`);
-      return [];
+      return await fetchBookingReviews(url, limit);
     } else {
       throw new Error(`Unsupported platform: ${platform}`);
     }

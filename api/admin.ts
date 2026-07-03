@@ -75,6 +75,23 @@ async function getGoogleAccessToken(hotelId?: string) {
   return newAccessToken;
 }
 
+function cleanBookingUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    const paramsToRemove = ['label', 'sid', 'aid', 'srpvid', 'error_url', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+    paramsToRemove.forEach(p => parsed.searchParams.delete(p));
+    // Remove trailing search question mark if query params are completely empty
+    let result = parsed.origin + parsed.pathname;
+    if (parsed.search) {
+      result += parsed.search;
+    }
+    return result;
+  } catch (e) {
+    return url.trim();
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS handling
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -879,7 +896,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to create hotels' });
     }
     try {
-      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId } = req.body;
+      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId, bookingUrl } = req.body;
       if (!name || !organizationId) {
         return res.status(400).json({ error: 'Missing name or organizationId parameter' });
       }
@@ -890,7 +907,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organization_id: organizationId,
           google_maps_link: googleMapsUrl || googleMapsLink || null,
           google_maps_url: googleMapsUrl || googleMapsLink || null,
-          tripadvisor_url: tripadvisorUrl || null
+          tripadvisor_url: tripadvisorUrl || null,
+          booking_property_id: bookingPropertyId || null,
+          booking_url: cleanBookingUrl(bookingUrl) || null
         })
         .select()
         .maybeSingle();
@@ -913,7 +932,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Admin permissions required to update hotels' });
     }
     try {
-      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId } = req.body;
+      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId, bookingUrl } = req.body;
       if (!id || !name || !organizationId) {
         return res.status(400).json({ error: 'Missing id, name or organizationId parameter' });
       }
@@ -933,7 +952,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organization_id: organizationId,
           google_maps_link: googleMapsUrl || googleMapsLink || null,
           google_maps_url: googleMapsUrl || googleMapsLink || null,
-          tripadvisor_url: tripadvisorUrl || null
+          tripadvisor_url: tripadvisorUrl || null,
+          booking_property_id: bookingPropertyId || null,
+          booking_url: cleanBookingUrl(bookingUrl) || null
         })
         .eq('id', id)
         .select()

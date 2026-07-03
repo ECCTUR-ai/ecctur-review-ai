@@ -1,84 +1,149 @@
-// api/services/providers/bookingProvider.ts
-export interface BookingReview {
-  review_id: string;
-  guest_name: string;
-  rating: number;
-  headline?: string;
-  review_text: string;
-  review_date: string;
-  language: string;
+import { NormalizedReview } from '../reviewImportService.js';
+
+export async function fetchBookingReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
+  const targetUrl = (url || '').trim();
+  if (!targetUrl) {
+    throw new Error('no_reviews_found');
+  }
+
+  const apifyToken = process.env.APIFY_TOKEN;
+  // If no Apify token, run in mock mode gracefully
+  if (!apifyToken) {
+    console.log('[Booking Provider] Running in Mock Mode (missing APIFY_TOKEN)');
+    return [
+      {
+        platform: 'Booking',
+        guestName: 'Ayşe Demir',
+        rating: 5,
+        reviewText: 'Otel personeli çok cana yakındı. Kahvaltı çeşidi oldukça zengindi. Sadece otopark alanı biraz dardı fakat görevliler yardımcı oldu.',
+        reviewDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        externalId: `booking-mock-${targetUrl.split('/').pop()}-301`
+      },
+      {
+        platform: 'Booking',
+        guestName: 'John Doe',
+        rating: 4,
+        reviewText: 'The location is central and close to public transit. However, the walls are very thin and I could hear street noise all night.',
+        reviewDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+        externalId: `booking-mock-${targetUrl.split('/').pop()}-302`
+      },
+      {
+        platform: 'Booking',
+        guestName: 'Marie Laurent',
+        rating: 5,
+        reviewText: 'Tout était parfait. Le lit était extrêmement confortable, le petit déjeuner délicieux et la vue sur la mer magnifique.',
+        reviewDate: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+        externalId: `booking-mock-${targetUrl.split('/').pop()}-303`
+      }
+    ];
+  }
+
+  const rawActorId = process.env.APIFY_BOOKING_ACTOR_ID || 'danci/booking-reviews-scraper';
+  const encodedActorId = encodeURIComponent(rawActorId);
+  const apifyUrl = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
+
+  const payload = {
+    startUrls: [
+      { url: targetUrl }
+    ],
+    maxItems: limit || 200,
+    language: "en-us"
+  };
+
+  console.log("BOOKING URL:", targetUrl);
+  console.log("ACTOR PAYLOAD:", JSON.stringify(payload, null, 2));
+  console.log(`[Booking Provider] Running actor: ${rawActorId}`);
+
+  let response;
+  try {
+    response = await fetch(apifyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err: any) {
+    console.error('[Booking Provider] Fetch execution failed:', err);
+    throw new Error('apify_actor_failed');
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'No error response body');
+    console.error(`[Booking Provider] HTTP ${response.status} Error:`, errorText);
+    throw new Error('apify_actor_failed');
+  }
+
+  let items: any;
+  try {
+    items = await response.json();
+  } catch (err: any) {
+    console.error('[Booking Provider] JSON parsing failed:', err);
+    throw new Error('apify_actor_failed');
+  }
+
+  if (!Array.isArray(items)) {
+    console.error('[Booking Provider] Expected array, got:', items);
+    throw new Error('no_reviews_found');
+  }
+
+  console.log(`Booking RAW Reviews: ${items.length}`);
+
+  if (items.length === 0) {
+    return [];
+  }
+
+  const normalized = items.map((item: any) => {
+    const guestName = 
+      item.reviewerName || 
+      item.userName || 
+      item.username || 
+      item.author || 
+      item.authorName || 
+      'Booking Guest';
+
+    // Booking.com uses 10-point scale. Map to 5-point scale:
+    let score = item.rating || item.score || item.average_score || item.reviewRating || 10;
+    if (typeof score === 'string') {
+      score = parseFloat(score);
+    }
+    const rating = Math.max(1, Math.min(5, Math.round(score / 2)));
+
+    const reviewText = 
+      item.pros || item.cons
+        ? `${item.pros || ''} ${item.cons || ''}`.trim()
+        : item.text || item.reviewText || item.comment || '';
+
+    const reviewDate = 
+      item.publishAt || 
+      item.publishedAt || 
+      item.createTime || 
+      item.date || 
+      item.created || 
+      new Date().toISOString();
+
+    const externalId = 
+      item.id || 
+      item.reviewId || 
+      `${guestName}_${rating}_${reviewText.substring(0, 50)}`;
+
+    return {
+      platform: 'Booking',
+      guestName: String(guestName).trim(),
+      rating: Number(rating),
+      reviewText: String(reviewText).trim() || 'No comment review.',
+      reviewDate: String(reviewDate).trim(),
+      externalId: String(externalId).trim()
+    };
+  });
+
+  console.log(`Booking Parsed Reviews: ${normalized.length}`);
+  return normalized;
 }
 
+// For compatibility
 export const bookingProvider = {
-  async fetchReviews(propertyId: string): Promise<BookingReview[]> {
-    const username = process.env.BOOKING_USERNAME || '';
-    const password = process.env.BOOKING_PASSWORD || '';
-
-    // If no credentials, run in mock/test mode gracefully
-    if (!username || !password) {
-      console.log('[BookingProvider] Running in Mock Mode (missing BOOKING_USERNAME or BOOKING_PASSWORD)');
-      return [
-        {
-          review_id: `booking-mock-${propertyId}-301`,
-          guest_name: 'Ayşe Demir',
-          rating: 9.2, // Booking.com uses 10-point scale
-          headline: 'Konumu harikaydı, odalar çok geniş ve ferahtı.',
-          review_text: 'Otel personeli çok cana yakındı. Kahvaltı çeşidi oldukça zengindi. Sadece otopark alanı biraz dardı fakat görevliler yardımcı oldu.',
-          review_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          language: 'tr'
-        },
-        {
-          review_id: `booking-mock-${propertyId}-302`,
-          guest_name: 'John Doe',
-          rating: 7.0,
-          headline: 'Decent stay but room was noisy',
-          review_text: 'The location is central and close to public transit. However, the walls are very thin and I could hear street noise all night.',
-          review_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          language: 'en'
-        },
-        {
-          review_id: `booking-mock-${propertyId}-303`,
-          guest_name: 'Marie Laurent',
-          rating: 10.0,
-          headline: 'Séjour fantastique!',
-          review_text: 'Tout était parfait. Le lit était extrêmement confortable, le petit déjeuner délicieux et la vue sur la mer magnifique.',
-          review_date: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
-          language: 'fr'
-        }
-      ];
-    }
-
-    // Real API call with Basic Auth
-    const authString = Buffer.from(`${username}:${password}`).toString('base64');
-    
-    // Booking.com Partner/Distribution API endpoint format for reviews
-    const url = `https://distribution-xml.booking.com/2.0/json/reviews?property_ids=${propertyId}&rows=100`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Basic ${authString}`,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Booking.com API failed with status ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    // Parse response format according to standard Booking.com response structure
-    const results = data.result || [];
-    return results.map((r: any) => ({
-      review_id: String(r.review_id || r.id),
-      guest_name: r.author || r.guest_name || 'Anonymous',
-      rating: Number(r.average_score || r.score || r.rating || 10),
-      headline: r.headline || '',
-      review_text: r.pros || r.cons ? `${r.pros || ''} ${r.cons || ''}`.trim() : (r.comment || r.review_text || ''),
-      review_date: r.created || r.date || new Date().toISOString(),
-      language: r.language || 'en'
-    }));
+  fetchReviews: async (propertyId: string) => {
+    return [];
   }
 };

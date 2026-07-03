@@ -98,11 +98,12 @@ export const hotelRepository = {
       googleLocationId: item.google_location_id,
       googleBusinessName: item.google_business_name,
       googleBusinessConnected: item.google_business_connected,
-      bookingPropertyId: item.booking_property_id
+      bookingPropertyId: item.booking_property_id,
+      bookingUrl: item.booking_url || ''
     }));
   },
 
-  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string; bookingUrl?: string }): Promise<Hotel> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Unauthenticated');
@@ -131,11 +132,12 @@ export const hotelRepository = {
       googleMapsLink: h.google_maps_url || h.google_maps_link || '',
       googleMapsUrl: h.google_maps_url || h.google_maps_link || '',
       tripadvisorUrl: h.tripadvisor_url || '',
-      bookingPropertyId: h.booking_property_id || ''
+      bookingPropertyId: h.booking_property_id || '',
+      bookingUrl: h.booking_url || ''
     };
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string; bookingUrl?: string }): Promise<Hotel> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Unauthenticated');
@@ -164,7 +166,8 @@ export const hotelRepository = {
       googleMapsLink: h.google_maps_url || h.google_maps_link || '',
       googleMapsUrl: h.google_maps_url || h.google_maps_link || '',
       tripadvisorUrl: h.tripadvisor_url || '',
-      bookingPropertyId: h.booking_property_id || ''
+      bookingPropertyId: h.booking_property_id || '',
+      bookingUrl: h.booking_url || ''
     };
   }
 };

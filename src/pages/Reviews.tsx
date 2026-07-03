@@ -215,6 +215,7 @@ export default function Reviews() {
             googleMapsUrl: data.google_maps_url || data.google_maps_link || '',
             tripadvisorUrl: data.tripadvisor_url || '',
             bookingPropertyId: data.booking_property_id || '',
+            bookingUrl: data.booking_url || '',
             address: data.address || '',
             phone: data.phone || '',
             website: data.website || ''
@@ -646,25 +647,40 @@ export default function Reviews() {
       return;
     }
 
-    // Load hotel to verify property ID exists
     const { data: dbRow } = await supabase
       .from('hotels')
-      .select('id, name')
+      .select('id, name, booking_url')
       .eq('id', currentHotelId)
       .maybeSingle();
 
-    const bookingPropertyId = currentHotel?.bookingPropertyId || '';
-    if (!bookingPropertyId) {
-      alert('Bu otel için Booking.com Property ID tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+    const bookingUrl = currentHotel?.bookingUrl || dbRow?.booking_url || '';
+    if (!bookingUrl) {
+      alert('Bu otel için Booking.com URL tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
       return;
     }
 
     setIsImportingBooking(true);
     try {
-      const res = await reviewService.importBookingReviews(currentHotelId, importRange);
+      let existingCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', currentHotelId)
+          .eq('platform', 'booking');
+        if (!error && count !== null) {
+          existingCount = count;
+        }
+      } catch (e) {
+        console.error('Failed to get existing Booking review count:', e);
+      }
+
+      const mode = existingCount === 0 ? 'initial_import' : 'daily_sync';
+
+      const res = await reviewService.importBookingReviews(currentHotelId, importRange, mode);
       console.log('[DEBUG-BOOKING-IMPORT-RESPONSE-SUCCESS]', res);
 
-      const insertedCount = res.importedCount;
+      const insertedCount = res.insertedCount ?? res.importedCount ?? 0;
       const duplicateCount = res.duplicateCount;
 
       const alertMsg = `Booking.com yorumları içe aktarıldı:\nYeni: ${insertedCount}\nDuplicate: ${duplicateCount}`;
@@ -694,7 +710,7 @@ export default function Reviews() {
       try {
         const { data } = await supabase
           .from('hotels')
-          .select('google_maps_url, google_maps_link, tripadvisor_url')
+          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url')
           .eq('id', currentHotelId)
           .maybeSingle();
         dbRow = data;
@@ -704,9 +720,9 @@ export default function Reviews() {
 
       const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
       const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
-      const bookingPropertyId = currentHotel?.bookingPropertyId || '';
+      const bookingUrl = currentHotel?.bookingUrl || dbRow?.booking_url || '';
 
-      if (!googleMapsUrl && !tripadvisorUrl && !bookingPropertyId) {
+      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl) {
         alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
         setIsSyncingAll(false);
         return;
@@ -742,6 +758,18 @@ export default function Reviews() {
           if (count !== null) taExistingCount = count;
         } catch (e) {}
         const taMode = taExistingCount === 0 ? 'initial_import' : 'daily_sync';
+
+        // Check existing Booking reviews count
+        let bookingExistingCount = 0;
+        try {
+          const { count } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('hotel_id', currentHotelId)
+            .eq('platform', 'booking');
+          if (count !== null) bookingExistingCount = count;
+        } catch (e) {}
+        const bookingMode = bookingExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
         // 1. Google
         if (googleMapsUrl) {
@@ -828,7 +856,7 @@ export default function Reviews() {
         }
 
         // 3. Booking.com
-        if (bookingPropertyId) {
+        if (bookingUrl) {
           try {
             const response = await fetch('/api/reviews?action=import-booking', {
               method: 'POST',
@@ -836,11 +864,12 @@ export default function Reviews() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
               },
-              body: JSON.stringify({ hotelId: currentHotelId, range: importRange })
+              body: JSON.stringify({ hotelId: currentHotelId, range: importRange, mode: bookingMode })
             });
             const res = await response.json();
             if (response.ok) {
-              results.push(`Booking.com: ${res.importedCount} yeni yorum`);
+              const count = res.insertedCount ?? res.importedCount ?? 0;
+              results.push(`Booking.com: ${count} yeni yorum`);
             } else {
               results.push(`Booking.com: Hata (${res.error || 'İçe aktarılamadı'})`);
             }
@@ -996,7 +1025,7 @@ export default function Reviews() {
           {(() => {
             const hasTripadvisor = !!(currentHotel?.tripadvisorUrl);
             const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
-            const hasBooking = !!(currentHotel?.bookingPropertyId);
+            const hasBooking = !!(currentHotel?.bookingUrl);
             const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking;
 
             return (
@@ -1024,7 +1053,7 @@ export default function Reviews() {
                 <button
                   onClick={handleImportBookingReviews}
                   disabled={isImportingBooking || !hasBooking}
-                  title={!hasBooking ? "Bu otel için Booking.com Property ID tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Booking.com yorumlarını çek"}
+                  title={!hasBooking ? "Bu otel için Booking.com URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Booking.com yorumlarını çek"}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-orange-500/10 min-h-[36px] cursor-pointer"
                 >
                   <RefreshCw size={14} className={isImportingBooking ? 'animate-spin' : ''} />

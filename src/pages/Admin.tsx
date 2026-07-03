@@ -489,6 +489,7 @@ export default function Admin() {
   const [hotelGoogleMapsLink, setHotelGoogleMapsLink] = useState('');
   const [hotelTripadvisorLink, setHotelTripadvisorLink] = useState('');
   const [hotelBookingPropertyId, setHotelBookingPropertyId] = useState('');
+  const [hotelBookingUrl, setHotelBookingUrl] = useState('');
 
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
@@ -653,6 +654,7 @@ export default function Admin() {
     setHotelGoogleMapsLink('');
     setHotelTripadvisorLink('');
     setHotelBookingPropertyId('');
+    setHotelBookingUrl('');
   };
 
   const handleOpenEditHotel = (h: Hotel) => {
@@ -663,6 +665,7 @@ export default function Admin() {
     setHotelGoogleMapsLink(h.googleMapsUrl || h.googleMapsLink || '');
     setHotelTripadvisorLink(h.tripadvisorUrl || '');
     setHotelBookingPropertyId(h.bookingPropertyId || '');
+    setHotelBookingUrl(h.bookingUrl || '');
   };
 
   const handleSaveHotel = async (e: React.FormEvent) => {
@@ -673,7 +676,8 @@ export default function Admin() {
         organizationId: hotelOrgId,
         googleMapsUrl: hotelGoogleMapsLink,
         tripadvisorUrl: hotelTripadvisorLink,
-        bookingPropertyId: hotelBookingPropertyId
+        bookingPropertyId: hotelBookingPropertyId,
+        bookingUrl: hotelBookingUrl
       };
       console.log('[SAVE PAYLOAD]', payload);
 
@@ -690,6 +694,7 @@ export default function Admin() {
       setHotelGoogleMapsLink('');
       setHotelTripadvisorLink('');
       setHotelBookingPropertyId('');
+      setHotelBookingUrl('');
       refetchHotels();
     } catch (err: any) {
       console.error(err);
@@ -1332,6 +1337,17 @@ export default function Admin() {
                       value={hotelBookingPropertyId}
                       onChange={(e) => setHotelBookingPropertyId(e.target.value)}
                       placeholder="Örn: 1234567"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Booking.com URL</label>
+                    <input
+                      type="url"
+                      value={hotelBookingUrl}
+                      onChange={(e) => setHotelBookingUrl(e.target.value)}
+                      placeholder="https://www.booking.com/hotel/tr/premier-palace-hotel.tr.html"
                       className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                     />
                   </div>

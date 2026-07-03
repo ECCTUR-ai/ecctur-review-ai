@@ -1394,7 +1394,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    const { hotelId, range = '365' } = req.body;
+    const { hotelId, range = '365', mode = 'daily_sync' } = req.body;
     if (!hotelId) {
       return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
     }
@@ -1407,36 +1407,38 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       }
       const roleNameLower = (userRole || 'staff').toLowerCase();
 
-      if (roleNameLower !== 'super admin' && roleNameLower !== 'admin') {
+      // Tenant isolation check
+      if (roleNameLower !== 'super admin' && roleNameLower !== 'admin' && roleNameLower !== 'owner') {
         const { data: userHotels } = await supabaseAdmin.from('user_hotels').select('*').eq('profile_id', user.id).eq('hotel_id', hotelId);
         if (!userHotels || userHotels.length === 0) {
           return res.status(403).json({ success: false, error: 'Forbidden: You do not have clearance for this hotel.' });
         }
       }
 
-      const { data: hotelData, error: hotelErr } = await supabaseAdmin.from('hotels').select('organization_id, name').eq('id', hotelId).maybeSingle();
+      const { data: hotelData, error: hotelErr } = await supabaseAdmin
+        .from('hotels')
+        .select('organization_id, name, booking_url')
+        .eq('id', hotelId)
+        .maybeSingle();
+
       if (hotelErr || !hotelData) throw new Error(hotelErr?.message || 'Hotel not found');
 
       const orgId = hotelData.organization_id;
-      const bookingPropertyId = '';
+      const bookingUrl = hotelData.booking_url;
 
-      if (!bookingPropertyId) {
-        return res.status(400).json({ success: false, error: 'Hotel has no Booking.com Property ID configured' });
+      if (!bookingUrl) {
+        return res.status(400).json({ success: false, error: 'Hotel has no Booking.com URL configured' });
       }
 
-      const bookingReviews = await bookingProvider.fetchReviews(bookingPropertyId);
+      // Determine import limit
+      let limit = 100;
+      if (mode === 'initial_import') limit = 200;
+      else if (mode === 'daily_sync') limit = 50;
+      else if (mode === 'backfill_import') limit = 200;
 
-      let cutoffDate: Date | null = null;
-      if (range !== 'all') {
-        const days = parseInt(range, 10) || 365;
-        cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - days);
-      }
-
-      const filteredReviews = bookingReviews.filter(r => {
-        if (!cutoffDate) return true;
-        return new Date(r.review_date) >= cutoffDate;
-      });
+      // Scrape Booking.com reviews via our provider
+      const { fetchBookingReviews } = await import('../api-services/providers/bookingProvider.js');
+      const bookingReviews = await fetchBookingReviews(bookingUrl, limit);
 
       let successCount = 0;
       let duplicateCount = 0;
@@ -1444,33 +1446,43 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const detailedErrors: any[] = [];
       const importDetails: any[] = [];
 
-      for (let r of filteredReviews) {
+      for (let r of bookingReviews) {
         try {
           const isDuplicate = await checkIsDuplicate(
             hotelId,
             'booking',
-            r.review_id,
-            r.guest_name,
-            Math.round(r.rating) || 10,
-            r.review_text || r.headline || ''
+            r.externalId || null,
+            r.guestName,
+            r.rating,
+            r.reviewText
           );
+
           if (isDuplicate) {
             duplicateCount++;
-            importDetails.push({ reviewId: r.review_id, status: 'duplicate_skipped' });
+            importDetails.push({ reviewId: r.externalId, status: 'duplicate_skipped' });
             continue;
           }
 
+          // Parse and guarantee review date
+          let parsedDateStr = new Date().toISOString();
+          if (r.reviewDate) {
+            const dateObj = new Date(r.reviewDate);
+            if (!isNaN(dateObj.getTime())) {
+              parsedDateStr = dateObj.toISOString();
+            }
+          }
+
           const reviewRecord = {
-            platform_review_id: r.review_id,
-            guest_name: r.guest_name,
-            rating: Math.round(r.rating) || 10,
-            review_text: r.review_text || r.headline || '',
+            platform_review_id: r.externalId || null,
+            guest_name: r.guestName || 'Booking Guest',
+            rating: r.rating,
+            review_text: r.reviewText || 'No comment review.',
             platform: 'booking',
-            sentiment: r.rating >= 8 ? 'positive' : r.rating >= 6 ? 'neutral' : 'negative',
-            status: 'Draft',
+            sentiment: r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative',
+            status: 'draft',
             published: 'No',
-            created_at: r.review_date,
-            review_date: r.review_date,
+            created_at: new Date().toISOString(),
+            review_date: parsedDateStr,
             hotel_id: hotelId,
             organization_id: orgId
           };
@@ -1479,11 +1491,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           if (insErr) throw insErr;
 
           await postToN8N({
-            platform_review_id: r.review_id,
-            reviewer_display_name: r.guest_name,
+            platform_review_id: r.externalId,
+            reviewer_display_name: r.guestName,
             star_rating: r.rating,
-            comment_text: r.review_text || r.headline || '',
-            create_update_time: r.review_date,
+            comment_text: r.reviewText,
+            create_update_time: parsedDateStr,
             reply: null,
             platform: 'booking',
             hotel_id: hotelId,
@@ -1491,25 +1503,34 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           });
 
           successCount++;
-          importDetails.push({ reviewId: r.review_id, status: 'sent' });
+          importDetails.push({ reviewId: r.externalId, status: 'sent' });
         } catch (err: any) {
           failedCount++;
-          detailedErrors.push({ reviewId: r.review_id, message: err.message || String(err) });
-          importDetails.push({ reviewId: r.review_id, status: 'failed', error: err.message || String(err) });
+          detailedErrors.push({ reviewId: r.externalId, message: err.message || String(err) });
+          importDetails.push({ reviewId: r.externalId, status: 'failed', error: err.message || String(err) });
         }
       }
 
+      // Count total after import
+      const { count: totalAfterImport } = await supabaseAdmin
+        .from('reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId);
+
       return res.status(200).json({
         success: true,
-        importedCount: successCount,
+        platform: 'booking',
+        requestedMode: mode,
+        effectiveMode: mode,
+        fetchedCount: bookingReviews.length,
+        insertedCount: successCount,
         duplicateCount,
         failedCount,
-        totalFetched: filteredReviews.length,
-        detailedErrors,
-        importDetails
+        totalAfterImport: totalAfterImport || 0
       });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      console.error('[API import-booking] Failure:', err);
+      return res.status(500).json({ success: false, error: err.message || String(err) });
     }
   }
 

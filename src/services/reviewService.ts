@@ -1342,13 +1342,16 @@ export const reviewService = {
     return result;
   },
 
-  async importBookingReviews(hotelId: string, range: string = '365'): Promise<{
-    importedCount: number;
+  async importBookingReviews(hotelId: string, range: string = '365', mode?: string): Promise<{
+    insertedCount?: number;
+    importedCount?: number;
     duplicateCount: number;
     failedCount: number;
-    totalFetched: number;
+    totalFetched?: number;
+    fetchedCount?: number;
     detailedErrors?: any[];
     importDetails?: any[];
+    totalAfterImport?: number;
   }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -1361,7 +1364,7 @@ export const reviewService = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ hotelId, range })
+      body: JSON.stringify({ hotelId, range, mode })
     });
 
     const contentType = response.headers.get('content-type') || '';
