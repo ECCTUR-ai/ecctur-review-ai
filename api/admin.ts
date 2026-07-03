@@ -900,22 +900,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!name || !organizationId) {
         return res.status(400).json({ error: 'Missing name or organizationId parameter' });
       }
-      const { data: newHotel, error: hotelError } = await supabaseAdmin
+      const updatePayload = {
+        name,
+        organization_id: organizationId,
+        google_maps_link: googleMapsUrl || googleMapsLink || null,
+        google_maps_url: googleMapsUrl || googleMapsLink || null,
+        tripadvisor_url: tripadvisorUrl || null,
+        booking_url: cleanBookingUrl(bookingUrl) || null,
+        holidaycheck_url: holidaycheckUrl || null
+      };
+      console.log("[SUPABASE UPDATE]", updatePayload);
+
+      const { data, error } = await supabaseAdmin
         .from('hotels')
-        .insert({
-          name,
-          organization_id: organizationId,
-          google_maps_link: googleMapsUrl || googleMapsLink || null,
-          google_maps_url: googleMapsUrl || googleMapsLink || null,
-          tripadvisor_url: tripadvisorUrl || null,
-          booking_url: cleanBookingUrl(bookingUrl) || null,
-          holidaycheck_url: holidaycheckUrl || null
-        })
+        .insert(updatePayload)
         .select()
         .maybeSingle();
 
-      if (hotelError) throw hotelError;
-      return res.status(200).json({ success: true, hotel: newHotel });
+      console.log("[SUPABASE RESPONSE]", data, error);
+
+      if (!error && data) {
+        const { data: selectCheck, error: selectError } = await supabaseAdmin
+          .from('hotels')
+          .select('holidaycheck_url')
+          .eq('id', data.id)
+          .maybeSingle();
+        console.log("[SUPABASE SELECT VERIFICATION]", selectCheck, selectError);
+      }
+
+      if (error) throw error;
+      return res.status(200).json({ success: true, hotel: data });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -945,23 +959,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      const { data: updatedHotel, error: hotelError } = await supabaseAdmin
+      const updatePayload = {
+        name,
+        organization_id: organizationId,
+        google_maps_link: googleMapsUrl || googleMapsLink || null,
+        google_maps_url: googleMapsUrl || googleMapsLink || null,
+        tripadvisor_url: tripadvisorUrl || null,
+        booking_url: cleanBookingUrl(bookingUrl) || null,
+        holidaycheck_url: holidaycheckUrl || null
+      };
+      console.log("[SUPABASE UPDATE]", updatePayload);
+
+      const { data, error } = await supabaseAdmin
         .from('hotels')
-        .update({
-          name,
-          organization_id: organizationId,
-          google_maps_link: googleMapsUrl || googleMapsLink || null,
-          google_maps_url: googleMapsUrl || googleMapsLink || null,
-          tripadvisor_url: tripadvisorUrl || null,
-          booking_url: cleanBookingUrl(bookingUrl) || null,
-          holidaycheck_url: holidaycheckUrl || null
-        })
+        .update(updatePayload)
         .eq('id', id)
         .select()
         .maybeSingle();
 
-      if (hotelError) throw hotelError;
-      return res.status(200).json({ success: true, hotel: updatedHotel });
+      console.log("[SUPABASE RESPONSE]", data, error);
+
+      if (!error && data) {
+        const { data: selectCheck, error: selectError } = await supabaseAdmin
+          .from('hotels')
+          .select('holidaycheck_url')
+          .eq('id', data.id)
+          .maybeSingle();
+        console.log("[SUPABASE SELECT VERIFICATION]", selectCheck, selectError);
+      }
+
+      if (error) throw error;
+      return res.status(200).json({ success: true, hotel: data });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

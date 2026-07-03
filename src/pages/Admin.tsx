@@ -689,7 +689,7 @@ export default function Admin() {
         bookingUrl: hotelBookingUrl,
         holidaycheckUrl: hotelHolidaycheckUrl
       };
-      console.log('[SAVE PAYLOAD]', payload);
+      console.log("[ADMIN SAVE PAYLOAD]", payload);
 
       if (isAddingHotel) {
         await adminService.addHotel(payload);

@@ -44,7 +44,8 @@ export const adminService = {
 
   // Hotel Management
   async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string; bookingUrl?: string; holidaycheckUrl?: string }): Promise<Hotel> {
-    console.log('[ADMIN SERVICE ADD HOTEL]', hotel);
+    const hotelData = hotel;
+    console.log("[ADMIN SERVICE]", hotelData);
     return await hotelRepository.addHotel({
       name: hotel.name,
       organizationId: hotel.organizationId,
@@ -56,7 +57,8 @@ export const adminService = {
   },
 
   async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string; bookingUrl?: string; holidaycheckUrl?: string }): Promise<Hotel> {
-    console.log('[ADMIN SERVICE EDIT HOTEL]', { id, hotel });
+    const hotelData = hotel;
+    console.log("[ADMIN SERVICE]", hotelData);
     return await hotelRepository.editHotel(id, {
       name: hotel.name,
       organizationId: hotel.organizationId,
