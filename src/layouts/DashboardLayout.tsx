@@ -56,7 +56,7 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 export default function DashboardLayout() {
-  const { hasPermission, permissions, role, userId, hotelIds: authHotelIds, organizationId: authOrgId } = useAuth();
+  const { hasPermission, permissions, role, roleKey, userId, hotelIds: authHotelIds, organizationId: authOrgId } = useAuth();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const { t, i18n } = useTranslation();
@@ -76,8 +76,9 @@ export default function DashboardLayout() {
   
   const location = useLocation();
 
-  // Load Hotels list on mount
+  // Load Hotels list on mount and when authentication details change
   useEffect(() => {
+    if (!userId) return;
     const loadHotels = async () => {
       console.log('[Hotel Loader] Initializing...');
       console.log('[Hotel Loader] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
@@ -108,10 +109,10 @@ export default function DashboardLayout() {
         console.log('[Hotel Loader] Hotels result:', data);
         console.log('[Hotel Loader] Number of hotels returned:', data.length);
 
-        // Filter hotels list by user's clearance access list (if specifically configured)
-        if (userHotelsClearance.length > 0) {
+        // Filter hotels list by user's clearance access list (unless super_admin)
+        if (roleKey !== 'super_admin') {
           data = data.filter(h => userHotelsClearance.includes(h.id));
-          console.log('[Hotel Loader] Filtered hotels by user clearances:', data);
+          console.log('[Hotel Loader] Filtered hotels for non-super_admin by clearances:', data);
         }
         
         setHotels(data);
@@ -139,7 +140,7 @@ export default function DashboardLayout() {
       }
     };
     loadHotels();
-  }, []);
+  }, [userId, authHotelIds, authOrgId, roleKey]);
 
   const fetchNotifications = useCallback(async () => {
     try {

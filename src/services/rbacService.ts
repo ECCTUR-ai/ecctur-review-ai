@@ -6,6 +6,7 @@ export interface UserRoleInfo {
   permissions: string[];
   hotelIds?: string[];
   organizationId?: string | null;
+  roleKey?: string;
 }
 
 export const rbacService = {
@@ -21,12 +22,13 @@ export const rbacService = {
         });
         if (response.ok) {
           const result = await response.json();
-          console.log('[rbacService] User role loaded from backend API:', result.user.role);
+          console.log('[rbacService] User role loaded from backend API:', result.user.role, 'with key:', result.user.roleKey);
           return {
             role: result.user.role || '',
             permissions: result.user.permissions || [],
             hotelIds: result.user.hotelIds || [],
-            organizationId: result.user.organizationId || null
+            organizationId: result.user.organizationId || null,
+            roleKey: result.user.roleKey || ''
           };
         }
       }

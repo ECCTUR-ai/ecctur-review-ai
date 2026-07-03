@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 interface AuthContextType {
   userId: string | null;
   role: string | null;
+  roleKey: string | null;
   permissions: string[];
   hotelIds: string[];
   organizationId: string | null;
@@ -18,6 +19,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   userId: null,
   role: null,
+  roleKey: null,
   permissions: [],
   hotelIds: [],
   organizationId: null,
@@ -30,6 +32,7 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [roleKey, setRoleKey] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [hotelIds, setHotelIds] = useState<string[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
@@ -44,12 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserId(session.user.id);
           const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
           setRole(rbac.role);
+          setRoleKey(rbac.roleKey || null);
           setPermissions(rbac.permissions);
           setHotelIds(rbac.hotelIds || []);
           setOrganizationId(rbac.organizationId || null);
         } else {
           setUserId(null);
           setRole(null);
+          setRoleKey(null);
           setPermissions([]);
           setHotelIds([]);
           setOrganizationId(null);
@@ -70,12 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserId(session.user.id);
         const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
         setRole(rbac.role);
+        setRoleKey(rbac.roleKey || null);
         setPermissions(rbac.permissions);
         setHotelIds(rbac.hotelIds || []);
         setOrganizationId(rbac.organizationId || null);
       } else {
         setUserId(null);
         setRole(null);
+        setRoleKey(null);
         setPermissions([]);
         setHotelIds([]);
         setOrganizationId(null);
@@ -89,12 +96,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const hasPermission = (permission: string): boolean => {
-    if (role?.toLowerCase() === 'super admin') return true;
+    if (roleKey === 'super_admin') return true;
     return permissions.includes(permission);
   };
 
   return (
-    <AuthContext.Provider value={{ userId, role, permissions, hotelIds, organizationId, loading, hasPermission }}>
+    <AuthContext.Provider value={{ userId, role, roleKey, permissions, hotelIds, organizationId, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );
