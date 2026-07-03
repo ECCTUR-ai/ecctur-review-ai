@@ -128,26 +128,44 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     }
     const rating = Math.max(1, Math.min(5, Math.round(score / 2)));
 
-    // Priority order: reviewText || text || comment || review || content || userReview || localizedReview
-    let rText = item.reviewText || item.text || item.comment || item.review || item.content || item.userReview || item.localizedReview || '';
+    const positive =
+      item.likedText ??
+      item.liked ??
+      item.positive ??
+      item.pros;
 
-    // If those are empty, fall back to positive / negative (including pros/cons and liked/disliked variants)
-    if (!rText) {
-      const positivePart = (item.positive || item.positiveText || item.pros || item.liked || '').trim();
-      const negativePart = (item.negative || item.negativeText || item.cons || item.disliked || '').trim();
+    const negative =
+      item.dislikedText ??
+      item.disliked ??
+      item.negative ??
+      item.cons;
 
-      if (positivePart && negativePart) {
-        rText = `Pozitif: ${positivePart}\nNegatif: ${negativePart}`;
-      } else if (positivePart) {
-        rText = `Pozitif: ${positivePart}`;
-      } else if (negativePart) {
-        rText = `Negatif: ${negativePart}`;
-      }
+    let reviewText = "";
+
+    if (positive) {
+      reviewText += `Pozitif:\n${positive}`;
     }
 
-    if (!rText) {
-      rText = 'No comment review.';
+    if (negative) {
+      if (reviewText) reviewText += "\n\n";
+      reviewText += `Negatif:\n${negative}`;
     }
+
+    // Eğer reviewText boş kaldıysa eski fallbacklere geç
+    if (!reviewText) {
+      reviewText = item.reviewText || item.text || item.comment || item.review || item.content || item.userReview || item.localizedReview || '';
+    }
+
+    if (!reviewText) {
+      reviewText = 'No comment review.';
+    }
+
+    console.log("NORMALIZED BOOKING REVIEW", {
+      reviewTitle: item.reviewTitle,
+      likedText: item.likedText,
+      dislikedText: item.dislikedText,
+      finalReviewText: reviewText
+    });
 
     const reviewDate = 
       item.publishAt || 
@@ -160,13 +178,13 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     const externalId = 
       item.id || 
       item.reviewId || 
-      `${guestName}_${rating}_${rText.substring(0, 50)}`;
+      `${guestName}_${rating}_${reviewText.substring(0, 50)}`;
 
     return {
       platform: 'Booking',
       guestName: String(guestName).trim(),
       rating: Number(rating),
-      reviewText: String(rText).trim(),
+      reviewText: String(reviewText).trim(),
       reviewDate: String(reviewDate).trim(),
       externalId: String(externalId).trim(),
       raw: item
