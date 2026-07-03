@@ -746,7 +746,13 @@ export default function Reviews() {
       console.error('[DEBUG] Direct Supabase query failed:', e);
     }
 
-    const holidaycheckUrl = currentHotel?.holidaycheckUrl || dbRow?.holidaycheck_url;
+    const selectedHotel = currentHotel;
+    const holidaycheckUrl =
+      selectedHotel?.holidaycheckUrl ||
+      selectedHotel?.holidaycheck_url ||
+      selectedHotel?.holidayCheckUrl ||
+      dbRow?.holidaycheck_url ||
+      '';
 
     if (!holidaycheckUrl) {
       alert('Bu otel için HolidayCheck linki kayıtlı değil.');
@@ -822,6 +828,9 @@ export default function Reviews() {
     }
 
     const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    const selectedHotel = currentHotel;
+    console.log("[SELECTED HOTEL FOR HOTELS.COM]", selectedHotel);
+
     let dbRow: any = null;
     try {
       const { data } = await supabase
@@ -834,7 +843,12 @@ export default function Reviews() {
       console.error('[DEBUG] Direct Supabase query failed:', e);
     }
 
-    const hotelscomUrl = currentHotel?.hotelscomUrl || dbRow?.hotelscom_url;
+    const hotelscomUrl =
+      selectedHotel?.hotelscomUrl ||
+      selectedHotel?.hotelscom_url ||
+      selectedHotel?.hotelsComUrl ||
+      dbRow?.hotelscom_url ||
+      '';
 
     if (!hotelscomUrl) {
       alert('Bu otel için Hotels.com linki kayıtlı değil.');
@@ -1389,7 +1403,7 @@ export default function Reviews() {
 
                 <button
                   onClick={handleSyncHolidaycheckReviews}
-                  disabled={isImportingHolidaycheck || !hasHolidaycheck}
+                  disabled={isImportingHolidaycheck}
                   title={!hasHolidaycheck ? "Bu otel için HolidayCheck URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "HolidayCheck yorumlarını çek"}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-rose-500/10 min-h-[36px] cursor-pointer"
                 >
@@ -1399,7 +1413,7 @@ export default function Reviews() {
 
                 <button
                   onClick={handleSyncHotelscomReviews}
-                  disabled={isImportingHotelscom || !hasHotelscom}
+                  disabled={isImportingHotelscom}
                   title={!hasHotelscom ? "Bu otel için Hotels.com URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Hotels.com yorumlarını çek"}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-sky-600 to-indigo-500 hover:from-sky-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 min-h-[36px] cursor-pointer"
                 >
