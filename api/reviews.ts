@@ -1425,6 +1425,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       const orgId = hotelData.organization_id;
       const bookingUrl = hotelData.booking_url;
+      const hotelName = hotelData.name;
 
       if (!bookingUrl) {
         return res.status(400).json({ success: false, error: 'Hotel has no Booking.com URL configured' });
@@ -1599,6 +1600,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             created_at: new Date().toISOString(),
             review_date: parsedDateStr,
             hotel_id: hotelId,
+            hotel_name: hotelName,
             organization_id: orgId
           };
 
@@ -1681,6 +1683,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
+      const hotelName = hotelData.name;
 
       // Rules 1 & 2: check existing count to determine effective mode
       const { count: existingCount, error: countErr } = await supabaseAdmin
@@ -1726,6 +1729,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
+            hotel_name: hotelName,
             organization_id: orgId,
             guest_name: r.guestName,
             rating: r.rating,
@@ -1808,6 +1812,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
+      const hotelName = hotelData.name;
 
       // Rules 1 & 2: check existing count to determine effective mode
       const { count: existingCount, error: countErr } = await supabaseAdmin
@@ -1853,6 +1858,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
+            hotel_name: hotelName,
             organization_id: orgId,
             guest_name: r.guestName,
             rating: r.rating,
@@ -1992,6 +1998,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
+            hotel_name: hotelName,
             organization_id: orgId,
             guest_name: r.guestName,
             rating: r.rating,
@@ -2109,6 +2116,13 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       let duplicateCount = 0;
       let failedCount = 0;
 
+      console.log("[Hotels Import Insert]", {
+        hotelId,
+        hotelName,
+        platform: 'hotels.com',
+        reviewCount: scrapedReviews.length
+      });
+
       for (const r of scrapedReviews) {
         try {
           const isDuplicate = await checkIsDuplicate(
@@ -2130,6 +2144,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
+            hotel_name: hotelName,
             organization_id: orgId,
             guest_name: r.guestName,
             rating: r.rating,

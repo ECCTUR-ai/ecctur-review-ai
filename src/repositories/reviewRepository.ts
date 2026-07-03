@@ -82,12 +82,17 @@ export const reviewRepository = {
       .eq('hotel_id', params.hotelId);
 
     if (params.source) {
-      if (params.source.toLowerCase() === 'booking') {
+      const srcLower = params.source.toLowerCase();
+      if (srcLower === 'booking') {
         query = query.or('platform.eq.booking,platform.eq.Booking');
-      } else if (params.source.toLowerCase() === 'tripadvisor') {
+      } else if (srcLower === 'tripadvisor') {
         query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
-      } else if (params.source.toLowerCase() === 'google') {
+      } else if (srcLower === 'google') {
         query = query.or('platform.eq.google,platform.eq.Google');
+      } else if (srcLower === 'holidaycheck') {
+        query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
+      } else if (srcLower === 'hotels.com' || srcLower === 'hotelscom') {
+        query = query.or('platform.eq.hotels.com,platform.eq.hotelscom');
       } else {
         query = query.eq('platform', params.source);
       }
