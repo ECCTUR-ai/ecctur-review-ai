@@ -1193,8 +1193,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         }
       }
 
-      const { data: sampleRows } = await supabaseAdmin.from('hotels').select('*').limit(1);
-      const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : ['id', 'organization_id', 'name', 'created_at'];
+      const { data: sampleRows } = await supabaseAdmin.from('hotels').select('id, organization_id, name, created_at, google_location_id, google_place_id, google_maps_url, google_maps_link').limit(1);
+      const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : ['id', 'organization_id', 'name', 'created_at', 'google_location_id', 'google_maps_url', 'google_maps_link'];
       const { data: sampleSettings } = await supabaseAdmin.from('integration_settings').select('*').limit(1);
       const actualSettingsCols = sampleSettings && sampleSettings.length > 0 ? Object.keys(sampleSettings[0]) : ['id', 'name', 'status', 'updated_at'];
 

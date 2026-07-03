@@ -4,7 +4,7 @@ import { Hotel } from '@/types';
 
 export const hotelRepository = {
   async getHotels(organizationId?: string): Promise<Hotel[]> {
-    let query = supabase.from('hotels').select('*').order('name');
+    let query = supabase.from('hotels').select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, address, phone, website, city, country, timezone, default_language, google_account_id, google_location_id, google_business_name, google_business_connected').order('name');
     if (organizationId) {
       query = query.eq('organization_id', organizationId);
     }

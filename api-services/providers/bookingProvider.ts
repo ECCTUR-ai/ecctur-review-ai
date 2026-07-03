@@ -38,7 +38,7 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     ];
   }
 
-  const rawActorId = process.env.APIFY_BOOKING_ACTOR_ID || 'danci/booking-reviews-scraper';
+  const rawActorId = process.env.APIFY_BOOKING_ACTOR_ID || 'voyager/booking-reviews-scraper';
   const encodedActorId = encodeURIComponent(rawActorId);
   const apifyUrl = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
@@ -46,8 +46,9 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     startUrls: [
       { url: targetUrl }
     ],
+    maxReviewsPerHotel: limit || 200,
     maxItems: limit || 200,
-    language: "en-us"
+    maxReviews: limit || 200
   };
 
   console.log("BOOKING URL:", targetUrl);
@@ -65,13 +66,13 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     });
   } catch (err: any) {
     console.error('[Booking Provider] Fetch execution failed:', err);
-    throw new Error('apify_actor_failed');
+    throw new Error(`Apify connection/execution failed: ${err.message || String(err)}`);
   }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'No error response body');
     console.error(`[Booking Provider] HTTP ${response.status} Error:`, errorText);
-    throw new Error('apify_actor_failed');
+    throw new Error(`Apify Actor failed with status ${response.status}: ${errorText}`);
   }
 
   let items: any;
@@ -79,7 +80,7 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     items = await response.json();
   } catch (err: any) {
     console.error('[Booking Provider] JSON parsing failed:', err);
-    throw new Error('apify_actor_failed');
+    throw new Error(`Failed to parse Apify Actor response JSON: ${err.message || String(err)}`);
   }
 
   if (!Array.isArray(items)) {

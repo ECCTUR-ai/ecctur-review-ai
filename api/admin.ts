@@ -198,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (upsertErr) throw upsertErr;
 
       if (hotelId) {
-        const { data: sampleRows } = await supabaseAdmin.from('hotels').select('*').limit(1);
+        const { data: sampleRows } = await supabaseAdmin.from('hotels').select('id, google_business_connected').limit(1);
         const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : [];
         const hotelUpdates: any = {
           updated_at: new Date().toISOString()
@@ -515,7 +515,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const orgId = hotelData.organization_id;
 
-      const { data: sampleRows } = await supabaseAdmin.from('hotels').select('*').limit(1);
+      const { data: sampleRows } = await supabaseAdmin.from('hotels').select('id, google_account_id, google_location_id, google_business_name, google_business_connected, updated_at').limit(1);
       const actualHotelCols = sampleRows && sampleRows.length > 0 ? Object.keys(sampleRows[0]) : [];
       const { data: sampleSettings } = await supabaseAdmin.from('integration_settings').select('*').limit(1);
       const actualSettingsCols = sampleSettings && sampleSettings.length > 0 ? Object.keys(sampleSettings[0]) : [];

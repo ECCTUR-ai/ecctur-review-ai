@@ -200,7 +200,7 @@ export default function Reviews() {
       try {
         const { data, error } = await supabase
           .from('hotels')
-          .select('*')
+          .select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, address, phone, website')
           .eq('id', currentHotelId)
           .maybeSingle();
 
