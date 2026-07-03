@@ -7,6 +7,7 @@ import { reviewService } from '@/services/reviewService';
 import { whatsappService } from '@/services/whatsappService';
 import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
 import { mapReview } from '@/repositories/reviewRepository';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { 
   Sparkles, 
   MessageSquare, 
@@ -55,8 +56,62 @@ export default function AiReplies() {
 
   const isOwnerOrAdmin = roleKey === 'super_admin' || roleKey === 'admin' || roleKey === 'owner';
 
-  // Navigation / Tabs State ('active' | 'archived')
-  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  // Navigation, Tabs and Filters State persisted globally
+  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_ai_replies_state', {
+    activeTab: 'active' as 'active' | 'archived',
+    search: '',
+    selectedHotelId: 'all',
+    selectedPlatform: 'all',
+    selectedRating: 'all' as number | 'all',
+    selectedStatus: 'all',
+    selectedDateRange: '30d',
+    customStartDate: '',
+    customEndDate: '',
+    selectedPublisherId: 'all',
+    activePanelReview: null as Review | null,
+    offset: 0
+  });
+
+  const {
+    activeTab,
+    search,
+    selectedHotelId,
+    selectedPlatform,
+    selectedRating,
+    selectedStatus,
+    selectedDateRange,
+    customStartDate,
+    customEndDate,
+    selectedPublisherId,
+    activePanelReview,
+    offset
+  } = pageState;
+
+  const setActiveTab = (val: 'active' | 'archived' | ((prev: 'active' | 'archived') => 'active' | 'archived')) => {
+    setPageState(prev => ({
+      activeTab: typeof val === 'function' ? val(prev.activeTab) : val,
+      offset: 0
+    }));
+  };
+  const setSearch = (val: string) => setPageState({ search: val, offset: 0 });
+  const setSelectedHotelId = (val: string) => setPageState({ selectedHotelId: val, offset: 0 });
+  const setSelectedPlatform = (val: string) => setPageState({ selectedPlatform: val, offset: 0 });
+  const setSelectedRating = (val: number | 'all') => setPageState({ selectedRating: val, offset: 0 });
+  const setSelectedStatus = (val: string) => setPageState({ selectedStatus: val, offset: 0 });
+  const setSelectedDateRange = (val: string) => setPageState({ selectedDateRange: val, offset: 0 });
+  const setCustomStartDate = (val: string) => setPageState({ customStartDate: val, offset: 0 });
+  const setCustomEndDate = (val: string) => setPageState({ customEndDate: val, offset: 0 });
+  const setSelectedPublisherId = (val: string) => setPageState({ selectedPublisherId: val, offset: 0 });
+  const setActivePanelReview = (val: Review | null | ((prev: Review | null) => Review | null)) => {
+    setPageState(prev => ({
+      activePanelReview: typeof val === 'function' ? val(prev.activePanelReview) : val
+    }));
+  };
+  const setOffset = (val: number | ((prev: number) => number)) => {
+    setPageState(prev => ({
+      offset: typeof val === 'function' ? val(prev.offset) : val
+    }));
+  };
 
   // State Management
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -65,29 +120,12 @@ export default function AiReplies() {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Filters State
-  const [search, setSearch] = useState('');
-  const [selectedHotelId, setSelectedHotelId] = useState<string>('all');
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
-  const [selectedRating, setSelectedRating] = useState<number | 'all'>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedDateRange, setSelectedDateRange] = useState<string>('30d');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  
-  // Archived-specific filters
+  // Archived-specific filters metadata
   const [archivePublishers, setArchivePublishers] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedPublisherId, setSelectedPublisherId] = useState<string>('all');
 
-  // Publish Logs mapping (review_id -> PublishLogInfo)
   const [publishLogs, setPublishLogs] = useState<Record<string, PublishLogInfo>>({});
-
-  // Bulk Operations State
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
-
-  // Detailed Right Panel State
-  const [activePanelReview, setActivePanelReview] = useState<Review | null>(null);
 
   // KPI Card Stats State
   const [kpis, setKpis] = useState<KPIStats>({
@@ -108,18 +146,16 @@ export default function AiReplies() {
   const [translatingKeys, setTranslatingKeys] = useState<Record<string, boolean>>({});
 
   // Pagination cursor
-  const [offset, setOffset] = useState(0);
   const LIMIT = 10;
-
   // Track active hotel for queries
   const activeHotelId = selectedHotelId === 'all' ? currentHotelId : selectedHotelId;
 
-  // Initialize selected hotel ID to dashboard's active hotel
+  // Initialize selected hotel ID to dashboard's active hotel only if not set
   useEffect(() => {
-    if (currentHotelId) {
+    if (currentHotelId && selectedHotelId === 'all') {
       setSelectedHotelId(currentHotelId);
     }
-  }, [currentHotelId]);
+  }, [currentHotelId, selectedHotelId]);
 
   // Load KPI Stats
   const fetchKPIStats = useCallback(async () => {
@@ -914,9 +950,19 @@ export default function AiReplies() {
       {/* 4. Filters Toolbar */}
       <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
-            <Filter size={16} className="text-blue-600" />
-            Filtreler
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
+              <Filter size={16} className="text-blue-600" />
+              Filtreler
+            </div>
+            {(search || selectedHotelId !== 'all' || selectedPlatform !== 'all' || selectedRating !== 'all' || selectedStatus !== 'all' || selectedDateRange !== '30d' || customStartDate || customEndDate) && (
+              <button
+                onClick={() => resetPageState()}
+                className="text-[11px] text-rose-600 hover:text-rose-700 hover:underline font-bold transition-all cursor-pointer focus:outline-none"
+              >
+                Filtreleri Sıfırla
+              </button>
+            )}
           </div>
 
           <div className="relative max-w-xs w-full">

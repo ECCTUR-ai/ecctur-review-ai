@@ -6,6 +6,7 @@ import { reviewService } from '@/services/reviewService';
 import { getDepartmentStats } from '@/utils/departmentMatcher';
 import { Review, Sentiment, ReviewPriority, ReviewSource } from '@/types';
 import { useAuth } from '@/components/AuthGuard';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -59,9 +60,17 @@ export default function Reports() {
   const { t, i18n } = useTranslation();
   const isTr = i18n.language === 'tr';
 
-  const [dateFilter, setDateFilter] = useState<'today' | '7d' | '30d' | 'month' | 'custom'>('30d');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_reports_state', {
+    dateFilter: '30d' as 'today' | '7d' | '30d' | 'month' | 'custom',
+    startDate: '',
+    endDate: ''
+  });
+
+  const { dateFilter, startDate, endDate } = pageState;
+
+  const setDateFilter = (val: 'today' | '7d' | '30d' | 'month' | 'custom') => setPageState({ dateFilter: val });
+  const setStartDate = (val: string) => setPageState({ startDate: val });
+  const setEndDate = (val: string) => setPageState({ endDate: val });
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -154,14 +163,16 @@ export default function Reports() {
     );
   }
 
-  // Set default dates for current month
+  // Set default dates for current month only if they are not already set
   useEffect(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-    setStartDate(firstDay);
-    setEndDate(lastDay);
-  }, []);
+    if (!startDate && !endDate) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      setStartDate(firstDay);
+      setEndDate(lastDay);
+    }
+  }, [startDate, endDate]);
 
   // Filtered reviews by date range
   const filteredReviews = useMemo(() => {
@@ -564,24 +575,34 @@ export default function Reports() {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-          {(['today', '7d', '30d', 'month', 'custom'] as const).map(f => (
+        <div className="flex items-center gap-4 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+          <div className="flex items-center gap-2">
+            {(['today', '7d', '30d', 'month', 'custom'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setDateFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${
+                  dateFilter === f
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:bg-white/[0.04]'
+                }`}
+              >
+                {f === 'today' ? (isTr ? 'Bugün' : 'Today') :
+                 f === '7d' ? '7D' :
+                 f === '30d' ? '30D' :
+                 f === 'month' ? (isTr ? 'Bu Ay' : 'Month') :
+                 (isTr ? 'Özel' : 'Custom')}
+              </button>
+            ))}
+          </div>
+          {dateFilter !== '30d' && (
             <button
-              key={f}
-              onClick={() => setDateFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${
-                dateFilter === f
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-slate-400 hover:bg-white/[0.04]'
-              }`}
+              onClick={() => resetPageState()}
+              className="text-xs text-rose-600 hover:text-rose-700 hover:underline font-bold transition-all cursor-pointer focus:outline-none"
             >
-              {f === 'today' ? (isTr ? 'Bugün' : 'Today') :
-               f === '7d' ? '7D' :
-               f === '30d' ? '30D' :
-               f === 'month' ? (isTr ? 'Bu Ay' : 'Month') :
-               (isTr ? 'Özel' : 'Custom')}
+              Filtreleri Sıfırla
             </button>
-          ))}
+          )}
         </div>
 
         {/* Date Filter & Export Row */}

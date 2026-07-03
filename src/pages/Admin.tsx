@@ -4,6 +4,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { adminService } from '@/services/adminService';
 import { hotelService } from '@/services/hotelService';
 import { UserProfile, Hotel, Role, IntegrationSetting, Organization } from '@/types';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { 
   ShieldAlert,
   Users, 
@@ -56,9 +57,14 @@ export default function Admin() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations'>(() => {
-    return window.location.pathname === '/admin/google-locations' ? 'google-locations' : 'users';
+  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_admin_state', {
+    activeTab: (window.location.pathname === '/admin/google-locations' ? 'google-locations' : 'users') as 'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations',
+    wizardStep: 1
   });
+
+  const { activeTab, wizardStep } = pageState;
+
+  const setActiveTab = (val: 'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations') => setPageState({ activeTab: val });
   const [toast, setToast] = useState<string | null>(null);
 
   const handleTabChange = (tab: 'users' | 'hotels' | 'org' | 'integrations' | 'onboarding' | 'google-locations') => {
@@ -84,7 +90,11 @@ export default function Admin() {
   }, [location.pathname, activeTab]);
 
   // Form States - Customer Onboarding Wizard
-  const [wizardStep, setWizardStep] = useState(1);
+  const setWizardStep = (val: number | ((prev: number) => number)) => {
+    setPageState(prev => ({
+      wizardStep: typeof val === 'function' ? val(prev.wizardStep) : val
+    }));
+  };
   const [onboardOrgName, setOnboardOrgName] = useState('');
   const [onboardOrgContact, setOnboardOrgContact] = useState('');
   const [onboardOrgPhone, setOnboardOrgPhone] = useState('');

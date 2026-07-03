@@ -7,6 +7,7 @@ import { matchesDepartment } from '@/utils/departmentMatcher';
 import { ReviewCard } from '@/components/ReviewCard';
 import { ReviewFilters } from '@/components/ReviewFilters';
 import { ReviewDetailPanel } from '@/components/ReviewDetailPanel';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
@@ -70,15 +71,27 @@ export default function Reviews() {
   const toParam = searchParams.get('to');
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
-  // Query Filters state
-  const [search, setSearch] = useState('');
-  const [source, setSource] = useState<ReviewSource | ''>('');
-  const [rating, setRating] = useState('');
-  const [status, setStatus] = useState<ReviewStatus | ''>('');
-  const [priority, setPriority] = useState<ReviewPriority | ''>('');
-  
-  // Selected review item
-  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  // Query Filters state persisted globally
+  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_reviews_state', {
+    search: '',
+    source: '' as ReviewSource | '',
+    rating: '',
+    status: '' as ReviewStatus | '',
+    priority: '' as ReviewPriority | '',
+    selectedReviewId: null as string | null,
+    currentPage: 1,
+    pageSize: 10,
+    backendLimit: 200
+  });
+
+  const { search, source, rating, status, priority, selectedReviewId, currentPage, pageSize, backendLimit } = pageState;
+
+  const setSearch = (val: string) => setPageState({ search: val, currentPage: 1 });
+  const setSource = (val: ReviewSource | '') => setPageState({ source: val, currentPage: 1 });
+  const setRating = (val: string) => setPageState({ rating: val, currentPage: 1 });
+  const setStatus = (val: ReviewStatus | '') => setPageState({ status: val, currentPage: 1 });
+  const setPriority = (val: ReviewPriority | '') => setPageState({ priority: val, currentPage: 1 });
+  const setSelectedReviewId = (val: string | null) => setPageState({ selectedReviewId: val });
 
   // Sync / Export loading animation helper states
   const [isSyncing, setIsSyncing] = useState(false);
@@ -90,9 +103,18 @@ export default function Reviews() {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
   
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  // Pagination State Setters
+  const setCurrentPage = (val: number | ((prev: number) => number)) => {
+    setPageState(prev => ({
+      currentPage: typeof val === 'function' ? val(prev.currentPage) : val
+    }));
+  };
+  const setPageSize = (val: number) => setPageState({ pageSize: val, currentPage: 1 });
+  const setBackendLimit = (val: number | ((prev: number) => number)) => {
+    setPageState(prev => ({
+      backendLimit: typeof val === 'function' ? val(prev.backendLimit) : val
+    }));
+  };
 
   const paramHotelId = searchParams.get('hotelId') || searchParams.get('hotel_id');
   const activeHotelId = paramHotelId || currentHotelId || '00000000-0000-0000-0000-000000000000';
@@ -122,7 +144,7 @@ export default function Reviews() {
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [backendLimit, setBackendLimit] = useState(200);
+
 
   // Fetch reviews using clean repository service
   const {
@@ -1153,18 +1175,30 @@ export default function Reviews() {
       </div>
 
       {/* Filters Bar */}
-      <ReviewFilters
-        search={search}
-        setSearch={setSearch}
-        source={source}
-        setSource={setSource}
-        rating={rating}
-        setRating={setRating}
-        status={status}
-        setStatus={setStatus}
-        priority={priority}
-        setPriority={setPriority}
-      />
+      <div className="space-y-2">
+        <ReviewFilters
+          search={search}
+          setSearch={setSearch}
+          source={source}
+          setSource={setSource}
+          rating={rating}
+          setRating={setRating}
+          status={status}
+          setStatus={setStatus}
+          priority={priority}
+          setPriority={setPriority}
+        />
+        {(search || source || rating || status || priority) && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => resetPageState()}
+              className="text-xs text-rose-600 hover:text-rose-700 hover:underline font-bold transition-all cursor-pointer flex items-center gap-1 focus:outline-none"
+            >
+              Filtreleri Sıfırla
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Reviews list container (Full Width) */}
       <div className="space-y-4">

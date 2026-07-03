@@ -6,6 +6,7 @@ import { analyticsService } from '@/services/analyticsService';
 import { reviewService } from '@/services/reviewService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import {
   TrendingUp,
   Star,
@@ -54,9 +55,21 @@ export default function Dashboard() {
     hotels: any[];
   }>();
 
-  const [isSectionOpen, setIsSectionOpen] = React.useState(true);
-  const [showAllReviews, setShowAllReviews] = React.useState(false);
-  const [expandedReviews, setExpandedReviews] = React.useState<Record<string, boolean>>({});
+  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_dashboard_state', {
+    isSectionOpen: true,
+    showAllReviews: false,
+    expandedReviews: {} as Record<string, boolean>
+  });
+
+  const { isSectionOpen, showAllReviews, expandedReviews } = pageState;
+
+  const setIsSectionOpen = (val: boolean) => setPageState({ isSectionOpen: val });
+  const setShowAllReviews = (val: boolean) => setPageState({ showAllReviews: val });
+  const setExpandedReviews = (val: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) => {
+    setPageState(prev => ({
+      expandedReviews: typeof val === 'function' ? val(prev.expandedReviews) : val
+    }));
+  };
 
   const toggleReviewExpand = (reviewId: string) => {
     setExpandedReviews(prev => ({
