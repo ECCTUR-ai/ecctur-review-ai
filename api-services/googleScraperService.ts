@@ -88,24 +88,51 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: num
     throw new Error('no_reviews_found');
   }
 
+  console.log(`Google RAW Reviews: ${items.length}`);
+
   if (items.length === 0) {
     throw new Error('no_reviews_found');
   }
 
   // Normalize items to ScrapedReview format
-  return items.map((item: any) => {
+  const parsed = items.map((item: any) => {
     const guestName = item.name || item.authorName || 'Anonymous Guest';
     const rating = item.starsScore || item.stars || 5;
     const reviewText = item.text || item.textTranslated || '';
-    const relativeDate = item.relativeTime || item.publishAt || 'recently';
+
+    // Log specified fields for debugging
+    console.log('[GOOGLE RAW FIELD TRACE]', {
+      reviewId: item.reviewId || item.id || null,
+      reviewDate: item.reviewDate || item.date || item.datePublished || null,
+      publishAt: item.publishAt || null,
+      publishedAt: item.publishedAt || null,
+      publishedAtDate: item.publishedAtDate || null,
+      createTime: item.createTime || null,
+      relativeTimeDate: item.relativeTimeDate || null,
+      relativeTime: item.relativeTime || null
+    });
+    
+    // Rule 2: Chronologically check fields for date
+    const rawDate = 
+      item.publishAt || 
+      item.publishedAt || 
+      item.publishedAtDate || 
+      item.createTime || 
+      item.relativeTimeDate || 
+      item.relativeTime || 
+      'recently';
+      
     const reviewId = item.reviewId || item.id || null;
 
     return {
       guestName: String(guestName).trim(),
       rating: Number(rating),
       reviewText: String(reviewText).trim(),
-      relativeDate: String(relativeDate).trim(),
+      relativeDate: String(rawDate).trim(),
       reviewId: reviewId ? String(reviewId).trim() : null
     };
   });
+
+  console.log(`Google Parsed Reviews: ${parsed.length}`);
+  return parsed;
 }

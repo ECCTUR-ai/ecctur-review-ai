@@ -74,7 +74,7 @@ export async function fetchTripadvisorReviews(url: string, limit?: number): Prom
   }
 
   // 1. Apify'dan dönen ham dataset item sayısını logla
-  console.log('[TRIPADVISOR RAW ITEMS COUNT]', items.length);
+  console.log(`TripAdvisor RAW Reviews: ${items.length}`);
 
   // 2. İlk 3 raw item'ı token/sensitive bilgi olmadan logla
   const samples = items.slice(0, 3).map((item: any) => {
@@ -124,6 +124,12 @@ export async function fetchTripadvisorReviews(url: string, limit?: number): Prom
       '';
 
     const reviewDate = 
+      item.publishAt || 
+      item.publishedAt || 
+      item.publishedAtDate || 
+      item.createTime || 
+      item.relativeTimeDate || 
+      item.relativeTime || 
       item.publishedDate || 
       item.date || 
       item.datePublished || 
@@ -148,7 +154,7 @@ export async function fetchTripadvisorReviews(url: string, limit?: number): Prom
   });
 
   // 4. Normalize edilen sonuç sayısını logla
-  console.log('[TRIPADVISOR NORMALIZED COUNT]', normalized.length);
+  console.log(`TripAdvisor Parsed Reviews: ${normalized.length}`);
 
   return normalized;
 }

@@ -143,8 +143,11 @@ async function checkIsDuplicate(
 
 
 function parseRelativeDate(relative: string): string {
+  if (relative && !isNaN(Date.parse(relative))) {
+    return new Date(relative).toISOString();
+  }
   const now = new Date();
-  const lower = relative.toLowerCase();
+  const lower = (relative || '').toLowerCase();
   
   const match = lower.match(/(\d+)\s+(minute|hour|day|week|month|year)/);
   if (match) {
@@ -1450,6 +1453,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -1462,7 +1466,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             sentiment,
             status: 'draft',
             published: 'No',
-            created_at: parseRelativeDate(r.reviewDate)
+            created_at: new Date().toISOString(),
+            review_date: reviewDateVal
           });
 
           if (insertErr) {
@@ -1476,6 +1481,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           failedCount++;
         }
       }
+
+      console.log(`Google Inserted Reviews: ${importedCount}`);
+      console.log(`Google Duplicate Reviews: ${duplicateCount}`);
 
       const { count: totalAfterImport } = await supabaseAdmin
         .from('reviews')
@@ -1572,6 +1580,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+          const reviewDateVal = parseRelativeDate(r.reviewDate || 'recently') || new Date().toISOString();
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -1584,7 +1593,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             sentiment,
             status: 'draft',
             published: 'No',
-            created_at: parseRelativeDate(r.reviewDate)
+            created_at: new Date().toISOString(),
+            review_date: reviewDateVal
           });
 
           if (insertErr) {
@@ -1598,6 +1608,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           failedCount++;
         }
       }
+
+      console.log(`TripAdvisor Inserted Reviews: ${importedCount}`);
+      console.log(`TripAdvisor Duplicate Reviews: ${duplicateCount}`);
 
       const { count: totalAfterImport } = await supabaseAdmin
         .from('reviews')

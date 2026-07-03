@@ -66,7 +66,7 @@ export const analyticsRepository = {
     const response = await supabase
       .from('reviews')
       .select('created_at, review_date, rating, sentiment, platform')
-      .gte('created_at', dateStr)
+      .gte('review_date', dateStr)
       .eq('hotel_id', hotelId);
 
     if (response.error) throw response.error;
