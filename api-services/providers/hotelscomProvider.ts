@@ -1,6 +1,6 @@
 import { NormalizedReview } from '../reviewImportService.js';
 
-const HOTELS_COM_ACTOR_ID = 'dtrungtin/hotels-scraper';
+const HOTELS_COM_ACTOR_ID = 'memo23/hotels-scraper';
 
 export async function fetchHotelscomReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
   const targetUrl = (url || '').trim();
@@ -19,11 +19,15 @@ export async function fetchHotelscomReviews(url: string, limit?: number): Promis
 
   const payloads = [
     {
+      startUrls: [targetUrl],
+      maxItems: limit || 100
+    },
+    {
       startUrls: [{ url: targetUrl }],
       maxItems: limit || 100
     },
     {
-      urls: [{ url: targetUrl }],
+      urls: [targetUrl],
       maxItems: limit || 100
     },
     {
@@ -124,11 +128,9 @@ export async function fetchHotelscomReviews(url: string, limit?: number): Promis
       item.authorName || 
       item.author || 
       item.reviewerName || 
-      item.userName || 
-      item.name || 
       'Hotels.com Guest';
 
-    let score = item.rating || item.score || item.overallRating || item.reviewRating || 10;
+    let score = item.reviewRating || item.rating || item.score || item.overallRating || 10;
     if (typeof score === 'string') {
       score = parseFloat(score);
     }
@@ -140,13 +142,7 @@ export async function fetchHotelscomReviews(url: string, limit?: number): Promis
       rating = Math.max(1, Math.min(5, Math.round(score)));
     }
 
-    const text = item.reviewText || item.text || item.description || item.comment || item.content || '';
-    const title = item.title || item.headline || item.reviewTitle || '';
-    
-    let reviewText = text;
-    if (title && title.trim()) {
-      reviewText = `${title.trim()}\n\n${text.trim()}`;
-    }
+    const reviewText = item.reviewText || item.text || item.description || item.comment || item.content || '';
 
     const reviewDate = 
       item.reviewDate || 
@@ -161,9 +157,9 @@ export async function fetchHotelscomReviews(url: string, limit?: number): Promis
       `${guestName}_${rating}_${reviewDate}`;
 
     const sourceUrl =
+      item.hotelscomUrl ||
       item.url ||
       item.sourceUrl ||
-      item.hotelscomUrl ||
       targetUrl;
 
     return {
