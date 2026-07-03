@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 interface AuthContextType {
   userId: string | null;
+  email: string | null;
   role: string | null;
   roleKey: string | null;
   permissions: string[];
@@ -18,6 +19,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   userId: null,
+  email: null,
   role: null,
   roleKey: null,
   permissions: [],
@@ -31,6 +33,7 @@ export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [roleKey, setRoleKey] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -45,14 +48,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUserId(session.user.id);
+          setEmail(session.user.email || null);
           const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
-          setRole(rbac.role);
-          setRoleKey(rbac.roleKey || null);
+          
+          // Enforce Super Admin email-based clearance downgrade
+          const isTrueSuperAdmin = session.user.email === 'cemil.sezgin@ecctur.com';
+          const resolvedRoleKey = (rbac.roleKey === 'super_admin' && !isTrueSuperAdmin) ? 'admin' : (rbac.roleKey || null);
+          const resolvedRoleName = (rbac.roleKey === 'super_admin' && !isTrueSuperAdmin) ? 'Admin' : (rbac.role || null);
+
+          setRole(resolvedRoleName);
+          setRoleKey(resolvedRoleKey);
           setPermissions(rbac.permissions);
           setHotelIds(rbac.hotelIds || []);
           setOrganizationId(rbac.organizationId || null);
         } else {
           setUserId(null);
+          setEmail(null);
           setRole(null);
           setRoleKey(null);
           setPermissions([]);
@@ -73,14 +84,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       if (session?.user) {
         setUserId(session.user.id);
+        setEmail(session.user.email || null);
         const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
-        setRole(rbac.role);
-        setRoleKey(rbac.roleKey || null);
+
+        // Enforce Super Admin email-based clearance downgrade
+        const isTrueSuperAdmin = session.user.email === 'cemil.sezgin@ecctur.com';
+        const resolvedRoleKey = (rbac.roleKey === 'super_admin' && !isTrueSuperAdmin) ? 'admin' : (rbac.roleKey || null);
+        const resolvedRoleName = (rbac.roleKey === 'super_admin' && !isTrueSuperAdmin) ? 'Admin' : (rbac.role || null);
+
+        setRole(resolvedRoleName);
+        setRoleKey(resolvedRoleKey);
         setPermissions(rbac.permissions);
         setHotelIds(rbac.hotelIds || []);
         setOrganizationId(rbac.organizationId || null);
       } else {
         setUserId(null);
+        setEmail(null);
         setRole(null);
         setRoleKey(null);
         setPermissions([]);
@@ -101,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ userId, role, roleKey, permissions, hotelIds, organizationId, loading, hasPermission }}>
+    <AuthContext.Provider value={{ userId, email, role, roleKey, permissions, hotelIds, organizationId, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

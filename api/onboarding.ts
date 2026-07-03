@@ -49,13 +49,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('*, roles(name)')
       .eq('profile_id', user.id);
 
-    let userRole = userRolesData?.[0]?.roles?.name;
-    if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
-      userRole = 'Super Admin';
-    }
-
-    const roleNameLower = userRole?.toLowerCase();
-    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+    const isTrueSuperAdmin = user.email === 'cemil.sezgin@ecctur.com';
+    if (!isTrueSuperAdmin) {
       return res.status(403).json({ error: 'Forbidden: Insufficient permissions for onboarding' });
     }
 

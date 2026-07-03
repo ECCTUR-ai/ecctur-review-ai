@@ -230,11 +230,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     userRole = (userRolesData[0].roles as any)?.name;
   }
 
+  const isTrueSuperAdmin = user.email === 'cemil.sezgin@ecctur.com';
+
   if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
     userRole = 'Super Admin';
   }
 
-  const roleNameLower = (userRole || 'staff').toLowerCase();
+  let finalUserRole = userRole;
+  if (finalUserRole && finalUserRole.toLowerCase() === 'super admin' && !isTrueSuperAdmin) {
+    finalUserRole = 'Admin';
+  }
+
+  const roleNameLower = (finalUserRole || 'staff').toLowerCase();
 
   // -------------------------------------------------------------
   // Action: get-current-user
@@ -249,7 +256,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return name.toLowerCase().trim().replace(/\s+/g, '_');
       };
 
-      let displayRoleName = userRole || null;
+      let displayRoleName = finalUserRole || null;
       const roleKey = getRoleKey(displayRoleName);
 
       let hotelIds = (userHotels || []).map(uh => uh.hotel_id);
@@ -554,11 +561,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (queryError) throw queryError;
 
       let returnedProfiles = profiles || [];
-      if (roleNameLower === 'hotel manager') {
-        returnedProfiles = (profiles || []).filter((p: any) => {
-          const profileHotels = (p.user_hotels || []).map((uh: any) => uh.hotel_id);
-          return profileHotels.some((hId: string) => assignedHotelIds.includes(hId));
-        });
+      if (!isTrueSuperAdmin) {
+        // Load caller profile organization
+        const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        const callerOrgId = callerProfile?.organization_id;
+        
+        // Filter users by organization
+        returnedProfiles = (profiles || []).filter((p: any) => p.organization_id === callerOrgId);
+        
+        // And if caller is a hotel manager, filter further by hotel clearances
+        if (roleNameLower === 'hotel manager') {
+          returnedProfiles = returnedProfiles.filter((p: any) => {
+            const profileHotels = (p.user_hotels || []).map((uh: any) => uh.hotel_id);
+            return profileHotels.some((hId: string) => assignedHotelIds.includes(hId));
+          });
+        }
       }
 
       return res.status(200).json({
@@ -604,6 +621,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required' });
+      }
+
+      let finalOrgId = organizationId;
+      if (!isTrueSuperAdmin) {
+        const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        const callerOrgId = callerProfile?.organization_id;
+        finalOrgId = callerOrgId || null;
+
+        // Verify hotelIds belong to finalOrgId
+        if (hotelIds && hotelIds.length > 0) {
+          const { data: orgHotels } = await supabaseAdmin.from('hotels').select('id').eq('organization_id', finalOrgId);
+          const orgHotelIds = (orgHotels || []).map(h => h.id);
+          const hasInvalidHotel = hotelIds.some((hId: string) => !orgHotelIds.includes(hId));
+          if (hasInvalidHotel) {
+            return res.status(403).json({ error: 'Forbidden: Cannot assign users to hotels outside your organization' });
+          }
+        }
+
+        // Verify roleId is not Super Admin
+        if (roleId) {
+          const { data: targetRole } = await supabaseAdmin.from('roles').select('name').eq('id', roleId).maybeSingle();
+          if (targetRole && targetRole.name.toLowerCase() === 'super admin') {
+            return res.status(403).json({ error: 'Forbidden: Cannot create or update Super Admin roles' });
+          }
+        }
       }
 
       let authUserId: string | null = null;
@@ -655,7 +697,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           first_name: firstName || '',
           last_name: lastName || '',
           status: 'active',
-          organization_id: organizationId || null,
+          organization_id: finalOrgId || null,
           created_at: new Date().toISOString(),
           phone: phone || null,
           title: title || null,
@@ -670,7 +712,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           first_name: firstName || '',
           last_name: lastName || '',
           status: 'active',
-          organization_id: organizationId || null,
+          organization_id: finalOrgId || null,
           phone: phone || null,
           title: title || null,
           department: department || null,
@@ -735,7 +777,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'User ID is required for update' });
       }
 
-      console.log('[API Admin Update User] Payload received:', { id, email, firstName, lastName, roleId, hotelIds, organizationId });
+      let finalOrgId = organizationId;
+      if (!isTrueSuperAdmin) {
+        const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        const callerOrgId = callerProfile?.organization_id;
+        finalOrgId = callerOrgId || null;
+
+        // Verify hotelIds belong to finalOrgId
+        if (hotelIds && hotelIds.length > 0) {
+          const { data: orgHotels } = await supabaseAdmin.from('hotels').select('id').eq('organization_id', finalOrgId);
+          const orgHotelIds = (orgHotels || []).map(h => h.id);
+          const hasInvalidHotel = hotelIds.some((hId: string) => !orgHotelIds.includes(hId));
+          if (hasInvalidHotel) {
+            return res.status(403).json({ error: 'Forbidden: Cannot assign users to hotels outside your organization' });
+          }
+        }
+
+        // Verify roleId is not Super Admin
+        if (roleId) {
+          let resolvedRoleId = roleId;
+          if (roleId.length < 30) {
+            const { data: dbRole } = await supabaseAdmin.from('roles').select('id').ilike('name', roleId.replace('_', ' ')).maybeSingle();
+            if (dbRole) resolvedRoleId = dbRole.id;
+          }
+          const { data: targetRole } = await supabaseAdmin.from('roles').select('name').eq('id', resolvedRoleId).maybeSingle();
+          if (targetRole && targetRole.name.toLowerCase() === 'super admin') {
+            return res.status(403).json({ error: 'Forbidden: Cannot create or update Super Admin roles' });
+          }
+        }
+      }
+
+      console.log('[API Admin Update User] Payload received:', { id, email, firstName, lastName, roleId, hotelIds, organizationId: finalOrgId });
 
       // Check if profile exists
       const { data: existingProfile } = await supabaseAdmin.from('profiles').select('id, email').eq('id', id).maybeSingle();
@@ -755,7 +827,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         first_name: firstName || '',
         last_name: lastName || '',
         status: status || 'active',
-        organization_id: organizationId || null,
+        organization_id: finalOrgId || null,
         phone: phone || null,
         title: title || null,
         department: department || null,
@@ -793,6 +865,167 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: err.message });
     }
   }
+
+  // -------------------------------------------------------------
+  // Action: create-hotel
+  // -------------------------------------------------------------
+  if (action === 'create-hotel') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (!isTrueSuperAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to create hotels' });
+    }
+    try {
+      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId } = req.body;
+      if (!name || !organizationId) {
+        return res.status(400).json({ error: 'Missing name or organizationId parameter' });
+      }
+      const { data: newHotel, error: hotelError } = await supabaseAdmin
+        .from('hotels')
+        .insert({
+          name,
+          organization_id: organizationId,
+          google_maps_link: googleMapsUrl || googleMapsLink || null,
+          google_maps_url: googleMapsUrl || googleMapsLink || null,
+          tripadvisor_url: tripadvisorUrl || null,
+          booking_property_id: bookingPropertyId || null
+        })
+        .select()
+        .maybeSingle();
+
+      if (hotelError) throw hotelError;
+      return res.status(200).json({ success: true, hotel: newHotel });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: update-hotel
+  // -------------------------------------------------------------
+  if (action === 'update-hotel') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Admin permissions required to update hotels' });
+    }
+    try {
+      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId } = req.body;
+      if (!id || !name || !organizationId) {
+        return res.status(400).json({ error: 'Missing id, name or organizationId parameter' });
+      }
+
+      if (!isTrueSuperAdmin) {
+        // Enforce caller organization check
+        const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        if (!callerProfile || callerProfile.organization_id !== organizationId) {
+          return res.status(403).json({ error: 'Forbidden: Cannot edit hotels of another organization' });
+        }
+      }
+
+      const { data: updatedHotel, error: hotelError } = await supabaseAdmin
+        .from('hotels')
+        .update({
+          name,
+          organization_id: organizationId,
+          google_maps_link: googleMapsUrl || googleMapsLink || null,
+          google_maps_url: googleMapsUrl || googleMapsLink || null,
+          tripadvisor_url: tripadvisorUrl || null,
+          booking_property_id: bookingPropertyId || null
+        })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (hotelError) throw hotelError;
+      return res.status(200).json({ success: true, hotel: updatedHotel });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: delete-hotel
+  // -------------------------------------------------------------
+  if (action === 'delete-hotel') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (!isTrueSuperAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to delete hotels' });
+    }
+    try {
+      const { id } = req.body;
+      if (!id) {
+        return res.status(400).json({ error: 'Missing hotel id parameter' });
+      }
+      const { error: hotelError } = await supabaseAdmin
+        .from('hotels')
+        .delete()
+        .eq('id', id);
+
+      if (hotelError) throw hotelError;
+      return res.status(200).json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: update-organization
+  // -------------------------------------------------------------
+  if (action === 'update-organization') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Admin permissions required to update organization' });
+    }
+    try {
+      const { id, updates } = req.body;
+      if (!id || !updates) {
+        return res.status(400).json({ error: 'Missing id or updates parameter' });
+      }
+
+      if (!isTrueSuperAdmin) {
+        // Enforce caller organization check
+        const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        if (!callerProfile || callerProfile.organization_id !== id) {
+          return res.status(403).json({ error: 'Forbidden: Cannot edit another organization' });
+        }
+      }
+
+      // Convert camelCase parameters to snake_case db columns if present
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl;
+      if (updates.taxOffice !== undefined) dbUpdates.tax_office = updates.taxOffice;
+      if (updates.taxNumber !== undefined) dbUpdates.tax_number = updates.taxNumber;
+      if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+      if (updates.email !== undefined) dbUpdates.email = updates.email;
+      if (updates.website !== undefined) dbUpdates.website = updates.website;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.country !== undefined) dbUpdates.country = updates.country;
+      if (updates.city !== undefined) dbUpdates.city = updates.city;
+      if (updates.currency !== undefined) dbUpdates.currency = updates.currency;
+      if (updates.defaultLanguage !== undefined) dbUpdates.default_language = updates.defaultLanguage;
+
+      const { data: updatedOrg, error: orgError } = await supabaseAdmin
+        .from('organizations')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (orgError) throw orgError;
+      return res.status(200).json({ success: true, organization: updatedOrg });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
 
   return res.status(400).json({ error: `Unknown action: ${action}` });
 }

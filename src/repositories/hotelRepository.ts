@@ -103,131 +103,68 @@ export const hotelRepository = {
   },
 
   async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string }): Promise<Hotel> {
-    const insertData = {
-      name: hotel.name,
-      organization_id: hotel.organizationId,
-      google_maps_link: hotel.googleMapsLink || null,
-      google_maps_url: hotel.googleMapsLink || null,
-      tripadvisor_url: hotel.tripadvisorUrl || null,
-      booking_property_id: hotel.bookingPropertyId || null
-    };
-    console.log('[SUPABASE INSERT]', insertData);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
 
-    const { data, error } = await supabase
-      .from('hotels')
-      .insert(insertData)
-      .select()
-      .maybeSingle();
+    const response = await fetch('/api/admin?action=create-hotel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(hotel)
+    });
 
-    console.log('[SUPABASE INSERT RESPONSE]', { data, error });
-
-    if (error) {
-      console.error('[SUPABASE INSERT ERROR DETAILED]', error);
-      if (error.code === 'PGRST116' || error.message.includes('single') || error.message.includes('JSON')) {
-        console.warn('Supabase select post-insert was blocked by RLS policies. Treating as success.');
-        return {
-          id: 'temp-inserted-id',
-          organizationId: hotel.organizationId,
-          name: hotel.name,
-          createdAt: new Date().toISOString(),
-          connectionStatus: 'connected',
-          googleMapsLink: hotel.googleMapsLink,
-          googleMapsUrl: hotel.googleMapsLink,
-          tripadvisorUrl: hotel.tripadvisorUrl,
-          bookingPropertyId: hotel.bookingPropertyId
-        };
-      }
-      throw error;
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create hotel');
     }
 
-    const resultRow = data || {
-      id: 'temp-inserted-id',
-      organization_id: hotel.organizationId,
-      name: hotel.name,
-      created_at: new Date().toISOString(),
-      google_maps_link: hotel.googleMapsLink,
-      google_maps_url: hotel.googleMapsLink,
-      tripadvisor_url: hotel.tripadvisorUrl,
-      booking_property_id: hotel.bookingPropertyId
-    };
-
-    console.log('[SUPABASE INSERT RESOLVED ROW]', resultRow);
-
+    const h = result.hotel;
     return {
-      id: resultRow.id,
-      organizationId: resultRow.organization_id,
-      name: resultRow.name,
-      createdAt: resultRow.created_at || resultRow.createdAt,
+      id: h.id,
+      organizationId: h.organization_id || h.organizationId,
+      name: h.name,
+      createdAt: h.created_at || h.createdAt,
       connectionStatus: 'connected',
-      googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
-      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
-      tripadvisorUrl: resultRow.tripadvisor_url || '',
-      bookingPropertyId: resultRow.booking_property_id || ''
+      googleMapsLink: h.google_maps_url || h.google_maps_link || '',
+      googleMapsUrl: h.google_maps_url || h.google_maps_link || '',
+      tripadvisorUrl: h.tripadvisor_url || '',
+      bookingPropertyId: h.booking_property_id || ''
     };
   },
 
   async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingPropertyId?: string }): Promise<Hotel> {
-    const updateData = {
-      name: hotel.name,
-      organization_id: hotel.organizationId,
-      google_maps_link: hotel.googleMapsLink || null,
-      google_maps_url: hotel.googleMapsLink || null,
-      tripadvisor_url: hotel.tripadvisorUrl || null,
-      booking_property_id: hotel.bookingPropertyId || null
-    };
-    console.log('[SUPABASE UPDATE]', updateData);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
 
-    const { data, error } = await supabase
-      .from('hotels')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .maybeSingle();
+    const response = await fetch('/api/admin?action=update-hotel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ id, ...hotel })
+    });
 
-    console.log('[SUPABASE UPDATE RESPONSE]', { data, error });
-
-    if (error) {
-      console.error('[SUPABASE UPDATE ERROR DETAILED]', error);
-      if (error.code === 'PGRST116' || error.message.includes('single') || error.message.includes('JSON')) {
-        console.warn('Supabase select post-update was blocked by RLS policies. Treating as success.');
-        return {
-          id,
-          organizationId: hotel.organizationId,
-          name: hotel.name,
-          createdAt: new Date().toISOString(),
-          connectionStatus: 'connected',
-          googleMapsLink: hotel.googleMapsLink,
-          googleMapsUrl: hotel.googleMapsLink,
-          tripadvisorUrl: hotel.tripadvisorUrl,
-          bookingPropertyId: hotel.bookingPropertyId
-        };
-      }
-      throw error;
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to update hotel');
     }
 
-    const resultRow = data || {
-      id,
-      organization_id: hotel.organizationId,
-      name: hotel.name,
-      created_at: new Date().toISOString(),
-      google_maps_link: hotel.googleMapsLink,
-      google_maps_url: hotel.googleMapsLink,
-      tripadvisor_url: hotel.tripadvisorUrl,
-      booking_property_id: hotel.bookingPropertyId
-    };
-
-    console.log('[SUPABASE UPDATE RESOLVED ROW]', resultRow);
-
+    const h = result.hotel;
     return {
-      id: resultRow.id,
-      organizationId: resultRow.organization_id,
-      name: resultRow.name,
-      createdAt: resultRow.created_at || resultRow.createdAt,
+      id: h.id,
+      organizationId: h.organization_id || h.organizationId,
+      name: h.name,
+      createdAt: h.created_at || h.createdAt,
       connectionStatus: 'connected',
-      googleMapsLink: resultRow.google_maps_url || resultRow.google_maps_link,
-      googleMapsUrl: resultRow.google_maps_url || resultRow.google_maps_link,
-      tripadvisorUrl: resultRow.tripadvisor_url || '',
-      bookingPropertyId: resultRow.booking_property_id || ''
+      googleMapsLink: h.google_maps_url || h.google_maps_link || '',
+      googleMapsUrl: h.google_maps_url || h.google_maps_link || '',
+      tripadvisorUrl: h.tripadvisor_url || '',
+      bookingPropertyId: h.booking_property_id || ''
     };
   }
 };

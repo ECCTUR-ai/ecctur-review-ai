@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { adminService } from '@/services/adminService';
 import { hotelService } from '@/services/hotelService';
 import { UserProfile, Hotel, Role, IntegrationSetting, Organization } from '@/types';
 import { 
+  ShieldAlert,
   Users, 
   Building, 
   Building2, 
@@ -31,9 +32,26 @@ import { supabase } from '@/lib/supabase';
 
 export default function Admin() {
   const { t } = useTranslation();
-  const { role } = useAuth();
+  const { role, email, organizationId } = useAuth();
   const roleNameLower = role?.toLowerCase() || 'staff';
-  const isSuperOrAdmin = roleNameLower === 'super admin' || roleNameLower === 'admin';
+  const isTrueSuperAdmin = email === 'cemil.sezgin@ecctur.com';
+  const isSuperOrAdmin = isTrueSuperAdmin || roleNameLower === 'admin';
+
+  if (roleNameLower !== 'super admin' && roleNameLower !== 'admin' && !isTrueSuperAdmin) {
+    return (
+      <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <ShieldAlert size={22} />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="text-sm font-bold text-slate-200">Erişim Engellendi</h3>
+          <p className="text-xs text-slate-400">
+            Bu sayfayı görüntülemek için yetkiniz bulunmamaktadır.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -427,8 +445,21 @@ export default function Admin() {
 
   console.log('[Admin Page] Loaded roles data:', roles);
 
+  const filteredHotelsList = useMemo<Hotel[]>(() => {
+    if (isTrueSuperAdmin) return hotels || [];
+    return (hotels || []).filter((h: Hotel) => h.organizationId === organizationId);
+  }, [hotels, isTrueSuperAdmin, organizationId]);
+
   // Current Organization
-  const currentOrg = orgs?.[0] || { id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'GuestReview.ai', createdAt: '' };
+  const currentOrg = useMemo<Organization | { id: string; name: string; createdAt: string }>(() => {
+    if (isTrueSuperAdmin) return orgs?.[0] || { id: '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'GuestReview.ai', createdAt: '' };
+    return orgs?.find((o: Organization) => o.id === organizationId) || { id: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7', name: 'Organization', createdAt: '' };
+  }, [orgs, isTrueSuperAdmin, organizationId]);
+
+  const filteredRoles = useMemo<Role[]>(() => {
+    if (isTrueSuperAdmin) return roles || [];
+    return (roles || []).filter((r: Role) => r.name !== 'Super Admin');
+  }, [roles, isTrueSuperAdmin]);
 
   // Form States - User
   const [isAddingUser, setIsAddingUser] = useState(false);
@@ -506,7 +537,7 @@ export default function Admin() {
     setUserFirstName('');
     setUserLastName('');
     setUserStatus('active');
-    setUserRoleId(roles?.[0]?.id || '');
+    setUserRoleId(filteredRoles?.[0]?.id || '');
     setUserHotelIds([]);
     setUserOrgId(currentOrg.id);
     setUserPassword('');
@@ -783,16 +814,18 @@ export default function Admin() {
           </button>
         )}
         {isSuperOrAdmin && (
+          <button
+            onClick={() => handleTabChange('integrations')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sliders size={14} />
+            {t('admin.tabs.integrations')}
+          </button>
+        )}
+        {isTrueSuperAdmin && (
           <>
-            <button
-              onClick={() => handleTabChange('integrations')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Sliders size={14} />
-              {t('admin.tabs.integrations')}
-            </button>
             <button
               onClick={() => handleTabChange('onboarding')}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
@@ -916,7 +949,7 @@ export default function Admin() {
                         onChange={(e) => setUserRoleId(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
                       >
-                        {roles?.map((r) => (
+                        {filteredRoles?.map((r) => (
                           <option key={r.id} value={r.id} className="bg-[#090b16] text-slate-300">
                             {r.name}
                           </option>
@@ -936,20 +969,22 @@ export default function Admin() {
                       </select>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Parent Organization</label>
-                      <select
-                        value={userOrgId}
-                        onChange={(e) => setUserOrgId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
-                      >
-                        {orgs?.map((o) => (
-                          <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
-                            {o.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {isTrueSuperAdmin ? (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Parent Organization</label>
+                        <select
+                          value={userOrgId}
+                          onChange={(e) => setUserOrgId(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        >
+                          {orgs?.map((o) => (
+                            <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
+                              {o.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Row 3: Contact & Department Details */}
@@ -1030,7 +1065,7 @@ export default function Admin() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">Hotel Access Permissions</label>
                     <div className="flex flex-wrap gap-2">
-                      {hotels?.map((h) => {
+                      {(isTrueSuperAdmin ? (hotels || []) : (hotels || []).filter(h => h.organizationId === organizationId))?.map((h) => {
                         const hasAccess = userHotelIds.includes(h.id);
                         return (
                           <button
@@ -1244,20 +1279,22 @@ export default function Admin() {
                       />
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Parent Organization</label>
-                      <select
-                        value={hotelOrgId}
-                        onChange={(e) => setHotelOrgId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
-                      >
-                        {orgs?.map((o) => (
-                          <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
-                            {o.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {isTrueSuperAdmin ? (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Parent Organization</label>
+                        <select
+                          value={hotelOrgId}
+                          onChange={(e) => setHotelOrgId(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        >
+                          {orgs?.map((o) => (
+                            <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
+                              {o.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="space-y-1.5">
@@ -1318,7 +1355,7 @@ export default function Admin() {
               <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
                 <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
                   <Building size={16} className="text-blue-400" />
-                  Hotels List ({hotels?.length || 0})
+                  Hotels List ({filteredHotelsList?.length || 0})
                 </h3>
                 <button
                   onClick={handleOpenAddHotel}
@@ -1587,7 +1624,7 @@ export default function Admin() {
                   </div>
                   <div className="p-4 rounded-xl bg-white/30 border border-slate-200">
                     <span className="text-slate-500 block">Associated Hotels count</span>
-                    <span className="font-semibold text-slate-400 block mt-1">{hotels?.length || 0} active hotels</span>
+                    <span className="font-semibold text-slate-400 block mt-1">{filteredHotelsList?.length || 0} active hotels</span>
                   </div>
                 </div>
 
@@ -1611,7 +1648,7 @@ export default function Admin() {
                 Hotels Managed under {currentOrg.name}
               </h4>
               <div className="divide-y divide-white/[0.04]">
-                {hotels?.map(h => (
+                {filteredHotelsList?.map(h => (
                   <div key={h.id} className="py-3 flex justify-between items-center text-xs text-slate-300">
                     <span className="font-semibold">{h.name}</span>
                     <span className="text-[10px] font-mono text-slate-500">{h.id}</span>
@@ -1755,7 +1792,7 @@ export default function Admin() {
         )}
 
         {/* TAB 5: CUSTOMER ONBOARDING WIZARD */}
-        {isSuperOrAdmin && activeTab === 'onboarding' && (
+        {isSuperOrAdmin && isTrueSuperAdmin && activeTab === 'onboarding' && (
           <div className="space-y-6 max-w-4xl">
             {/* Wizard Header Progress Bar */}
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-4">
@@ -2342,7 +2379,7 @@ export default function Admin() {
           </div>
         )}
 
-        {isSuperOrAdmin && activeTab === 'google-locations' && (
+        {isSuperOrAdmin && isTrueSuperAdmin && activeTab === 'google-locations' && (
           <div className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200">

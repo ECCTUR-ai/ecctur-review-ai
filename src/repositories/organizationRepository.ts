@@ -44,35 +44,32 @@ export const organizationRepository = {
   },
 
   async updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization> {
-    const dbUpdates: any = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl;
-    if (updates.taxOffice !== undefined) dbUpdates.tax_office = updates.taxOffice;
-    if (updates.taxNumber !== undefined) dbUpdates.tax_number = updates.taxNumber;
-    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
-    if (updates.email !== undefined) dbUpdates.email = updates.email;
-    if (updates.website !== undefined) dbUpdates.website = updates.website;
-    if (updates.address !== undefined) dbUpdates.address = updates.address;
-    if (updates.country !== undefined) dbUpdates.country = updates.country;
-    if (updates.city !== undefined) dbUpdates.city = updates.city;
-    if (updates.currency !== undefined) dbUpdates.currency = updates.currency;
-    if (updates.defaultLanguage !== undefined) dbUpdates.default_language = updates.defaultLanguage;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
 
-    const { data, error } = await supabase
-      .from('organizations')
-      .update(dbUpdates)
-      .eq('id', id)
-      .select()
-      .maybeSingle();
+    const response = await fetch('/api/admin?action=update-organization', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ id, updates })
+    });
 
-    if (error) throw error;
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to update organization');
+    }
+
+    const data = result.organization;
     return {
       id: data.id,
       name: data.name,
-      createdAt: data.created_at,
-      logoUrl: data.logo_url,
-      taxOffice: data.tax_office,
-      taxNumber: data.tax_number,
+      createdAt: data.created_at || data.createdAt,
+      logoUrl: data.logo_url || data.logoUrl,
+      taxOffice: data.tax_office || data.taxOffice,
+      taxNumber: data.tax_number || data.taxNumber,
       phone: data.phone,
       email: data.email,
       website: data.website,
@@ -80,7 +77,7 @@ export const organizationRepository = {
       country: data.country,
       city: data.city,
       currency: data.currency,
-      defaultLanguage: data.default_language
+      defaultLanguage: data.default_language || data.defaultLanguage
     };
   }
 };

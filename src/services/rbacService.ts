@@ -67,6 +67,11 @@ export const rbacService = {
       roleName = 'staff';
     }
 
+    // Enforce true Super Admin email-based clearance check on local fallback
+    if (roleName.toLowerCase() === 'super admin' && email !== 'cemil.sezgin@ecctur.com') {
+      roleName = 'Admin';
+    }
+
     const roleNameLower = roleName.toLowerCase();
 
     // Define every permission available in the platform

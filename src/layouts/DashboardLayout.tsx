@@ -268,6 +268,9 @@ export default function DashboardLayout() {
                 if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
                   return null;
                 }
+                if (item.path === '/admin' && roleKey !== 'super_admin' && roleKey !== 'admin') {
+                  return null;
+                }
                 const isActive = item.path === '/'
                   ? location.pathname === '/'
                   : location.pathname.startsWith(item.path);
@@ -364,6 +367,9 @@ export default function DashboardLayout() {
           {sidebarItems.map((item) => {
             // When AUTH_ENABLED is false (development mode), bypass permission filtering
             if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
+              return null;
+            }
+            if (item.path === '/admin' && roleKey !== 'super_admin' && roleKey !== 'admin') {
               return null;
             }
             const isActive = item.path === '/'
