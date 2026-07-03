@@ -109,6 +109,10 @@ export const taskRepository = {
   },
 
   async getDashboardTasks(hotelId?: string): Promise<{ openTasks: Task[]; overdueTasks: Task[] }> {
+    if (!hotelId) {
+      console.warn('[taskRepository] Warning: getDashboardTasks called without hotelId parameter. Enforcing tenant isolation.');
+      return { openTasks: [], overdueTasks: [] };
+    }
     const today = new Date().toISOString().split('T')[0];
 
     const runDashboardQueries = async (useHotelFilter: boolean) => {

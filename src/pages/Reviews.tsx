@@ -9,6 +9,7 @@ import { ReviewFilters } from '@/components/ReviewFilters';
 import { ReviewDetailPanel } from '@/components/ReviewDetailPanel';
 import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthGuard';
 import { 
   RefreshCw, 
   Download, 
@@ -16,13 +17,18 @@ import {
   Database,
   ArrowLeft,
   Bell,
-  Sparkles
+  Sparkles,
+  ShieldAlert
 } from 'lucide-react';
 
 import { hotelRepository } from '@/repositories/hotelRepository';
 
 export default function Reviews() {
   const { t } = useTranslation();
+  const { hotelIds, roleKey } = useAuth();
+  const isSuperAdmin = roleKey === 'super_admin';
+  const hasNoAssignedHotels = !isSuperAdmin && (!hotelIds || hotelIds.length === 0);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const departmentParam = searchParams.get('department');
   const fromParam = searchParams.get('from');
@@ -53,10 +59,12 @@ export default function Reviews() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
+
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [currentHotelId, search, source, rating, status, priority]);
+  }, [activeHotelId, search, source, rating, status, priority]);
 
   // Scroll to top when page changes
   useEffect(() => {
@@ -81,13 +89,29 @@ export default function Reviews() {
     error,
     refetch
   } = useFetch(() => reviewService.getReviews({
-    hotelId: currentHotelId || undefined,
+    hotelId: activeHotelId,
     search: search || undefined,
     source: source || undefined,
     rating: rating ? Number(rating) : undefined,
     status: status || undefined,
     priority: priority || undefined
-  }), [currentHotelId, search, source, rating, status, priority]);
+  }), [activeHotelId, search, source, rating, status, priority]);
+
+  if (hasNoAssignedHotels) {
+    return (
+      <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <ShieldAlert size={22} />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="text-sm font-bold text-slate-200">Otel Ataması Eksik</h3>
+          <p className="text-xs text-slate-400">
+            Hesabınıza atanmış herhangi bir otel bulunamadı. Lütfen yöneticinizle iletişime geçin.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Supabase Realtime insertion listener
   useEffect(() => {

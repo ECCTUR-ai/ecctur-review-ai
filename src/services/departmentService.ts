@@ -2,11 +2,14 @@ import { supabase } from '@/lib/supabase';
 import { Department } from '@/types';
 
 export const departmentService = {
-  async getDepartments(): Promise<Department[]> {
-    const { data, error } = await supabase
-      .from('departments')
-      .select('*')
-      .order('name', { ascending: true });
+  async getDepartments(hotelId?: string): Promise<Department[]> {
+    let query = supabase.from('departments').select('*');
+    if (hotelId) {
+      query = query.eq('hotel_id', hotelId);
+    }
+    query = query.order('name', { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) throw new Error(error.message);
 

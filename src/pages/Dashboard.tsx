@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { analyticsService } from '@/services/analyticsService';
 import { reviewService } from '@/services/reviewService';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthGuard';
 import {
   TrendingUp,
   Star,
@@ -14,7 +15,8 @@ import {
   Sparkles,
   ArrowUpRight,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldAlert
 } from 'lucide-react';
 import {
   LineChart,
@@ -42,6 +44,10 @@ interface ScrapedReview {
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const { hotelIds, roleKey } = useAuth();
+  const isSuperAdmin = roleKey === 'super_admin';
+  const hasNoAssignedHotels = !isSuperAdmin && (!hotelIds || hotelIds.length === 0);
+
   const { setIsApiOnline, currentHotelId, hotels } = useOutletContext<{
     setIsApiOnline: (val: boolean) => void;
     currentHotelId: string;
@@ -59,44 +65,61 @@ export default function Dashboard() {
     }));
   };
 
+  const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
+
   // 1. Load backend metrics
   const {
     data: metrics,
     loading: metricsLoading,
     refetch: refetchMetrics
-  } = useFetch(() => analyticsService.getMetrics(currentHotelId || undefined), [currentHotelId]);
+  } = useFetch(() => analyticsService.getMetrics(activeHotelId), [activeHotelId]);
 
   // 2. Load recent reviews
   const {
     data: recentReviewsData,
     loading: reviewsLoading,
     refetch: refetchReviews
-  } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: currentHotelId || undefined }), [currentHotelId]);
+  } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: activeHotelId }), [activeHotelId]);
 
   // 3. Load trends
   const {
     data: trends,
     loading: trendsLoading,
-  } = useFetch(() => analyticsService.getTrends('30d', currentHotelId || undefined), [currentHotelId]);
+  } = useFetch(() => analyticsService.getTrends('30d', activeHotelId), [activeHotelId]);
 
   // 4. Load platform share
   const {
     data: platformShare,
     loading: platformLoading,
-  } = useFetch(() => analyticsService.getPlatformShare(currentHotelId || undefined), [currentHotelId]);
+  } = useFetch(() => analyticsService.getPlatformShare(activeHotelId), [activeHotelId]);
 
   // 5. Load rating distribution raw values to calculate star rating counts
   const {
     data: ratingsDistributionRaw,
     loading: ratingsLoading,
   } = useFetch(async () => {
-    let query = supabase.from('reviews').select('rating');
-    if (currentHotelId) {
-      query = query.eq('hotel_id', currentHotelId);
-    }
-    const { data } = await query;
+    const { data } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('hotel_id', activeHotelId);
     return data || [];
-  }, [currentHotelId]);
+  }, [activeHotelId]);
+
+  if (hasNoAssignedHotels) {
+    return (
+      <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <ShieldAlert size={22} />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="text-sm font-bold text-slate-200">Otel Ataması Eksik</h3>
+          <p className="text-xs text-slate-400">
+            Hesabınıza atanmış herhangi bir otel bulunamadı. Lütfen yöneticinizle iletişime geçin.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Set API status indicator
   useEffect(() => {

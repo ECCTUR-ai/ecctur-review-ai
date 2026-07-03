@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { reviewService } from '@/services/reviewService';
 import { getDepartmentStats } from '@/utils/departmentMatcher';
 import { Review, Sentiment, ReviewPriority, ReviewSource } from '@/types';
+import { useAuth } from '@/components/AuthGuard';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -42,13 +43,18 @@ import {
   ArrowRight,
   Languages,
   Wifi,
-  Building
+  Building,
+  ShieldAlert
 } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#64748b'];
 
 export default function Reports() {
   const navigate = useNavigate();
+  const { hotelIds, roleKey } = useAuth();
+  const isSuperAdmin = roleKey === 'super_admin';
+  const hasNoAssignedHotels = !isSuperAdmin && (!hotelIds || hotelIds.length === 0);
+
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
   const { t, i18n } = useTranslation();
   const isTr = i18n.language === 'tr';
@@ -56,16 +62,21 @@ export default function Reports() {
   const [dateFilter, setDateFilter] = useState<'today' | '7d' | '30d' | 'month' | 'custom'>('30d');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Translation local states
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const [selectedLangs, setSelectedLangs] = useState<Record<string, 'tr' | 'en' | 'ru' | null>>({});
   const [translationCache, setTranslationCache] = useState<Record<string, Record<string, string>>>({});
   const [translatingStates, setTranslatingStates] = useState<Record<string, boolean>>({});
   const [translationErrorStates, setTranslationErrorStates] = useState<Record<string, string | null>>({});
+
+  const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
 
   const handleTranslateReview = async (reviewId: string, text: string, lang: 'tr' | 'en' | 'ru') => {
     const currentSelected = selectedLangs[reviewId];
@@ -101,7 +112,6 @@ export default function Reports() {
 
   // Fetch reviews when hotel changes
   const fetchReviews = async () => {
-    if (!currentHotelId) return;
     setLoading(true);
     // Clear translation states on hotel change
     setSelectedLangs({});
@@ -109,7 +119,7 @@ export default function Reports() {
     setTranslatingStates({});
     setTranslationErrorStates({});
     try {
-      const result = await reviewService.getReviews({ hotelId: currentHotelId, limit: 1000 });
+      const result = await reviewService.getReviews({ hotelId: activeHotelId, limit: 1000 });
       setReviews(result.reviews || []);
     } catch (error) {
       console.error('Failed to load reviews for reports:', error);
@@ -120,7 +130,23 @@ export default function Reports() {
 
   useEffect(() => {
     fetchReviews();
-  }, [currentHotelId]);
+  }, [activeHotelId]);
+
+  if (hasNoAssignedHotels) {
+    return (
+      <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <ShieldAlert size={22} />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="text-sm font-bold text-slate-200">Otel Ataması Eksik</h3>
+          <p className="text-xs text-slate-400">
+            Hesabınıza atanmış herhangi bir otel bulunamadı. Lütfen yöneticinizle iletişime geçin.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Set default dates for current month
   useEffect(() => {
@@ -287,22 +313,20 @@ export default function Reports() {
 
   // Reusable resolved actions reader (selecting by hotel_id only)
   const loadResolutions = async (): Promise<string[]> => {
-    if (!currentHotelId) return [];
     try {
       const { data, error } = await supabase
         .from('action_resolutions')
         .select('action_key')
-        .eq('hotel_id', currentHotelId);
-
-      if (error) {
-        console.warn('[Database] action_resolutions table may not be migrated yet:', error.message);
-      } else if (data) {
-        return data.map((item: any) => item.action_key);
-      }
+        .eq('hotel_id', activeHotelId);
+        
+      if (error) throw error;
+      const keys = (data || []).map(d => d.action_key);
+      setResolvedKeys(keys);
+      return keys;
     } catch (e) {
-      console.warn('[Database] Exception loading action resolutions:', e);
+      console.error('Error loading resolutions:', e);
+      return [];
     }
-    return [];
   };
 
   // Get active date range values for URL redirects
@@ -332,11 +356,7 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    setLocalResolvedKeys([]);
-  }, [currentHotelId]);
-
-  useEffect(() => {
-    if (filteredReviews.length === 0 || !currentHotelId) {
+    if (filteredReviews.length === 0 || !activeHotelId) {
       setInsights({ issues: [], highlights: [], actions: [] });
       return;
     }
@@ -368,17 +388,17 @@ export default function Reports() {
     };
 
     loadInsightsAndResolutions();
-  }, [filteredReviews, currentHotelId, dateFilter, startDate, endDate]);
+  }, [filteredReviews, activeHotelId, dateFilter, startDate, endDate]);
 
   // Compute filtered unresolved actions sliced to exactly 5
   const unresolvedActions = useMemo(() => {
     return (insights.actions || [])
       .filter(act => {
-        const key = createActionKey(act, currentHotelId);
+        const key = createActionKey(act, activeHotelId);
         return !resolvedKeys.includes(key) && !localResolvedKeys.includes(key);
       })
       .slice(0, 5);
-  }, [insights.actions, resolvedKeys, localResolvedKeys, currentHotelId]);
+  }, [insights.actions, resolvedKeys, localResolvedKeys, activeHotelId]);
 
   // Click handler to mark action completed
   const handleResolveAction = async (act: { title: string; description: string; category: string }) => {
@@ -389,7 +409,7 @@ export default function Reports() {
     if (!window.confirm(confirmMessage)) return;
 
     const activePeriod = dateFilter === 'custom' ? `${startDate}_${endDate}` : dateFilter;
-    const actionKey = createActionKey(act, currentHotelId);
+    const actionKey = createActionKey(act, activeHotelId);
 
     // Update local keys immediately for responsive rendering
     setLocalResolvedKeys(prev => [...prev, actionKey]);
@@ -398,14 +418,14 @@ export default function Reports() {
     // Dynamically filter it out from the raw insights data structure to trigger immediate re-render
     setInsights(prev => ({
       ...prev,
-      actions: (prev.actions || []).filter(a => createActionKey(a, currentHotelId) !== actionKey)
+      actions: (prev.actions || []).filter(a => createActionKey(a, activeHotelId) !== actionKey)
     }));
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error } = await supabase.from('action_resolutions').insert({
-        hotel_id: currentHotelId,
+        hotel_id: activeHotelId,
         action_key: actionKey,
         action_title: act.title,
         action_description: act.description,
@@ -459,18 +479,14 @@ export default function Reports() {
     }
   };
 
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
+  const currentHotel = hotels?.find(h => h.id === activeHotelId);
 
   const exportReport = (format: 'pdf' | 'excel') => {
     showToast(
       isTr 
-        ? `${format.toUpperCase()} raporu hazırlanıyor. Lütfen bekleyin...`
+        ? `"${format.toUpperCase()}" raporu hazırlanıyor. Lütfen bekleyin...` 
         : `Preparing ${format.toUpperCase()} report. Please wait...`
     );
-    
     setTimeout(() => {
       showToast(
         isTr 
@@ -479,8 +495,6 @@ export default function Reports() {
       );
     }, 2000);
   };
-
-  const currentHotel = hotels?.find(h => h.id === currentHotelId);
 
   return (
     <div className="space-y-6">
@@ -503,30 +517,31 @@ export default function Reports() {
             {currentHotel?.name || 'Hotel'} - {isTr ? 'Geri bildirim analizi ve AI performans kırılımı' : 'Feedback analysis and AI performance summary'}
           </p>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+          {(['today', '7d', '30d', 'month', 'custom'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setDateFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${
+                dateFilter === f
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-slate-400 hover:bg-white/[0.04]'
+              }`}
+            >
+              {f === 'today' ? (isTr ? 'Bugün' : 'Today') :
+               f === '7d' ? '7D' :
+               f === '30d' ? '30D' :
+               f === 'month' ? (isTr ? 'Bu Ay' : 'Month') :
+               (isTr ? 'Özel' : 'Custom')}
+            </button>
+          ))}
+        </div>
 
         {/* Date Filter & Export Row */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Preset Buttons */}
-          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-white/[0.06] rounded-xl">
-            {(['today', '7d', '30d', 'month', 'custom'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setDateFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${
-                  dateFilter === f
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-slate-400 hover:bg-white/[0.04]'
-                }`}
-              >
-                {f === 'today' ? (isTr ? 'Bugün' : 'Today') :
-                 f === '7d' ? '7D' :
-                 f === '30d' ? '30D' :
-                 f === 'month' ? (isTr ? 'Bu Ay' : 'Month') :
-                 (isTr ? 'Özel' : 'Custom')}
-              </button>
-            ))}
-          </div>
-
           {/* Export Actions */}
           <div className="flex items-center gap-1.5">
             <button
@@ -546,8 +561,6 @@ export default function Reports() {
           </div>
         </div>
       </div>
-
-      {/* Custom Date Picker Fields */}
       {dateFilter === 'custom' && (
         <div className="glass-panel p-4 rounded-2xl flex flex-wrap items-center gap-4 bg-slate-950/20 animate-fade-in">
           <div className="flex items-center gap-2">
