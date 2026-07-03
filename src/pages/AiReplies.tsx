@@ -8,6 +8,7 @@ import { whatsappService } from '@/services/whatsappService';
 import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
 import { mapReview } from '@/repositories/reviewRepository';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
+import { getPlatformLabel, getPlatformColorClass } from '@/utils/platform';
 import { 
   Sparkles, 
   MessageSquare, 
@@ -1236,15 +1237,8 @@ export default function AiReplies() {
 
                         <div className="flex items-center gap-1.5">
                           {/* Platform Badge */}
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase ${
-                            review.source === 'Google' ? 'bg-blue-50 text-blue-600 border border-blue-100/50' :
-                            review.source === 'TripAdvisor' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50' :
-                            review.source === 'Booking' ? 'bg-sky-50 text-sky-700 border border-sky-100/50' :
-                            review.source === 'HolidayCheck' ? 'bg-rose-50 text-rose-700 border border-rose-100/50' :
-                            review.source === 'Hotels.com' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100/50' :
-                            'bg-slate-50 text-slate-600 border border-slate-200/50'
-                          }`}>
-                            {review.source}
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase border border-slate-200/20 ${getPlatformColorClass(review.source)}`}>
+                            {getPlatformLabel(review.source)}
                           </span>
 
                           {/* Status Badge */}

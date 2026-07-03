@@ -7,6 +7,7 @@ import { getDepartmentStats } from '@/utils/departmentMatcher';
 import { Review, Sentiment, ReviewPriority, ReviewSource } from '@/types';
 import { useAuth } from '@/components/AuthGuard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
+import { normalizeReviewPlatform } from '@/utils/platform';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -241,14 +242,22 @@ export default function Reports() {
 
   // Platform Breakdown Chart Data
   const platformData = useMemo(() => {
-    const counts: Record<string, number> = { Google: 0, TripAdvisor: 0, Booking: 0, HolidayCheck: 0, 'Hotels.com': 0, Other: 0 };
+    const counts: Record<string, number> = {
+      'Google Reviews': 0,
+      'TripAdvisor': 0,
+      'Booking.com': 0,
+      'Hotels.com': 0,
+      'HolidayCheck': 0,
+      'Other': 0
+    };
     filteredReviews.forEach(r => {
-      const source = r.source || 'Other';
-      if (counts[source] !== undefined) {
-        counts[source]++;
-      } else {
-        counts['Other']++;
-      }
+      const normalized = normalizeReviewPlatform(r.source);
+      if (normalized === 'google') counts['Google Reviews']++;
+      else if (normalized === 'tripadvisor') counts['TripAdvisor']++;
+      else if (normalized === 'booking') counts['Booking.com']++;
+      else if (normalized === 'hotelscom') counts['Hotels.com']++;
+      else if (normalized === 'holidaycheck') counts['HolidayCheck']++;
+      else counts['Other']++;
     });
 
     return Object.entries(counts)

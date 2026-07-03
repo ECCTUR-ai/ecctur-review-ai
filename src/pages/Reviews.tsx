@@ -11,6 +11,7 @@ import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
+import { normalizeReviewPlatform } from '@/utils/platform';
 import { 
   RefreshCw, 
   Download, 
@@ -298,11 +299,14 @@ export default function Reviews() {
     baseForCounts = baseForCounts.filter(r => matchesDepartment(r, departmentParam));
   }
 
-  const totalCount = baseForCounts.length;
-  const googleCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'google').length;
-  const tripadvisorCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'tripadvisor').length;
-  const bookingCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'booking').length;
-  const holidaycheckCount = baseForCounts.filter(r => r.source?.toLowerCase() === 'holidaycheck').length;
+  const googleCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'google').length;
+  const tripadvisorCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'tripadvisor').length;
+  const bookingCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'booking').length;
+  const holidaycheckCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'holidaycheck').length;
+  const hotelscomCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'hotelscom').length;
+  const otherCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'other').length;
+
+  const totalCount = googleCount + tripadvisorCount + bookingCount + holidaycheckCount + hotelscomCount + otherCount;
 
   let reviews = data?.reviews || [];
 
@@ -1447,79 +1451,37 @@ export default function Reviews() {
 
       {/* Platform Summary Counters */}
       <div className="flex flex-wrap gap-2 mb-4 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
-        <button
-          onClick={() => setSource('')}
-          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
-            !source
-              ? 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10'
-              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
-          }`}
-        >
-          <span>Tümü</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${!source ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-            {totalCount}
-          </span>
-        </button>
+        {(() => {
+          const platformTabs = [
+            { key: '', label: 'Tümü', count: totalCount, activeClass: 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-slate-100 text-slate-600', dotColor: '' },
+            { key: 'Google', label: 'Google Reviews', count: googleCount, activeClass: 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-blue-50 text-blue-600', dotColor: 'bg-blue-500' },
+            { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-emerald-50 text-emerald-600', dotColor: 'bg-emerald-500' },
+            { key: 'Booking', label: 'Booking.com', count: bookingCount, activeClass: 'bg-sky-600 border-sky-600 text-white shadow-sm shadow-sky-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-sky-50 text-sky-600', dotColor: 'bg-sky-500' },
+            { key: 'Hotels.com', label: 'Hotels.com', count: hotelscomCount, activeClass: 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-indigo-50 text-indigo-600', dotColor: 'bg-indigo-500' },
+            { key: 'HolidayCheck', label: 'HolidayCheck', count: holidaycheckCount, activeClass: 'bg-pink-600 border-pink-600 text-white shadow-sm shadow-pink-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-pink-50 text-pink-600', dotColor: 'bg-pink-500' }
+          ];
 
-        <button
-          onClick={() => setSource('Google')}
-          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
-            source === 'Google'
-              ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/10'
-              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-          <span>Google Reviews</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'Google' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>
-            {googleCount}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setSource('TripAdvisor')}
-          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
-            source === 'TripAdvisor'
-              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10'
-              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-          <span>TripAdvisor</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'TripAdvisor' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
-            {tripadvisorCount}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setSource('Booking')}
-          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
-            source === 'Booking'
-              ? 'bg-sky-600 border-sky-600 text-white shadow-sm shadow-sky-500/10'
-              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-          <span>Booking.com</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'Booking' ? 'bg-white/20 text-white' : 'bg-sky-50 text-sky-600'}`}>
-            {bookingCount}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setSource('HolidayCheck')}
-          className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
-            source === 'HolidayCheck'
-              ? 'bg-pink-600 border-pink-600 text-white shadow-sm shadow-pink-500/10'
-              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
-          <span>HolidayCheck</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${source === 'HolidayCheck' ? 'bg-white/20 text-white' : 'bg-pink-50 text-pink-600'}`}>
-            {holidaycheckCount}
-          </span>
-        </button>
+          return platformTabs.map((tab) => {
+            const isActive = tab.key === '' ? !source : source === tab.key;
+            return (
+              <button
+                key={tab.label}
+                onClick={() => setSource(tab.key as any)}
+                className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+                  isActive
+                    ? tab.activeClass
+                    : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+                }`}
+              >
+                {tab.dotColor && <span className={`w-1.5 h-1.5 rounded-full ${tab.dotColor} shrink-0`} />}
+                <span>{tab.label}</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${isActive ? tab.countBgActive : tab.countBgInactive}`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          });
+        })()}
       </div>
 
       {/* Filters Bar */}

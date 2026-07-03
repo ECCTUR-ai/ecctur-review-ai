@@ -49,12 +49,11 @@ export function ReviewFilters({
           className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
         >
           <option value="">Tüm Platformlar</option>
-          <option value="Google">Google</option>
-          <option value="Booking">Booking</option>
+          <option value="Google">Google Reviews</option>
           <option value="TripAdvisor">TripAdvisor</option>
-          <option value="Expedia">Expedia</option>
-          <option value="HolidayCheck">HolidayCheck</option>
+          <option value="Booking">Booking.com</option>
           <option value="Hotels.com">Hotels.com</option>
+          <option value="HolidayCheck">HolidayCheck</option>
         </select>
       </div>
 

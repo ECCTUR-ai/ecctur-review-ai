@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Sun
 } from 'lucide-react';
+import { getPlatformLabel, getPlatformColorClass } from '@/utils/platform';
 
 interface ReviewCardProps {
   review: Review;
@@ -44,33 +45,8 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
   // Helper to choose platform badge style and label
   const getPlatformBadge = () => {
     const rawPlat = review.source || (review as any).platform || '';
-    let name = 'Platform Yok';
-    let colorClass = 'bg-slate-50 text-slate-600 border-slate-100';
-
-    if (rawPlat) {
-      const lower = rawPlat.toLowerCase();
-      if (lower === 'google') {
-        name = 'Google Reviews';
-        colorClass = 'bg-blue-50 text-blue-600 border-blue-100';
-      } else if (lower === 'tripadvisor') {
-        name = 'TripAdvisor';
-        colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-      } else if (lower === 'booking') {
-        name = 'Booking.com';
-        colorClass = 'bg-sky-50 text-sky-600 border-sky-100';
-      } else if (lower === 'expedia') {
-        name = 'Expedia';
-        colorClass = 'bg-amber-50 text-amber-600 border-amber-100';
-      } else if (lower === 'holidaycheck') {
-        name = 'HolidayCheck';
-        colorClass = 'bg-rose-50 text-rose-600 border-rose-100';
-      } else if (lower === 'hotels.com' || lower === 'hotelscom') {
-        name = 'Hotels.com';
-        colorClass = 'bg-indigo-50 text-indigo-600 border-indigo-100';
-      } else {
-        name = rawPlat;
-      }
-    }
+    const name = getPlatformLabel(rawPlat);
+    const colorClass = getPlatformColorClass(rawPlat);
     
     return (
       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${colorClass}`}>

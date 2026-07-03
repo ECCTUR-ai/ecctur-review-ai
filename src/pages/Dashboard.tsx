@@ -7,6 +7,7 @@ import { reviewService } from '@/services/reviewService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
+import { normalizeReviewPlatform } from '@/utils/platform';
 import {
   TrendingUp,
   Star,
@@ -269,20 +270,26 @@ export default function Dashboard() {
       ];
 
   // Platform Share stats
-  const googleItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'google');
-  const tripadvisorItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'tripadvisor');
-  const bookingItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'booking');
-  const holidaycheckItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'holidaycheck');
-  const hotelscomItem = platformShare?.find((p: any) => p.source.toLowerCase() === 'hotels.com' || p.source.toLowerCase() === 'hotelscom');
+  let googleShare = isDemoData ? 842 : 0;
+  let tripadvisorShare = isDemoData ? 286 : 0;
+  let bookingShare = isDemoData ? 84 : 0;
+  let holidaycheckShare = 0;
+  let hotelscomShare = 0;
+  let otherShare = 0;
 
-  const googleShare = isDemoData ? 842 : (googleItem ? googleItem.count : 0);
-  const tripadvisorShare = isDemoData ? 286 : (tripadvisorItem ? tripadvisorItem.count : 0);
-  const bookingShare = isDemoData ? 84 : (bookingItem ? bookingItem.count : 0);
-  const holidaycheckShare = isDemoData ? 0 : (holidaycheckItem ? holidaycheckItem.count : 0);
-  const hotelscomShare = isDemoData ? 0 : (hotelscomItem ? hotelscomItem.count : 0);
+  if (!isDemoData && platformShare) {
+    platformShare.forEach((p: any) => {
+      const normalized = normalizeReviewPlatform(p.source);
+      if (normalized === 'google') googleShare += p.count;
+      else if (normalized === 'tripadvisor') tripadvisorShare += p.count;
+      else if (normalized === 'booking') bookingShare += p.count;
+      else if (normalized === 'holidaycheck') holidaycheckShare += p.count;
+      else if (normalized === 'hotelscom') hotelscomShare += p.count;
+      else otherShare += p.count;
+    });
+  }
 
   const totalMapped = googleShare + tripadvisorShare + bookingShare + holidaycheckShare + hotelscomShare;
-  const otherShare = finalTotalReviews > totalMapped ? finalTotalReviews - totalMapped : 0;
 
   // Fallback Reviews list
   const fallbackReviews: ScrapedReview[] = [
