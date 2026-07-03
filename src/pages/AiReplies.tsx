@@ -290,7 +290,7 @@ export default function AiReplies() {
       // Apply Tabs constraint
       if (activeTab === 'active') {
         // Active reviews are those NOT published
-        query = query.or('status.neq.Published,status.neq.published,status.is.null');
+        query = query.not('status', 'in', '("Published","published")');
         
         // Status filter applies only to non-published status values in Active tab
         if (selectedStatus !== 'all') {
@@ -302,7 +302,7 @@ export default function AiReplies() {
         }
       } else {
         // Archived reviews are those that ARE published
-        query = query.or('status.eq.Published,status.eq.published');
+        query = query.in('status', ['Published', 'published']);
 
         // Apply publisher filter if active in archive tab
         if (selectedPublisherId !== 'all') {
@@ -358,6 +358,12 @@ export default function AiReplies() {
       if (error) throw error;
 
       const mappedReviews = (data || []).map(mapReview);
+
+      if (activeTab === 'active') {
+        console.log("PENDING FILTER", mappedReviews.length);
+      } else {
+        console.log("PUBLISHED FILTER", mappedReviews.length);
+      }
 
       // Fetch published audit logs details if loading reviews
       if (mappedReviews.length > 0) {
@@ -556,7 +562,7 @@ export default function AiReplies() {
 
       if (isBooking || isTripAdvisor) {
         // Direct local update to bypass external API publishing
-        const { error } = await supabase
+        const { data: updatedRow, error } = await supabase
           .from('reviews')
           .update({
             status: 'Published',
@@ -564,9 +570,13 @@ export default function AiReplies() {
             published: 'Yes',
             ai_reply: replyText
           })
-          .eq('id', review.id);
+          .eq('id', review.id)
+          .select('*')
+          .maybeSingle();
 
         if (error) throw error;
+
+        console.log("LOCAL PUBLISH UPDATE", updatedRow);
 
         // Try to insert audit log
         try {
@@ -706,8 +716,7 @@ export default function AiReplies() {
           const isTripAdvisor = review.source?.toLowerCase() === 'tripadvisor';
 
           if (isBooking || isTripAdvisor) {
-            // Direct local update to bypass external API publishing
-            const { error } = await supabase
+            const { data: updatedRow, error } = await supabase
               .from('reviews')
               .update({
                 status: 'Published',
@@ -715,9 +724,13 @@ export default function AiReplies() {
                 published: 'Yes',
                 ai_reply: text
               })
-              .eq('id', id);
+              .eq('id', id)
+              .select('*')
+              .maybeSingle();
 
             if (error) throw error;
+
+            console.log("LOCAL PUBLISH UPDATE", updatedRow);
 
             // Try to insert audit log
             try {
