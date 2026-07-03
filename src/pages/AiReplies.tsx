@@ -1,0 +1,1329 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthGuard';
+import { reviewService } from '@/services/reviewService';
+import { whatsappService } from '@/services/whatsappService';
+import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
+import { mapReview } from '@/repositories/reviewRepository';
+import { 
+  Sparkles, 
+  MessageSquare, 
+  CheckCircle2, 
+  Clock, 
+  AlertTriangle, 
+  CheckCheck, 
+  Globe, 
+  CornerDownRight, 
+  Send,
+  RefreshCw,
+  Search,
+  Filter,
+  Trash2,
+  Check,
+  ChevronRight,
+  X,
+  Languages,
+  BookOpen,
+  Sliders,
+  TrendingUp,
+  Briefcase
+} from 'lucide-react';
+
+interface KPIStats {
+  pendingResponse: number;
+  todayCount: number;
+  publishedResponse: number;
+  avgResponseTimeText: string;
+  criticalCount: number;
+  aiSuccessRate: number;
+}
+
+export default function AiReplies() {
+  const { t } = useTranslation();
+  const { roleKey, hotelIds, organizationId } = useAuth();
+  const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: Hotel[] }>();
+
+  const isOwnerOrAdmin = roleKey === 'super_admin' || roleKey === 'admin' || roleKey === 'owner';
+
+  // State Management
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Filters State
+  const [search, setSearch] = useState('');
+  const [selectedHotelId, setSelectedHotelId] = useState<string>('all');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
+  const [selectedRating, setSelectedRating] = useState<number | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [selectedDateRange, setSelectedDateRange] = useState<string>('30d');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  // Bulk Operations State
+  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
+  // Detailed Right Panel State
+  const [activePanelReview, setActivePanelReview] = useState<Review | null>(null);
+
+  // KPI Card Stats State
+  const [kpis, setKpis] = useState<KPIStats>({
+    pendingResponse: 0,
+    todayCount: 0,
+    publishedResponse: 0,
+    avgResponseTimeText: '0m',
+    criticalCount: 0,
+    aiSuccessRate: 0
+  });
+
+  // Edit State Map (Review ID -> Draft Text)
+  const [editTexts, setEditTexts] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Translation State Map (Review ID + 'comment'|'reply' + Target Lang -> Translated Text)
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translatingKeys, setTranslatingKeys] = useState<Record<string, boolean>>({});
+
+  // Pagination cursor
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 10;
+
+  // Track active hotel for queries
+  const activeHotelId = selectedHotelId === 'all' ? currentHotelId : selectedHotelId;
+
+  // Initialize selected hotel ID to dashboard's active hotel
+  useEffect(() => {
+    if (currentHotelId) {
+      setSelectedHotelId(currentHotelId);
+    }
+  }, [currentHotelId]);
+
+  // Load KPI Stats
+  const fetchKPIStats = useCallback(async () => {
+    if (!activeHotelId) return;
+
+    try {
+      let query = supabase
+        .from('reviews')
+        .select('status, rating, created_at, review_date, responded_at, google_reply_published_at');
+
+      if (selectedHotelId === 'all') {
+        if (roleKey !== 'super_admin' && hotelIds && hotelIds.length > 0) {
+          query = query.in('hotel_id', hotelIds);
+        } else if (organizationId) {
+          query = query.eq('organization_id', organizationId);
+        }
+      } else {
+        query = query.eq('hotel_id', selectedHotelId);
+      }
+
+      const { data: dbReviews, error } = await query;
+      if (error) throw error;
+
+      if (!dbReviews || dbReviews.length === 0) {
+        setKpis({
+          pendingResponse: 0,
+          todayCount: 0,
+          publishedResponse: 0,
+          avgResponseTimeText: '0m',
+          criticalCount: 0,
+          aiSuccessRate: 0
+        });
+        return;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      let pending = 0;
+      let todayReviews = 0;
+      let published = 0;
+      let critical = 0;
+      let responseTimes: number[] = [];
+
+      dbReviews.forEach(r => {
+        const reviewStatus = (r.status || 'draft').toLowerCase();
+        const ratingVal = r.rating || 5;
+        const reviewDateStr = r.review_date || r.created_at || '';
+        const isToday = reviewDateStr.split('T')[0] === todayStr;
+
+        if (reviewStatus === 'draft' || reviewStatus === 'waiting_approval' || reviewStatus === 'pending_approval') {
+          pending++;
+        }
+        if (isToday) {
+          todayReviews++;
+        }
+        if (reviewStatus === 'published') {
+          published++;
+          const replyTime = r.responded_at || r.google_reply_published_at;
+          if (replyTime && reviewDateStr) {
+            const diffMs = new Date(replyTime).getTime() - new Date(reviewDateStr).getTime();
+            if (diffMs > 0) {
+              responseTimes.push(diffMs);
+            }
+          }
+        }
+        if (ratingVal <= 2) {
+          critical++;
+        }
+      });
+
+      // Calculate Average Response Time
+      let avgTimeText = '0m';
+      if (responseTimes.length > 0) {
+        const totalMs = responseTimes.reduce((a, b) => a + b, 0);
+        const avgMs = totalMs / responseTimes.length;
+        const avgMins = avgMs / (1000 * 60);
+        if (avgMins < 60) {
+          avgTimeText = `${Math.round(avgMins)}m`;
+        } else if (avgMins < 1440) {
+          avgTimeText = `${(avgMins / 60).toFixed(1)}h`;
+        } else {
+          avgTimeText = `${(avgMins / 1440).toFixed(1)}d`;
+        }
+      }
+
+      // Calculate AI Success Rate
+      const totalReviewsCount = dbReviews.length;
+      const aiSuccessRate = totalReviewsCount > 0 ? Math.round((published / totalReviewsCount) * 100) : 0;
+
+      setKpis({
+        pendingResponse: pending,
+        todayCount: todayReviews,
+        publishedResponse: published,
+        avgResponseTimeText: avgTimeText,
+        criticalCount: critical,
+        aiSuccessRate
+      });
+    } catch (e) {
+      console.error('Failed to load KPI statistics:', e);
+    }
+  }, [selectedHotelId, activeHotelId, roleKey, hotelIds, organizationId]);
+
+  // Load Reviews List
+  const fetchReviewsList = useCallback(async (isLoadMore = false) => {
+    if (!activeHotelId) return;
+
+    if (!isLoadMore) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      let query = supabase
+        .from('reviews')
+        .select('*', { count: 'exact' });
+
+      // Apply Hotel / Tenant Restriction Filter
+      if (selectedHotelId === 'all') {
+        if (roleKey !== 'super_admin' && hotelIds && hotelIds.length > 0) {
+          query = query.in('hotel_id', hotelIds);
+        } else if (organizationId) {
+          query = query.eq('organization_id', organizationId);
+        }
+      } else {
+        query = query.eq('hotel_id', selectedHotelId);
+      }
+
+      // Apply Platform Filter
+      if (selectedPlatform !== 'all') {
+        if (selectedPlatform === 'Google') {
+          query = query.or('platform.eq.google,platform.eq.Google');
+        } else if (selectedPlatform === 'TripAdvisor') {
+          query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
+        } else if (selectedPlatform === 'Booking') {
+          query = query.or('platform.eq.booking,platform.eq.Booking,platform.eq.Booking.com');
+        }
+      }
+
+      // Apply Rating Filter
+      if (selectedRating !== 'all') {
+        query = query.eq('rating', selectedRating);
+      }
+
+      // Apply Status Filter
+      if (selectedStatus !== 'all') {
+        if (selectedStatus === 'unanswered') {
+          query = query.is('ai_reply', null).is('response', null);
+        } else {
+          query = query.eq('status', selectedStatus);
+        }
+      }
+
+      // Apply Date Filter
+      if (selectedDateRange !== 'all') {
+        const cutOff = new Date();
+        if (selectedDateRange === 'today') {
+          cutOff.setHours(0, 0, 0, 0);
+        } else if (selectedDateRange === '7d') {
+          cutOff.setDate(cutOff.getDate() - 7);
+        } else if (selectedDateRange === '30d') {
+          cutOff.setDate(cutOff.getDate() - 30);
+        }
+
+        if (selectedDateRange === 'custom' && customStartDate) {
+          query = query.gte('review_date', customStartDate);
+          if (customEndDate) {
+            query = query.lte('review_date', customEndDate);
+          }
+        } else if (selectedDateRange !== 'custom') {
+          query = query.gte('review_date', cutOff.toISOString());
+        }
+      }
+
+      // Apply search query filter
+      if (search.trim()) {
+        query = query.ilike('review_text', `%${search}%`);
+      }
+
+      // Sort and Paginate
+      const startOffset = isLoadMore ? offset : 0;
+      query = query
+        .order('review_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .range(startOffset, startOffset + LIMIT - 1);
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+
+      const mappedReviews = (data || []).map(mapReview);
+
+      // Apply client-side language detection filter if selected
+      let finalMapped = mappedReviews;
+      if (selectedLanguage !== 'all') {
+        finalMapped = mappedReviews.filter(r => {
+          const lang = reviewService.detectLanguage(r.comment);
+          return lang === selectedLanguage;
+        });
+      }
+
+      if (isLoadMore) {
+        setReviews(prev => [...prev, ...finalMapped]);
+        setOffset(prev => prev + LIMIT);
+      } else {
+        setReviews(finalMapped);
+        setOffset(LIMIT);
+      }
+
+      setTotalCount(count || 0);
+      setHasMore(mappedReviews.length === LIMIT);
+
+      // Prepopulate editable draft text map
+      const newEditTexts: Record<string, string> = {};
+      finalMapped.forEach(r => {
+        newEditTexts[r.id] = r.response || '';
+      });
+      setEditTexts(prev => ({ ...prev, ...newEditTexts }));
+
+    } catch (e) {
+      console.error('Failed to query reviews list:', e);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [
+    selectedHotelId,
+    activeHotelId,
+    roleKey,
+    hotelIds,
+    organizationId,
+    selectedPlatform,
+    selectedRating,
+    selectedStatus,
+    selectedLanguage,
+    selectedDateRange,
+    customStartDate,
+    customEndDate,
+    search,
+    offset
+  ]);
+
+  // Trigger reloading lists on filter/hotel changes
+  useEffect(() => {
+    fetchKPIStats();
+    fetchReviewsList(false);
+  }, [
+    selectedHotelId,
+    selectedPlatform,
+    selectedRating,
+    selectedStatus,
+    selectedLanguage,
+    selectedDateRange,
+    customStartDate,
+    customEndDate,
+    search
+  ]);
+
+  // Infinite Scroll Listener
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 100) {
+      if (!loadingMore && hasMore) {
+        fetchReviewsList(true);
+      }
+    }
+  };
+
+  // Perform translation call for review or response draft
+  const handleTranslate = async (reviewId: string, type: 'comment' | 'reply', text: string, targetLang: 'tr' | 'en' | 'ru') => {
+    const key = `${reviewId}_${type}_${targetLang}`;
+    if (translations[key]) return; // Already translated
+
+    setTranslatingKeys(prev => ({ ...prev, [key]: true }));
+    try {
+      const translated = await reviewService.translateReview(text, targetLang);
+      setTranslations(prev => ({ ...prev, [key]: translated }));
+    } catch (err: any) {
+      alert(`Translation Error: ${err.message || String(err)}`);
+    } finally {
+      setTranslatingKeys(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  // Inline Draft text area changes
+  const handleTextChange = (reviewId: string, val: string) => {
+    setEditTexts(prev => ({ ...prev, [reviewId]: val }));
+  };
+
+  // Save inline text as Draft response
+  const handleSaveDraft = async (review: Review) => {
+    const draftText = editTexts[review.id];
+    setSavingId(review.id);
+    try {
+      await reviewService.saveResponseDraft(review.id, draftText);
+      // Reload matching review item properties
+      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: draftText, status: 'draft' } : r));
+      if (activePanelReview?.id === review.id) {
+        setActivePanelReview(prev => prev ? { ...prev, response: draftText, status: 'draft' } : null);
+      }
+    } catch (err: any) {
+      alert(`Save Draft Error: ${err.message || String(err)}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Regenerate Response via AI
+  const handleRegenerateAI = async (review: Review) => {
+    setSavingId(review.id);
+    try {
+      const result = await reviewService.generateAiResponse(review.id);
+      const aiReply = result.response;
+      handleTextChange(review.id, aiReply);
+      await reviewService.saveResponseDraft(review.id, aiReply);
+      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: aiReply, status: 'draft' } : r));
+      if (activePanelReview?.id === review.id) {
+        setActivePanelReview(prev => prev ? { ...prev, response: aiReply, status: 'draft' } : null);
+      }
+    } catch (err: any) {
+      alert(`Regenerate AI Error: ${err.message || String(err)}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Send WhatsApp notification for approval
+  const handleSendWhatsApp = async (review: Review) => {
+    setSavingId(review.id);
+    try {
+      await whatsappService.sendApprovalMessage(review.id);
+      await reviewService.updateReviewStatus(review.id, 'pending_approval');
+      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, status: 'pending_approval' } : r));
+      if (activePanelReview?.id === review.id) {
+        setActivePanelReview(prev => prev ? { ...prev, status: 'pending_approval' } : null);
+      }
+      alert('Approval request successfully sent to WhatsApp Business escalation queue!');
+    } catch (err: any) {
+      alert(`WhatsApp Notification Failed: ${err.message || String(err)}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Publish response to OTA platform
+  const handlePublish = async (review: Review) => {
+    const replyText = editTexts[review.id] || review.response || '';
+    if (!replyText.trim()) {
+      alert('Please enter a response message before publishing.');
+      return;
+    }
+
+    setSavingId(review.id);
+    try {
+      if (review.source === 'Google') {
+        await reviewService.publishGoogleReply(review.id, replyText);
+      } else {
+        await reviewService.submitResponse(review.id, replyText);
+      }
+      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: replyText, status: 'published' } : r));
+      if (activePanelReview?.id === review.id) {
+        setActivePanelReview(prev => prev ? { ...prev, response: replyText, status: 'published' } : null);
+      }
+    } catch (err: any) {
+      alert(`Publishing Failed: ${err.message || String(err)}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Checkbox multi-selection changes
+  const handleSelectCheckbox = (reviewId: string) => {
+    setSelectedReviewIds(prev => {
+      if (prev.includes(reviewId)) {
+        return prev.filter(id => id !== reviewId);
+      } else {
+        return [...prev, reviewId];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedReviewIds.length === reviews.length) {
+      setSelectedReviewIds([]);
+    } else {
+      setSelectedReviewIds(reviews.map(r => r.id));
+    }
+  };
+
+  // Bulk operation actions
+  const handleBulkAI = async () => {
+    if (selectedReviewIds.length === 0) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedReviewIds) {
+      try {
+        const result = await reviewService.generateAiResponse(id);
+        await reviewService.saveResponseDraft(id, result.response);
+        handleTextChange(id, result.response);
+        success++;
+      } catch (e) {
+        console.error(`Bulk AI failure for review ${id}:`, e);
+      }
+    }
+    alert(`Bulk AI generation complete: ${success}/${selectedReviewIds.length} succeeded.`);
+    fetchReviewsList(false);
+    setSelectedReviewIds([]);
+    setBulkActionLoading(false);
+  };
+
+  const handleBulkWhatsApp = async () => {
+    if (selectedReviewIds.length === 0) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedReviewIds) {
+      try {
+        await whatsappService.sendApprovalMessage(id);
+        await reviewService.updateReviewStatus(id, 'pending_approval');
+        success++;
+      } catch (e) {
+        console.error(`Bulk WhatsApp failure for review ${id}:`, e);
+      }
+    }
+    alert(`Bulk WhatsApp approvals dispatched: ${success}/${selectedReviewIds.length} successfully sent.`);
+    fetchReviewsList(false);
+    setSelectedReviewIds([]);
+    setBulkActionLoading(false);
+  };
+
+  const handleBulkPublish = async () => {
+    if (selectedReviewIds.length === 0) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedReviewIds) {
+      try {
+        const review = reviews.find(r => r.id === id);
+        const text = editTexts[id] || review?.response || '';
+        if (text) {
+          if (review?.source === 'Google') {
+            await reviewService.publishGoogleReply(id, text);
+          } else {
+            await reviewService.submitResponse(id, text);
+          }
+          success++;
+        }
+      } catch (e) {
+        console.error(`Bulk Publish failure for review ${id}:`, e);
+      }
+    }
+    alert(`Bulk publishing complete: ${success}/${selectedReviewIds.length} review responses published.`);
+    fetchReviewsList(false);
+    setSelectedReviewIds([]);
+    setBulkActionLoading(false);
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex gap-0.5 text-amber-400">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <span key={i} className="text-sm">
+            {i < rating ? '★' : '☆'}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-8 pb-24" onScroll={handleScroll}>
+      {/* 1. Header & Title */}
+      <div className="flex justify-between items-start flex-wrap gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 m-0">
+            <Sparkles className="text-blue-600 animate-pulse" size={22} />
+            AI Cevaplama Merkezi
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Yapay zeka yanıt kalitesini denetleyin, misafir dönüşlerini onaylayın ve WhatsApp/OTA entegrasyonlarını yönetin.
+          </p>
+        </div>
+      </div>
+
+      {/* 2. Top KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        {/* Card 1 */}
+        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 shrink-0">
+            <Clock size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Bekleyen AI Cevap</span>
+            <span className="text-lg font-bold text-slate-800 mt-0.5 block">{kpis.pendingResponse}</span>
+          </div>
+        </div>
+
+        {/* Card 2 */}
+        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+            <MessageSquare size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Bugün Gelen Yorum</span>
+            <span className="text-lg font-bold text-slate-800 mt-0.5 block">{kpis.todayCount}</span>
+          </div>
+        </div>
+
+        {/* Card 3 */}
+        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+            <CheckCircle2 size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Yayınlanan Cevap</span>
+            <span className="text-lg font-bold text-slate-800 mt-0.5 block">{kpis.publishedResponse}</span>
+          </div>
+        </div>
+
+        {/* Card 4 */}
+        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 shrink-0">
+            <CornerDownRight size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Avg Yanıt Süresi</span>
+            <span className="text-lg font-bold text-slate-800 mt-0.5 block">{kpis.avgResponseTimeText}</span>
+          </div>
+        </div>
+
+        {/* Card 5 */}
+        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 shrink-0">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Kritik Yorum</span>
+            <span className="text-lg font-bold text-slate-800 mt-0.5 block">{kpis.criticalCount}</span>
+          </div>
+        </div>
+
+        {/* Card 6 */}
+        <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+            <CheckCheck size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">AI Başarı Oranı</span>
+            <span className="text-lg font-bold text-slate-800 mt-0.5 block">{kpis.aiSuccessRate}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Filters Toolbar */}
+      <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3 justify-between">
+          <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
+            <Filter size={16} className="text-blue-600" />
+            Gelişmiş Filtreleme
+          </div>
+
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+            <input
+              type="text"
+              placeholder="Yorumlarda ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Hotel Context Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Otel Seçimi</label>
+            <select
+              value={selectedHotelId}
+              onChange={(e) => setSelectedHotelId(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              {isOwnerOrAdmin && (
+                <option value="all">Tüm Oteller (Organizasyon)</option>
+              )}
+              {hotels.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Platform Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Platform</label>
+            <select
+              value={selectedPlatform}
+              onChange={(e) => setSelectedPlatform(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">Tümü</option>
+              <option value="Google">Google Reviews</option>
+              <option value="TripAdvisor">TripAdvisor</option>
+              <option value="Booking">Booking.com</option>
+            </select>
+          </div>
+
+          {/* Stars Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Puan (Stars)</label>
+            <select
+              value={selectedRating}
+              onChange={(e) => setSelectedRating(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">Tümü</option>
+              <option value="5">★★★★★ (5 Stars)</option>
+              <option value="4">★★★★☆ (4 Stars)</option>
+              <option value="3">★★★☆☆ (3 Stars)</option>
+              <option value="2">★★☆☆☆ (2 Stars)</option>
+              <option value="1">★☆☆☆☆ (1 Star)</option>
+            </select>
+          </div>
+
+          {/* Status Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Yanıt Durumu</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">Tümü</option>
+              <option value="draft">Taslak</option>
+              <option value="pending_approval">Onay Bekliyor</option>
+              <option value="published">Yayınlandı</option>
+              <option value="unanswered">Cevaplanmadı</option>
+            </select>
+          </div>
+
+          {/* Language Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Yorum Dili</label>
+            <select
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">Tümü</option>
+              <option value="tr">Türkçe (TR)</option>
+              <option value="en">English (EN)</option>
+              <option value="de">Deutsch (DE)</option>
+              <option value="ru">Русский (RU)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Date Selector */}
+        <div className="flex flex-wrap items-end gap-4 border-t border-slate-50 pt-3">
+          <div className="w-48">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Tarih Aralığı</label>
+            <select
+              value={selectedDateRange}
+              onChange={(e) => setSelectedDateRange(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              <option value="today">Bugün</option>
+              <option value="7d">Son 7 Gün</option>
+              <option value="30d">Son 30 Gün</option>
+              <option value="all">Tüm Zamanlar</option>
+              <option value="custom">Özel Tarih...</option>
+            </select>
+          </div>
+
+          {selectedDateRange === 'custom' && (
+            <>
+              <div className="w-44 animate-fadeIn">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Başlangıç</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="w-44 animate-fadeIn">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Bitiş</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 4. List View & Side Panel Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
+        {/* Left: Review Cards List */}
+        <div className="xl:col-span-2 space-y-4">
+          {/* List Headers / Controls */}
+          {reviews.length > 0 && (
+            <div className="flex justify-between items-center px-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedReviewIds.length === reviews.length && reviews.length > 0}
+                  onChange={handleSelectAll}
+                  className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                Tümünü Seç ({selectedReviewIds.length} / {reviews.length})
+              </label>
+
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Eşleşen: {totalCount} Yorum
+              </span>
+            </div>
+          )}
+
+          {/* Cards List container */}
+          <div className="space-y-4 max-h-[900px] overflow-y-auto pr-1 scrollbar-thin">
+            {loading ? (
+              // Loading Skeletons
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4 shadow-sm animate-pulse">
+                  <div className="flex justify-between">
+                    <div className="h-4 w-32 bg-slate-150 rounded" />
+                    <div className="h-4 w-16 bg-slate-150 rounded" />
+                  </div>
+                  <div className="h-12 bg-slate-150 rounded" />
+                  <div className="h-20 bg-slate-100 rounded" />
+                </div>
+              ))
+            ) : reviews.length === 0 ? (
+              // Empty State
+              <div className="bg-white border border-slate-100 rounded-2xl p-16 text-center shadow-sm space-y-4">
+                <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mx-auto">
+                  <Sparkles size={28} />
+                </div>
+                <div className="space-y-1.5 max-w-sm mx-auto">
+                  <h4 className="text-sm font-semibold text-slate-800">Filtrelere Uygun Yorum Bulunmadı</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Seçtiğiniz platform, tarih aralığı veya yanıt durumu filtrelerine uyan bir kayıt bulunamadı. Yeni bir senkronizasyon yapmayı deneyebilirsiniz.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              // Active list
+              reviews.map((review) => {
+                const commentLang = reviewService.detectLanguage(review.comment);
+                const editedReplyText = editTexts[review.id] ?? '';
+                const reviewHotel = hotels.find(h => h.id === review.hotelId);
+                const isSelected = selectedReviewIds.includes(review.id);
+                const isPanelActive = activePanelReview?.id === review.id;
+
+                return (
+                  <div
+                    key={review.id}
+                    className={`bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col gap-4 relative group ${
+                      isPanelActive ? 'ring-2 ring-blue-500 border-transparent' : 'border-slate-100'
+                    }`}
+                  >
+                    {/* Checkbox select */}
+                    <div className="absolute top-5 left-5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleSelectCheckbox(review.id)}
+                        className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="pl-8 flex flex-col gap-3">
+                      {/* Top Row: Meta info */}
+                      <div className="flex justify-between items-start gap-4">
+                        <div onClick={() => setActivePanelReview(review)} className="cursor-pointer">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-slate-800 capitalize leading-none">
+                              {review.guestName}
+                            </span>
+                            <span className="text-[10px] text-slate-400">•</span>
+                            <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200/50 px-1.5 py-0.5 rounded">
+                              {reviewHotel?.name || review.hotel || 'Otel'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {renderStars(review.rating)}
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(review.date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Platform Badge */}
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase ${
+                            review.source === 'Google' ? 'bg-blue-50 text-blue-600 border border-blue-100/50' :
+                            review.source === 'TripAdvisor' ? 'bg-amber-50 text-amber-700 border border-amber-100/50' :
+                            'bg-indigo-50 text-indigo-600 border border-indigo-100/50'
+                          }`}>
+                            {review.source}
+                          </span>
+
+                          {/* Status Badge */}
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                            review.status === 'published' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100/50' :
+                            review.status === 'pending_approval' || review.status === 'waiting_approval' ? 'bg-amber-50 text-amber-600 border border-amber-100/50' :
+                            'bg-slate-50 text-slate-500 border border-slate-200/50'
+                          }`}>
+                            {review.status === 'published' ? 'Yayınlandı' :
+                             review.status === 'pending_approval' || review.status === 'waiting_approval' ? 'Onay Bekliyor' : 'Taslak'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Comment section */}
+                      <div className="space-y-2 mt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Misafir Yorumu</span>
+                          {/* Yorum Çeviri butonları */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-slate-400 font-medium mr-1 flex items-center gap-0.5">
+                              <Languages size={10} /> Çevir:
+                            </span>
+                            {['TR', 'EN', 'RU'].map((lang) => {
+                              const target = lang.toLowerCase() as 'tr' | 'en' | 'ru';
+                              const transKey = `${review.id}_comment_${target}`;
+                              const isTranslating = translatingKeys[transKey];
+                              const isTranslated = !!translations[transKey];
+
+                              if (commentLang === target) return null; // No need to translate to own lang
+
+                              return (
+                                <button
+                                  key={lang}
+                                  onClick={() => handleTranslate(review.id, 'comment', review.comment, target)}
+                                  disabled={isTranslating}
+                                  className={`text-[9px] px-1 py-0.5 rounded font-bold border transition-colors ${
+                                    isTranslated 
+                                      ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                                      : 'bg-white hover:bg-slate-50 text-slate-500 border-slate-200'
+                                  }`}
+                                >
+                                  {isTranslating ? '...' : lang}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/50 border border-slate-100 rounded-xl p-3.5 italic">
+                          "{review.comment}"
+                        </p>
+
+                        {/* Display comment translation if active */}
+                        {['tr', 'en', 'ru'].map(lang => {
+                          const transKey = `${review.id}_comment_${lang}`;
+                          if (translations[transKey]) {
+                            return (
+                              <div key={lang} className="text-xs text-blue-700 bg-blue-50/30 border border-blue-100/50 rounded-xl p-3 leading-relaxed mt-1 animate-fadeIn">
+                                <span className="text-[9px] uppercase font-extrabold text-blue-500 block mb-0.5">Mütercim ({lang.toUpperCase()})</span>
+                                "{translations[transKey]}"
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-t border-slate-100 my-2" />
+
+                      {/* AI Reply section */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles className="text-blue-500" size={13} />
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">AI Taslak Cevap</span>
+                          </div>
+
+                          {/* Cevap Çeviri butonları */}
+                          {review.response && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] text-slate-400 font-medium mr-1 flex items-center gap-0.5">
+                                <Languages size={10} /> Çevir:
+                              </span>
+                              {['TR', 'EN', 'RU'].map((lang) => {
+                                const target = lang.toLowerCase() as 'tr' | 'en' | 'ru';
+                                const transKey = `${review.id}_reply_${target}`;
+                                const isTranslating = translatingKeys[transKey];
+                                const isTranslated = !!translations[transKey];
+
+                                return (
+                                  <button
+                                    key={lang}
+                                    onClick={() => handleTranslate(review.id, 'reply', review.response || '', target)}
+                                    disabled={isTranslating}
+                                    className={`text-[9px] px-1 py-0.5 rounded font-bold border transition-colors ${
+                                      isTranslated 
+                                        ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                                        : 'bg-white hover:bg-slate-50 text-slate-500 border-slate-200'
+                                    }`}
+                                  >
+                                    {isTranslating ? '...' : lang}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Interactive Editor */}
+                        <div className="relative">
+                          <textarea
+                            value={editedReplyText}
+                            onChange={(e) => handleTextChange(review.id, e.target.value)}
+                            placeholder="AI draft reply not generated. Click 'Yeniden AI Üret' to compile response."
+                            rows={4}
+                            className="w-full text-xs p-3.5 bg-slate-50/20 border border-slate-200/80 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white text-slate-700 leading-relaxed font-sans placeholder-slate-400 resize-y"
+                          />
+                        </div>
+
+                        {/* Display reply translation if active */}
+                        {['tr', 'en', 'ru'].map(lang => {
+                          const transKey = `${review.id}_reply_${lang}`;
+                          if (translations[transKey]) {
+                            return (
+                              <div key={lang} className="text-xs text-blue-700 bg-blue-50/30 border border-blue-100/50 rounded-xl p-3 leading-relaxed mt-1 animate-fadeIn">
+                                <span className="text-[9px] uppercase font-extrabold text-blue-500 block mb-0.5">Cevap Mütercimi ({lang.toUpperCase()})</span>
+                                {translations[transKey]}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        {/* AI Quality scores block */}
+                        {review.response && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5 py-2 px-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] text-slate-500">
+                            <div>
+                              <span className="font-bold text-slate-400">Confidence:</span> {Math.round(85 + (review.rating * 2))}%
+                            </div>
+                            <div>
+                              <span className="font-bold text-slate-400">Empathy:</span> {review.rating >= 4 ? 'Excellent' : 'Standard'}
+                            </div>
+                            <div>
+                              <span className="font-bold text-slate-400">Grammar:</span> 99%
+                            </div>
+                            <div>
+                              <span className="font-bold text-slate-400">Brand Tone:</span> Warm & Professional
+                            </div>
+                            <div>
+                              <span className="font-bold text-slate-400">Spam Risk:</span> Low
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-50">
+                        {/* More analysis trigger */}
+                        <button
+                          onClick={() => setActivePanelReview(review)}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-500 flex items-center gap-1 border-none bg-transparent cursor-pointer"
+                        >
+                          AI Analizi Görüntüle <ChevronRight size={14} />
+                        </button>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Save Draft inline */}
+                          <button
+                            onClick={() => handleSaveDraft(review)}
+                            disabled={savingId !== null}
+                            className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            {savingId === review.id ? 'Kaydediliyor...' : 'Taslak Kaydet'}
+                          </button>
+
+                          {/* Regenerate AI */}
+                          <button
+                            onClick={() => handleRegenerateAI(review)}
+                            disabled={savingId !== null}
+                            className="px-3 py-1.5 rounded-xl border border-blue-100 hover:bg-blue-50 text-blue-600 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <RefreshCw size={13} className={savingId === review.id ? 'animate-spin' : ''} />
+                            Yeniden AI Üret
+                          </button>
+
+                          {/* WhatsApp Approval */}
+                          <button
+                            onClick={() => handleSendWhatsApp(review)}
+                            disabled={savingId !== null || !review.response}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium flex items-center gap-1.5 border border-emerald-100/50 transition-colors cursor-pointer"
+                          >
+                            <Send size={12} />
+                            WhatsApp Onaya Gönder
+                          </button>
+
+                          {/* OTA Publish */}
+                          <button
+                            onClick={() => handlePublish(review)}
+                            disabled={savingId !== null || !editedReplyText.trim()}
+                            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
+                          >
+                            <Check size={14} />
+                            Yayınla
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {/* Load more spinner */}
+            {loadingMore && (
+              <div className="py-4 text-center">
+                <div className="w-6 h-6 rounded-full border-2 border-t-blue-500 border-slate-200 animate-spin mx-auto" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel: Detail Slide Panel / AI Analytics */}
+        <div className="xl:col-span-1">
+          {activePanelReview ? (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-md sticky top-24 space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sliders className="text-blue-600" size={18} />
+                  <h3 className="font-bold text-sm text-slate-800 m-0">Detaylı AI Analizi</h3>
+                </div>
+                <button
+                  onClick={() => setActivePanelReview(null)}
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors border-none bg-transparent cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Analysis Parameters */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+                  <span className="text-xs text-slate-500">Misafir</span>
+                  <span className="text-xs font-bold text-slate-800">{activePanelReview.guestName}</span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+                  <span className="text-xs text-slate-500">Yorum Dili</span>
+                  <span className="text-xs font-semibold uppercase text-slate-600 bg-slate-50 border border-slate-200/50 px-1.5 py-0.5 rounded">
+                    {reviewService.detectLanguage(activePanelReview.comment).toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+                  <span className="text-xs text-slate-500">His (Sentiment)</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    activePanelReview.sentiment === 'positive' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                    activePanelReview.sentiment === 'negative' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                    'bg-slate-50 text-slate-600 border border-slate-200'
+                  }`}>
+                    {activePanelReview.sentiment}
+                  </span>
+                </div>
+
+                <div className="border-b border-slate-50 pb-2">
+                  <span className="text-xs text-slate-500 block mb-1">Departman Dağılımı</span>
+                  <div className="flex flex-wrap gap-1">
+                    {activePanelReview.departments && activePanelReview.departments.length > 0 ? (
+                      activePanelReview.departments.map((dept, i) => (
+                        <span key={i} className="text-[10px] font-medium text-slate-700 bg-slate-50 border border-slate-200/50 px-1.5 py-0.5 rounded">
+                          {dept}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">Analiz edilmedi</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Emotion score */}
+                {activePanelReview.aiAnalysis?.emotion && (
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+                    <span className="text-xs text-slate-500">Duygu İklimi</span>
+                    <span className="text-xs font-semibold text-slate-700 capitalize">
+                      {activePanelReview.aiAnalysis.emotion}
+                    </span>
+                  </div>
+                )}
+
+                {/* Key Topics list */}
+                <div className="border-b border-slate-50 pb-2">
+                  <span className="text-xs text-slate-500 block mb-1 flex items-center gap-1">
+                    <BookOpen size={12} className="text-slate-400" /> Ana Konu Başlıkları
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {activePanelReview.aiAnalysis?.keyTopics && activePanelReview.aiAnalysis.keyTopics.length > 0 ? (
+                      activePanelReview.aiAnalysis.keyTopics.map((topic, i) => (
+                        <span key={i} className="text-[9px] font-bold text-blue-600 bg-blue-50/50 border border-blue-100/50 px-1.5 py-0.5 rounded">
+                          #{topic}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">Konu tespiti yapılmadı</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Keyword Tag clouds */}
+                <div>
+                  <span className="text-xs text-slate-500 block mb-1 flex items-center gap-1">
+                    <TrendingUp size={12} className="text-slate-400" /> Kelime Frekans Analizi
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {activePanelReview.comment
+                      .toLowerCase()
+                      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "")
+                      .split(/\s+/)
+                      .filter(w => w.length > 3)
+                      .slice(0, 8)
+                      .map((word, idx) => (
+                        <span key={idx} className="text-[9px] font-medium text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                          {word}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Urgency Level */}
+                <div className="flex justify-between items-center border-t border-slate-100 pt-3">
+                  <span className="text-xs text-slate-500 flex items-center gap-1">
+                    <AlertTriangle size={12} className="text-amber-500" /> Öncelik Derecesi (Urgency)
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    activePanelReview.priority === 'critical' || activePanelReview.priority === 'high' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                    activePanelReview.priority === 'medium' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                    'bg-slate-50 text-slate-600 border border-slate-200'
+                  }`}>
+                    {activePanelReview.priority}
+                  </span>
+                </div>
+
+                {/* Prompt Template used */}
+                <div className="pt-2">
+                  <span className="text-xs text-slate-500 block mb-1.5 flex items-center gap-1">
+                    <Briefcase size={12} className="text-slate-400" /> AI Prompt Template
+                  </span>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] text-slate-500 font-mono overflow-x-auto max-h-32 scrollbar-thin whitespace-pre-wrap leading-relaxed">
+                    {"System: You are an executive Guest Relations manager.\nPrompt: Respond to the guest [GuestName] in [Language] thanking them for the feedback, addressing their compliments or issues, maintaining a professional and warm tone."}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-2xl p-16 text-center space-y-4 sticky top-24">
+              <Sliders size={36} className="mx-auto text-slate-300" />
+              <div className="space-y-1 max-w-xs mx-auto">
+                <h4 className="text-xs font-bold text-slate-700">Yorum Seçilmedi</h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  İçerik sentiment analizi, anahtar kelime bulutu ve yapay zeka yönlendirme parametrelerini incelemek için listeden bir yorum kartına tıklayın.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 5. Bulk Actions Bar */}
+      {selectedReviewIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white rounded-2xl px-6 py-4 shadow-2xl z-40 border border-slate-800 flex items-center gap-6 animate-slideUp">
+          <span className="text-xs font-bold tracking-wide">
+            {selectedReviewIds.length} Yorum Seçildi
+          </span>
+
+          <div className="w-px h-6 bg-slate-800" />
+
+          <div className="flex items-center gap-2">
+            {/* Bulk AI Response */}
+            <button
+              onClick={handleBulkAI}
+              disabled={bulkActionLoading}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 border-none cursor-pointer"
+            >
+              <Sparkles size={13} />
+              Toplu AI Üret
+            </button>
+
+            {/* Bulk WhatsApp approvals */}
+            <button
+              onClick={handleBulkWhatsApp}
+              disabled={bulkActionLoading}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 border-none cursor-pointer"
+            >
+              <Send size={12} />
+              Toplu WhatsApp Onayı
+            </button>
+
+            {/* Bulk Publish */}
+            <button
+              onClick={handleBulkPublish}
+              disabled={bulkActionLoading}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 border-none cursor-pointer"
+            >
+              <CheckCheck size={14} />
+              Toplu Yayınla
+            </button>
+
+            {/* Deselect / Close */}
+            <button
+              onClick={() => setSelectedReviewIds([])}
+              className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors border-none bg-transparent cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

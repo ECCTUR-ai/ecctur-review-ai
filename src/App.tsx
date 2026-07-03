@@ -11,6 +11,7 @@ import Settings from '@/pages/Settings';
 import Tasks from '@/pages/Tasks';
 import Login from '@/pages/Login';
 import Admin from '@/pages/Admin';
+import AiReplies from '@/pages/AiReplies';
 import { AuthProvider, AuthGuard, useAuth } from '@/components/AuthGuard';
 
 // Redirect authenticated users away from /login
@@ -54,6 +55,14 @@ export default function App() {
               element={
                 <AuthGuard requiredPermission="view:reviews">
                   <Reviews />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/ai-replies"
+              element={
+                <AuthGuard requiredPermission="view:reviews">
+                  <AiReplies />
                 </AuthGuard>
               }
             />

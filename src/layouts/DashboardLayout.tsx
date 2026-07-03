@@ -32,7 +32,8 @@ import {
   Globe,
   ShieldCheck,
   Menu,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -46,6 +47,7 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'view:dashboard', tKey: 'sidebar.dashboard' },
   { name: 'Reviews', path: '/reviews', icon: MessageSquare, permission: 'view:reviews', tKey: 'sidebar.reviews' },
+  { name: 'AI Answer Center', path: '/ai-replies', icon: Sparkles, permission: 'view:reviews', tKey: 'sidebar.ai_replies' },
   { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'view:tasks', tKey: 'sidebar.tasks' },
   { name: 'Departments', path: '/departments', icon: Building2, permission: 'view:departments', tKey: 'sidebar.departments' },
   { name: 'Analytics', path: '/analytics', icon: TrendingUp, permission: 'view:analytics', tKey: 'sidebar.analytics' },

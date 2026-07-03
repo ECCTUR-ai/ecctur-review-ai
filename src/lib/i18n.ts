@@ -8,6 +8,7 @@ const resources = {
       sidebar: {
         dashboard: 'Dashboard',
         reviews: 'Reviews',
+        ai_replies: 'AI Answer Center',
         tasks: 'Tasks',
         departments: 'Departments',
         analytics: 'Analytics',
@@ -128,6 +129,7 @@ const resources = {
       sidebar: {
         dashboard: 'Kontrol Paneli',
         reviews: 'Yorumlar',
+        ai_replies: 'AI Cevaplama Merkezi',
         tasks: 'Görevler',
         departments: 'Departmanlar',
         analytics: 'Analitik',
@@ -248,6 +250,7 @@ const resources = {
       sidebar: {
         dashboard: 'Панель управления',
         reviews: 'Отзывы',
+        ai_replies: 'Центр ИИ-ответов',
         tasks: 'Задачи',
         departments: 'Отделы',
         analytics: 'Аналитика',

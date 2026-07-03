@@ -1,9 +1,5 @@
 // src/services/whatsappService.ts
-/**
- * Frontend-safe WhatsApp service simulation.
- * This file is bundled by Vite for the client-side.
- * It contains no process.env references, no database dependencies, and no node-only imports.
- */
+import { supabase } from '@/lib/supabase';
 
 export interface WhatsAppMessage {
   sender: 'guest' | 'ai' | 'agent';
@@ -73,6 +69,28 @@ export const whatsappService = {
       found.status = 'sent';
     }
     return { success: true, message: newMsg };
+  },
+
+  async sendApprovalMessage(reviewId: string): Promise<{ success: boolean; message?: string }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/whatsapp?action=send-approval', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ reviewId })
+    });
+
+    if (!response.ok) {
+      const errRes = await response.json().catch(() => ({ error: 'WhatsApp notification failed' }));
+      throw new Error(errRes.error || 'WhatsApp notification failed');
+    }
+
+    return await response.json();
   },
 
   async toggleAiAssistant(id: string, enabled: boolean): Promise<{ success: boolean }> {
