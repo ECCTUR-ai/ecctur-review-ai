@@ -1,8 +1,8 @@
 import { scrapeGoogleMapsReviews } from '../googleScraperService.js';
 import { NormalizedReview } from '../reviewImportService.js';
 
-export async function fetchGoogleReviews(url: string): Promise<NormalizedReview[]> {
-  const scraped = await scrapeGoogleMapsReviews(url);
+export async function fetchGoogleReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
+  const scraped = await scrapeGoogleMapsReviews(url, limit);
   return scraped.map(r => ({
     platform: 'Google',
     guestName: r.guestName,

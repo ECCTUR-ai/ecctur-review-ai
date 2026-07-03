@@ -432,7 +432,11 @@ export default function Reviews() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
+        body: JSON.stringify({
+          hotelId: currentHotelId,
+          googleMapsUrl,
+          mode: totalCount === 0 ? 'initial_import' : 'daily_sync'
+        })
       });
 
       let res: any;
@@ -457,7 +461,16 @@ export default function Reviews() {
         throw new Error(res.error || 'İçe aktarım başarısız oldu.');
       }
 
-      setToastMessage(`Google Maps yorumları içe aktarıldı: ${res.importedCount} yeni yorum eklendi.`);
+      const totalFetched = res.totalFetched !== undefined ? res.totalFetched : 0;
+      const importedCount = res.importedCount !== undefined ? res.importedCount : 0;
+      const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
+      const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
+      const importMode = res.importMode || 'initial_import';
+
+      const alertMsg = `Google Reviews yorumları içe aktarıldı (${importMode === 'initial_import' ? 'İlk Kurulum' : 'Günlük Senkronizasyon'}):\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
+      
+      alert(alertMsg);
+      setToastMessage(`Google: ${importedCount} yeni yorum eklendi.`);
       refetch();
     } catch (err: any) {
       console.error(err);
@@ -505,7 +518,11 @@ export default function Reviews() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl })
+        body: JSON.stringify({
+          hotelId: currentHotelId,
+          tripadvisorUrl,
+          mode: totalCount === 0 ? 'initial_import' : 'daily_sync'
+        })
       });
 
       let res: any;
@@ -534,8 +551,9 @@ export default function Reviews() {
       const importedCount = res.importedCount !== undefined ? res.importedCount : 0;
       const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
       const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
+      const importMode = res.importMode || 'initial_import';
 
-      const alertMsg = `TripAdvisor yorumları içe aktarıldı:\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
+      const alertMsg = `TripAdvisor yorumları içe aktarıldı (${importMode === 'initial_import' ? 'İlk Kurulum' : 'Günlük Senkronizasyon'}):\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
       
       alert(alertMsg);
       setToastMessage(`TripAdvisor: ${importedCount} yeni yorum eklendi.`);

@@ -11,13 +11,13 @@ export interface NormalizedReview {
 }
 
 export const reviewImportService = {
-  async importReviews(platform: string, url: string): Promise<NormalizedReview[]> {
+  async importReviews(platform: string, url: string, limit?: number): Promise<NormalizedReview[]> {
     const normalizedPlatform = (platform || '').toLowerCase();
     
     if (normalizedPlatform === 'google') {
-      return await fetchGoogleReviews(url);
+      return await fetchGoogleReviews(url, limit);
     } else if (normalizedPlatform === 'tripadvisor') {
-      return await fetchTripadvisorReviews(url);
+      return await fetchTripadvisorReviews(url, limit);
     } else if (normalizedPlatform === 'booking') {
       console.log(`[Booking Provider] Placeholder active for URL: ${url}`);
       return [];

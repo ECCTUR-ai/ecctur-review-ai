@@ -5,7 +5,7 @@ export interface ScrapedReview {
   relativeDate: string;
 }
 
-export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<ScrapedReview[]> {
+export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: number): Promise<ScrapedReview[]> {
   const targetUrl = (googleMapsUrl || '').trim();
   if (!targetUrl) {
     throw new Error('no_reviews_found');
@@ -36,7 +36,7 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string): Promise<Sc
     startUrls: [
       { url: cleanUrl }
     ],
-    maxReviews: 100,
+    maxReviews: limit || 1000,
     language: 'tr',
     reviewsSort: 'newest'
   };

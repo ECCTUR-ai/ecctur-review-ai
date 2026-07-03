@@ -1335,7 +1335,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    const { hotelId, googleMapsUrl } = req.body;
+    const { hotelId, googleMapsUrl, mode = 'initial_import' } = req.body;
     if (!hotelId || !googleMapsUrl) {
       return res.status(400).json({ success: false, error: 'Missing hotelId or googleMapsUrl parameter' });
     }
@@ -1345,49 +1345,64 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
-      const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl);
+      const limit = mode === 'initial_import' ? 200 : undefined;
+      const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl, limit);
 
       let importedCount = 0;
       let duplicateCount = 0;
+      let failedCount = 0;
 
       for (const r of scrapedReviews) {
-        const { data: existingReview } = await supabaseAdmin
-          .from('reviews')
-          .select('id')
-          .eq('hotel_id', hotelId)
-          .eq('platform', 'Google')
-          .eq('guest_name', r.guestName)
-          .eq('review_text', r.reviewText)
-          .eq('rating', r.rating)
-          .limit(1);
+        try {
+          const { data: existingReview } = await supabaseAdmin
+            .from('reviews')
+            .select('id')
+            .eq('hotel_id', hotelId)
+            .eq('platform', 'Google')
+            .eq('guest_name', r.guestName)
+            .eq('review_text', r.reviewText)
+            .eq('rating', r.rating)
+            .limit(1);
 
-        if (existingReview && existingReview.length > 0) {
-          duplicateCount++;
-          continue;
+          if (existingReview && existingReview.length > 0) {
+            duplicateCount++;
+            continue;
+          }
+
+          const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+
+          const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
+            hotel_id: hotelId,
+            organization_id: orgId,
+            guest_name: r.guestName,
+            rating: r.rating,
+            review_text: r.reviewText,
+            platform: 'Google',
+            sentiment,
+            status: 'draft',
+            published: 'No',
+            created_at: parseRelativeDate(r.reviewDate)
+          });
+
+          if (insertErr) {
+            console.error('[Google Import] Database insert error:', insertErr);
+            failedCount++;
+          } else {
+            importedCount++;
+          }
+        } catch (loopErr) {
+          console.error('[Google Import] Loop exception:', loopErr);
+          failedCount++;
         }
-
-        const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
-
-        await supabaseAdmin.from('reviews').insert({
-          hotel_id: hotelId,
-          organization_id: orgId,
-          guest_name: r.guestName,
-          rating: r.rating,
-          review_text: r.reviewText,
-          platform: 'Google',
-          sentiment,
-          status: 'draft',
-          published: 'No',
-          created_at: parseRelativeDate(r.reviewDate)
-        });
-        importedCount++;
       }
 
       return res.status(200).json({
         success: true,
         totalFetched: scrapedReviews.length,
         importedCount,
-        duplicateCount
+        duplicateCount,
+        failedCount,
+        importMode: mode
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });
@@ -1402,7 +1417,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    const { hotelId, tripadvisorUrl } = req.body;
+    const { hotelId, tripadvisorUrl, mode = 'initial_import' } = req.body;
     if (!hotelId || !tripadvisorUrl) {
       return res.status(400).json({ success: false, error: 'Missing hotelId or tripadvisorUrl parameter' });
     }
@@ -1412,7 +1427,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
-      const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl);
+      const limit = mode === 'initial_import' ? 200 : undefined;
+      const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl, limit);
 
       let importedCount = 0;
       let duplicateCount = 0;
@@ -1467,7 +1483,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         totalFetched: scrapedReviews.length,
         importedCount,
         duplicateCount,
-        failedCount
+        failedCount,
+        importMode: mode
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });

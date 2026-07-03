@@ -1,6 +1,6 @@
 import { NormalizedReview } from '../reviewImportService.js';
 
-export async function fetchTripadvisorReviews(url: string): Promise<NormalizedReview[]> {
+export async function fetchTripadvisorReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
   const targetUrl = (url || '').trim();
   if (!targetUrl) {
     throw new Error('no_reviews_found');
@@ -19,7 +19,7 @@ export async function fetchTripadvisorReviews(url: string): Promise<NormalizedRe
     startUrls: [
       { url: targetUrl }
     ],
-    maxItemsPerQuery: 200,
+    maxItemsPerQuery: limit || 1000,
     reviewRatings: ["ALL_REVIEW_RATINGS"],
     reviewsLanguages: ["ALL_REVIEW_LANGUAGES"],
     scrapeReviewerInfo: true,
