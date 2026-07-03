@@ -1,0 +1,34 @@
+-- Migration: Add missing corporate columns to organizations, hotels, profiles, and reviews
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS tax_office TEXT,
+  ADD COLUMN IF NOT EXISTS tax_number TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS website TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS country TEXT,
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'TRY',
+  ADD COLUMN IF NOT EXISTS default_language TEXT DEFAULT 'tr';
+
+ALTER TABLE public.hotels
+  ADD COLUMN IF NOT EXISTS google_maps_link TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS website TEXT,
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS country TEXT,
+  ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Istanbul',
+  ADD COLUMN IF NOT EXISTS default_language TEXT DEFAULT 'tr';
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS title TEXT,
+  ADD COLUMN IF NOT EXISTS department TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+  ADD COLUMN IF NOT EXISTS language TEXT,
+  ADD COLUMN IF NOT EXISTS timezone TEXT;
+
+ALTER TABLE public.reviews
+  ADD COLUMN IF NOT EXISTS platform_review_id TEXT;
