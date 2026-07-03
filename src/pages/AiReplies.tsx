@@ -562,8 +562,7 @@ export default function AiReplies() {
             status: 'Published',
             publish_status: 'Published',
             published: 'Yes',
-            ai_reply: replyText,
-            responded_at: new Date().toISOString()
+            ai_reply: replyText
           })
           .eq('id', review.id);
 
@@ -714,8 +713,7 @@ export default function AiReplies() {
                 status: 'Published',
                 publish_status: 'Published',
                 published: 'Yes',
-                ai_reply: text,
-                responded_at: new Date().toISOString()
+                ai_reply: text
               })
               .eq('id', id);
 
