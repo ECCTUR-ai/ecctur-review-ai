@@ -1,6 +1,6 @@
-# Walkthrough — AI Business Insights & Centralized Department Matching
+# Walkthrough — AI Business Insights & Google Business Reply Publishing Flow
 
-Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights**, **5 Kritik Aksiyon Önerisi** (5 Critical Actions), and unified **Department Matching** filters.
+Overview of the implementation for upgrading the Raporlar (Reports) dashboard's **AI Business Insights**, **5 Kritik Aksiyon Önerisi** (5 Critical Actions), and **Google Business Profile (GBP) Reply Publishing** flow.
 
 ## 1. Upgraded 5 Critical Action Recommendations with Resolution
 - **Balanced 3-Column Layout**:
@@ -29,17 +29,19 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
 
 ---
 
-## 2. Centralized Department Operational Matching & Chart Interactivity
-- **Discrepancy Resolution**:
-  - Extracted department keyword and Yapay Zeka parsing logic into a shared utility file: **`src/utils/departmentMatcher.ts`**.
-  - Includes standard functions: `matchesDepartment(review, key)`, `getDepartmentKey(review)`, and `getDepartmentStats(reviews, isTr)`.
-  - Guarantees that both the bar counts on the Reports dashboard and the list filtering on the Reviews page execute the exact same query matches.
-- **Date Filter Parameter Forwarding**:
-  - Clicking on a department bar forwards both the `department` tag AND the current active date filters (`from` and `to` search queries) to the Reviews routing path: e.g. `/reviews?department=housekeeping&from=2026-06-02&to=2026-07-02`.
-  - The Reviews page consumes the `from` and `to` parameters to filter the list date bounds, matching the Reports dashboard dataset exactly.
-- **Visual Dynamic Banner**:
-  - Displays a clean dismissible notification badge detailing the matched counts: e.g. *"Kat Hizmetleri ile ilgili 19 yorum"*.
-  - Tapping "Temizle" safely clears all search parameters (`department`, `from`, `to`) from the active URL path.
+## 2. Google Business Profile (GBP) Reply Publishing Flow
+- **Interactive Details Panel Button**:
+  - Automatically shows a premium **"Google'da Yayınla"** action button in the Reviews detail panel when the review source is Google, has a generated `ai_reply`/`response`, and the current status is `pending_approval` or `waiting_approval` (manager approved state).
+  - Prompts the user with a clean window confirmation: *"Bu cevabı Google Business üzerinde yayınlamak istiyor musunuz?"*.
+- **Database Status Logging Migration**:
+  - Created database migration: **`supabase/migrations/20260703120000_add_google_reply_fields.sql`** to append tracking columns to the `reviews` schema:
+    - `google_reply_status` (e.g. `'published'`, `'mock_published'`, `'error'`)
+    - `google_reply_published_at` (timestamp of publication)
+    - `google_reply_error` (log statement describing failure causes)
+- **Status Badging**:
+  - Reviews that have been successfully published on GBP render a clean, custom badge indicator next to their standard statuses in the main reviews cards list: **`Google'da Yayınlandı`**.
+- **Consolidated Endpoint Routing**:
+  - Integrated the publication logic inside `api-services/googleReplyService.ts` and the unified serverless endpoint handler `publish-google-reply` inside `api/reviews.ts`. Correctly falls back to mock logging if location credentials are missing.
 
 ---
 
@@ -49,6 +51,7 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
 - **[reviews.ts](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/api/reviews.ts)**:
   - Added the `compileLocalInsights` function running keyword frequency matches.
   - Set up the `action === 'generate-insights'` router post handler supporting OpenAI analysis and fallback execution.
+  - Linked the `publish-google-reply` action handler.
 
 ### Client-side Invoker
 - **[reviewService.ts](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/services/reviewService.ts)**:
@@ -61,10 +64,14 @@ Overview of the implementation for upgrading the Raporlar (Reports) dashboard's 
   - Imported `getDepartmentStats` utility to compute department numbers consistently.
   - Added `getActiveDateRange()` to forward date values on bar clicks.
 
-### Reviews Page Layout
+### Reviews Page & Cards Layout
 - **[Reviews.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/pages/Reviews.tsx)**:
   - Configured `fromParam` and `toParam` searchParams lookups.
   - Applied the centralized `matchesDepartment` parser and date window filtering logic to the review records.
+- **[ReviewCard.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/components/ReviewCard.tsx)**:
+  - Added visual conditional badges for Google-published reviews.
+- **[ReviewDetailPanel.tsx](file:///Users/cemilsezgin/Desktop/Antigravity/Projeler/ecctur-review-ai/src/components/ReviewDetailPanel.tsx)**:
+  - Configured conditional GBP publishing button triggers and window confirmation prompts.
 
 ---
-Verified cleanly using `npm run build` and committed to main (`5cb2b05`).
+Verified cleanly using `npm run build` and committed to main (`bec1f43`).
