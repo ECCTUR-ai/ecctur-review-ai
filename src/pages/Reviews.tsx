@@ -978,16 +978,56 @@ export default function Reviews() {
 
   const handlePublishGoogleReply = useCallback(async (id: string, replyText: string) => {
     try {
-      const res = await reviewService.publishGoogleReply(id, replyText);
-      if (res.success) {
-        setToastMessage("Cevap Google Business Profile üzerinden başarıyla yayınlandı.");
-        if (res.review && res.review.id) {
-          setSelectedReviewDetail(res.review);
-        }
-        refetch();
+      const { data: updatedRow, error } = await supabase
+        .from('reviews')
+        .update({
+          status: 'Published',
+          publish_status: 'Published',
+          published: 'Yes',
+          published_at: new Date().toISOString(),
+          ai_reply: replyText
+        })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setToastMessage("Cevap başarıyla yayınlandı olarak işaretlendi.");
+
+      // Try to insert audit log
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const userEmail = currentUser?.email || '';
+        const userMetadata = currentUser?.user_metadata || {};
+        const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
+
+        await supabase.from('review_action_logs').insert({
+          review_id: id,
+          hotel_id: updatedRow?.hotel_id,
+          organization_id: updatedRow?.organization_id,
+          action_type: 'published',
+          action_by_user_id: currentUser?.id,
+          action_by_user_email: userEmail,
+          action_by_user_name: userName,
+          action_at: new Date().toISOString(),
+          previous_status: updatedRow?.status || 'draft',
+          new_status: 'published',
+          platform: String(updatedRow?.platform || 'google').toLowerCase(),
+          guest_name: updatedRow?.guestName || 'Guest',
+          review_reply_text: replyText,
+          ai_generated: true,
+          published_at: new Date().toISOString(),
+          approved_at: new Date().toISOString()
+        });
+      } catch (logErr) {
+        console.warn('[handlePublishGoogleReply] Failed to insert audit log:', logErr);
       }
+
+      refetch();
     } catch (err: any) {
-      console.error('Failed to publish Google reply:', err);
+      console.error('Failed to publish Google reply locally:', err);
+      alert("Yorum yayınlandı olarak işaretlenemedi.");
       throw err;
     }
   }, [refetch]);

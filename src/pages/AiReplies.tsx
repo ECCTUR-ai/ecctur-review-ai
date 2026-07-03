@@ -622,7 +622,7 @@ export default function AiReplies() {
     }
   };
 
-  // Publish response to OTA platform
+  // Publish response to OTA platform (Locally only for all platforms)
   const handlePublish = async (review: Review) => {
     const replyText = editTexts[review.id] || review.response || '';
     if (!replyText.trim()) {
@@ -635,84 +635,56 @@ export default function AiReplies() {
     try {
       const platform = String(selectedReview.source || (selectedReview as any).platform || '').toLowerCase();
 
-      if (platform === 'google') {
-        await reviewService.publishGoogleReply(selectedReview.id, replyText);
-      } else {
-        // local publish only
-        const { data: updatedRow, error } = await supabase
-          .from('reviews')
-          .update({
-            status: 'Published',
-            publish_status: 'Published',
-            published: 'Yes',
-            ai_reply: replyText
-          })
-          .eq('id', selectedReview.id)
-          .select('*')
-          .maybeSingle();
+      // local publish only for all platforms
+      const { data: updatedRow, error } = await supabase
+        .from('reviews')
+        .update({
+          status: 'Published',
+          publish_status: 'Published',
+          published: 'Yes',
+          published_at: new Date().toISOString(),
+          ai_reply: replyText
+        })
+        .eq('id', selectedReview.id)
+        .select('*')
+        .maybeSingle();
 
-        if (error) throw error;
-
-        console.log("LOCAL PUBLISH UPDATE", updatedRow);
-
-        // Try to insert audit log
-        try {
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          const userEmail = currentUser?.email || '';
-          const userMetadata = currentUser?.user_metadata || {};
-          const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
-
-          await supabase.from('review_action_logs').insert({
-            review_id: selectedReview.id,
-            hotel_id: selectedReview.hotelId,
-            organization_id: selectedReview.organizationId,
-            action_type: 'published',
-            action_by_user_id: currentUser?.id,
-            action_by_user_email: userEmail,
-            action_by_user_name: userName,
-            action_at: new Date().toISOString(),
-            previous_status: selectedReview.status,
-            new_status: 'published',
-            platform: platform,
-            guest_name: selectedReview.guestName,
-            review_reply_text: replyText,
-            ai_generated: true,
-            published_at: new Date().toISOString(),
-            approved_at: new Date().toISOString()
-          });
-        } catch (logErr) {
-          console.warn('[handlePublish] Failed to insert audit log:', logErr);
-        }
-
-        // Show platform-specific alert
-        if (platform === 'booking') {
-          alert("Booking.com cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.");
-        } else if (platform === 'tripadvisor') {
-          alert("TripAdvisor cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.");
-        } else {
-          alert(`${selectedReview.source} cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.`);
-        }
-
-        // Instantly remove card from active list and move to archive list dynamically
-        if (activeTab === 'active') {
-          setReviews(prev => prev.filter(r => r.id !== selectedReview.id));
-          setSelectedReviewIds(prev => prev.filter(id => id !== selectedReview.id));
-        } else {
-          setReviews(prev => prev.map(r => r.id === selectedReview.id ? { ...r, response: replyText, status: 'published' } : r));
-        }
-
-        if (activePanelReview?.id === selectedReview.id) {
-          setActivePanelReview(prev => prev ? { ...prev, response: replyText, status: 'published' } : null);
-        }
-        
-        // Update statistics and reload the list
-        fetchKPIStats();
-        fetchUniquePublishers();
-        fetchReviewsList(false);
-
-        setSavingId(null);
-        return;
+      if (error) {
+        throw new Error("Yorum yayınlandı olarak işaretlenemedi.");
       }
+
+      console.log("LOCAL PUBLISH UPDATE", updatedRow);
+
+      // Try to insert audit log
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const userEmail = currentUser?.email || '';
+        const userMetadata = currentUser?.user_metadata || {};
+        const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
+
+        await supabase.from('review_action_logs').insert({
+          review_id: selectedReview.id,
+          hotel_id: selectedReview.hotelId,
+          organization_id: selectedReview.organizationId,
+          action_type: 'published',
+          action_by_user_id: currentUser?.id,
+          action_by_user_email: userEmail,
+          action_by_user_name: userName,
+          action_at: new Date().toISOString(),
+          previous_status: selectedReview.status,
+          new_status: 'published',
+          platform: platform,
+          guest_name: selectedReview.guestName,
+          review_reply_text: replyText,
+          ai_generated: true,
+          published_at: new Date().toISOString(),
+          approved_at: new Date().toISOString()
+        });
+      } catch (logErr) {
+        console.warn('[handlePublish] Failed to insert audit log:', logErr);
+      }
+
+      alert("Yorum yayınlandı olarak işaretlendi ve listeden kaldırıldı.");
 
       // Instantly remove card from active list and move to archive list dynamically
       if (activeTab === 'active') {
@@ -723,16 +695,16 @@ export default function AiReplies() {
       }
 
       if (activePanelReview?.id === selectedReview.id) {
-        setActivePanelReview(prev => prev ? { ...prev, response: replyText, status: 'published' } : null);
+        setActivePanelReview(null);
       }
-      
+
       // Update statistics and reload the list
       fetchKPIStats();
       fetchUniquePublishers();
       fetchReviewsList(false);
 
     } catch (err: any) {
-      alert(`Publishing Failed: ${err.message || String(err)}`);
+      alert(err.message || "Yorum yayınlandı olarak işaretlenemedi.");
     } finally {
       setSavingId(null);
     }
@@ -827,57 +799,54 @@ export default function AiReplies() {
         if (text && review) {
           const platform = String(review.source || (review as any).platform || '').toLowerCase();
 
-          if (platform !== 'google') {
-            const { data: updatedRow, error } = await supabase
-              .from('reviews')
-              .update({
-                status: 'Published',
-                publish_status: 'Published',
-                published: 'Yes',
-                ai_reply: text
-              })
-              .eq('id', id)
-              .select('*')
-              .maybeSingle();
+          // local publish only for all platforms
+          const { data: updatedRow, error } = await supabase
+            .from('reviews')
+            .update({
+              status: 'Published',
+              publish_status: 'Published',
+              published: 'Yes',
+              published_at: new Date().toISOString(),
+              ai_reply: text
+            })
+            .eq('id', id)
+            .select('*')
+            .maybeSingle();
 
-            if (error) throw error;
+          if (error) throw error;
 
-            console.log("LOCAL PUBLISH UPDATE", updatedRow);
+          console.log("LOCAL PUBLISH UPDATE", updatedRow);
 
-            // Try to insert audit log
-            try {
-              const { data: { user: currentUser } } = await supabase.auth.getUser();
-              const userEmail = currentUser?.email || '';
-              const userMetadata = currentUser?.user_metadata || {};
-              const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
+          // Try to insert audit log
+          try {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            const userEmail = currentUser?.email || '';
+            const userMetadata = currentUser?.user_metadata || {};
+            const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
 
-              await supabase.from('review_action_logs').insert({
-                review_id: id,
-                hotel_id: review.hotelId,
-                organization_id: review.organizationId,
-                action_type: 'published',
-                action_by_user_id: currentUser?.id,
-                action_by_user_email: userEmail,
-                action_by_user_name: userName,
-                action_at: new Date().toISOString(),
-                previous_status: review.status,
-                new_status: 'published',
-                platform: platform,
-                guest_name: review.guestName,
-                review_reply_text: text,
-                ai_generated: true,
-                published_at: new Date().toISOString(),
-                approved_at: new Date().toISOString()
-              });
-            } catch (logErr) {
-              console.warn('[handleBulkPublish] Failed to insert audit log:', logErr);
-            }
-
-            success++;
-          } else {
-            await reviewService.publishGoogleReply(id, text);
-            success++;
+            await supabase.from('review_action_logs').insert({
+              review_id: id,
+              hotel_id: review.hotelId,
+              organization_id: review.organizationId,
+              action_type: 'published',
+              action_by_user_id: currentUser?.id,
+              action_by_user_email: userEmail,
+              action_by_user_name: userName,
+              action_at: new Date().toISOString(),
+              previous_status: review.status,
+              new_status: 'published',
+              platform: platform,
+              guest_name: review.guestName,
+              review_reply_text: text,
+              ai_generated: true,
+              published_at: new Date().toISOString(),
+              approved_at: new Date().toISOString()
+            });
+          } catch (logErr) {
+            console.warn('[handleBulkPublish] Failed to insert audit log:', logErr);
           }
+
+          success++;
         }
       } catch (e) {
         console.error(`Bulk Publish failure for review ${id}:`, e);
