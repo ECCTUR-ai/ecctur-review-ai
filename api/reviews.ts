@@ -989,11 +989,11 @@ ${JSON.stringify(reviewsSample)}
         }
       }
 
-      const { data: hotelData, error: hotelErr } = await supabaseAdmin.from('hotels').select('organization_id, name, booking_property_id').eq('id', hotelId).maybeSingle();
+      const { data: hotelData, error: hotelErr } = await supabaseAdmin.from('hotels').select('organization_id, name').eq('id', hotelId).maybeSingle();
       if (hotelErr || !hotelData) throw new Error(hotelErr?.message || 'Hotel not found');
 
       const orgId = hotelData.organization_id;
-      const bookingPropertyId = hotelData.booking_property_id;
+      const bookingPropertyId = '';
 
       if (!bookingPropertyId) {
         return res.status(400).json({ success: false, error: 'Hotel has no Booking.com Property ID configured' });

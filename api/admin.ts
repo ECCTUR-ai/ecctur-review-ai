@@ -890,8 +890,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organization_id: organizationId,
           google_maps_link: googleMapsUrl || googleMapsLink || null,
           google_maps_url: googleMapsUrl || googleMapsLink || null,
-          tripadvisor_url: tripadvisorUrl || null,
-          booking_property_id: bookingPropertyId || null
+          tripadvisor_url: tripadvisorUrl || null
         })
         .select()
         .maybeSingle();
@@ -934,8 +933,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organization_id: organizationId,
           google_maps_link: googleMapsUrl || googleMapsLink || null,
           google_maps_url: googleMapsUrl || googleMapsLink || null,
-          tripadvisor_url: tripadvisorUrl || null,
-          booking_property_id: bookingPropertyId || null
+          tripadvisor_url: tripadvisorUrl || null
         })
         .eq('id', id)
         .select()

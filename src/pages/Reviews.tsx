@@ -531,11 +531,11 @@ export default function Reviews() {
     // Load hotel to verify property ID exists
     const { data: dbRow } = await supabase
       .from('hotels')
-      .select('id, name, booking_property_id')
+      .select('id, name')
       .eq('id', currentHotelId)
       .maybeSingle();
 
-    const bookingPropertyId = currentHotel?.bookingPropertyId || dbRow?.booking_property_id;
+    const bookingPropertyId = currentHotel?.bookingPropertyId || '';
     if (!bookingPropertyId) {
       alert('Bu otel için Booking.com Property ID tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
       return;
@@ -575,7 +575,7 @@ export default function Reviews() {
       try {
         const { data } = await supabase
           .from('hotels')
-          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_property_id')
+          .select('google_maps_url, google_maps_link, tripadvisor_url')
           .eq('id', currentHotelId)
           .maybeSingle();
         dbRow = data;
@@ -585,7 +585,7 @@ export default function Reviews() {
 
       const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
       const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
-      const bookingPropertyId = currentHotel?.bookingPropertyId || dbRow?.booking_property_id;
+      const bookingPropertyId = currentHotel?.bookingPropertyId || '';
 
       if (!googleMapsUrl && !tripadvisorUrl && !bookingPropertyId) {
         alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
