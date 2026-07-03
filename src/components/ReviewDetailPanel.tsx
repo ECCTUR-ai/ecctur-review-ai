@@ -58,6 +58,9 @@ export function ReviewDetailPanel({
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingApproval, setIsSendingApproval] = useState(false);
 
 
   // Task creation local states
@@ -98,7 +101,7 @@ export function ReviewDetailPanel({
     setShowTaskForm(false);
   }, [review]);
 
-  const handleTranslate = async (lang: 'tr' | 'en' | 'ru') => {
+  const handleTranslate = (lang: 'tr' | 'en' | 'ru') => {
     if (selectedLang === lang) {
       setSelectedLang(null);
       return;
@@ -112,38 +115,44 @@ export function ReviewDetailPanel({
     }
 
     setTranslating(true);
-    try {
-      const translated = await reviewService.translateReview(review.comment || '', lang);
-      setTranslations(prev => ({ ...prev, [lang]: translated }));
-    } catch (err: any) {
-      console.error('Translation failed:', err);
-      setTranslationError('Çeviri yapılamadı.');
-    } finally {
-      setTranslating(false);
-    }
+    setTimeout(async () => {
+      try {
+        const translated = await reviewService.translateReview(review.comment || '', lang);
+        setTranslations(prev => ({ ...prev, [lang]: translated }));
+      } catch (err: any) {
+        console.error('Translation failed:', err);
+        setTranslationError('Çeviri yapılamadı.');
+      } finally {
+        setTranslating(false);
+      }
+    }, 50);
   };
 
-  const handleGenerateReply = async () => {
+  const handleGenerateReply = () => {
     setIsGenerating(true);
-    try {
-      const generated = await onGenerateAiReply(review.id);
-      setResponseVal(generated);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsGenerating(false);
-    }
+    setTimeout(async () => {
+      try {
+        const generated = await onGenerateAiReply(review.id);
+        setResponseVal(generated);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsGenerating(false);
+      }
+    }, 50);
   };
 
-  const handleSaveNotes = async () => {
+  const handleSaveNotes = () => {
     setIsSavingNotes(true);
-    try {
-      await onUpdateNotes(review.id, managerNotes, internalNotes);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSavingNotes(false);
-    }
+    setTimeout(async () => {
+      try {
+        await onUpdateNotes(review.id, managerNotes, internalNotes);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSavingNotes(false);
+      }
+    }, 50);
   };
 
   const handleCopy = () => {
@@ -158,7 +167,7 @@ export function ReviewDetailPanel({
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
-  const handlePublishGoogleClick = async () => {
+  const handlePublishGoogleClick = () => {
     const rawText = responseVal || review.response || (review as any).owner_reply_text || '';
     const trimmedText = rawText.trim();
     
@@ -168,45 +177,90 @@ export function ReviewDetailPanel({
     }
 
     if (!onPublishGoogleReply) return;
-    const confirmPublish = window.confirm("Bu cevabı Google Business üzerinde yayınlamak istiyor musunuz?");
-    if (!confirmPublish) return;
-
+    
     setIsPublishing(true);
-    try {
-      await onPublishGoogleReply(review.id, trimmedText);
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || 'Yayınlama sırasında bir hata oluştu.');
-    } finally {
-      setIsPublishing(false);
-    }
+    setTimeout(async () => {
+      const confirmPublish = window.confirm("Bu cevabı Google Business üzerinde yayınlamak istiyor musunuz?");
+      if (!confirmPublish) {
+        setIsPublishing(false);
+        return;
+      }
+      try {
+        await onPublishGoogleReply(review.id, trimmedText);
+      } catch (err: any) {
+        console.error(err);
+        alert(err.message || 'Yayınlama sırasında bir hata oluştu.');
+      } finally {
+        setIsPublishing(false);
+      }
+    }, 50);
   };
 
+  const handleSaveDraftClick = () => {
+    setIsSavingDraft(true);
+    setTimeout(async () => {
+      try {
+        await onSaveDraft(review.id, responseVal);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSavingDraft(false);
+      }
+    }, 50);
+  };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
+  const handleUpdateStatusClick = () => {
+    setIsSendingApproval(true);
+    setTimeout(async () => {
+      try {
+        await onUpdateStatus(review.id, 'pending_approval', responseVal);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSendingApproval(false);
+      }
+    }, 50);
+  };
+
+  const handleSubmitResponseClick = () => {
+    setIsSubmitting(true);
+    setTimeout(async () => {
+      try {
+        await onSubmitResponse(review.id, responseVal);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }, 50);
+  };
+
+  const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingTask(true);
-    try {
-      await taskService.createTask({
-        reviewId: review.id,
-        title: taskTitle,
-        description: taskDescription,
-        department: taskDept,
-        assignedTo: taskAssigned,
-        dueDate: taskDueDate,
-        priority: taskPriority,
-        status: 'open',
-        hotelId: review.hotelId,
-        organizationId: review.organizationId
-      });
-      setShowTaskForm(false);
-      setTaskCreatedToast(true);
-      setTimeout(() => setTaskCreatedToast(false), 3000);
-    } catch (err: any) {
-      alert(`Görev oluşturma hatası: ${err.message}`);
-    } finally {
-      setIsSubmittingTask(false);
-    }
+    setTimeout(async () => {
+      try {
+        await taskService.createTask({
+          reviewId: review.id,
+          title: taskTitle,
+          description: taskDescription,
+          department: taskDept,
+          assignedTo: taskAssigned,
+          dueDate: taskDueDate,
+          priority: taskPriority,
+          status: 'open',
+          hotelId: review.hotelId,
+          organizationId: review.organizationId
+        });
+        setShowTaskForm(false);
+        setTaskCreatedToast(true);
+        setTimeout(() => setTaskCreatedToast(false), 3000);
+      } catch (err: any) {
+        alert(`Görev oluşturma hatası: ${err.message}`);
+      } finally {
+        setIsSubmittingTask(false);
+      }
+    }, 50);
   };
 
   const confidenceScore = review.aiAnalysis?.sentimentScore || (review.rating >= 4 ? 94 : 88);
@@ -419,12 +473,13 @@ export function ReviewDetailPanel({
                     <>
                       <button
                         type="button"
-                        onClick={() => onSaveDraft(review.id, responseVal)}
-                        className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700 transition-colors flex items-center gap-1"
+                        onClick={handleSaveDraftClick}
+                        disabled={isSavingDraft}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                         title="Taslak Kaydet"
                       >
-                        <Save size={11} />
-                        Taslak
+                        <Save size={11} className={isSavingDraft ? 'animate-spin text-blue-500' : ''} />
+                        {isSavingDraft ? 'Kaydediliyor...' : 'Taslak'}
                       </button>
                       <button
                         type="button"
@@ -459,7 +514,7 @@ export function ReviewDetailPanel({
                       onClick={handlePublishGoogleClick}
                       className="px-3.5 py-1.5 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500 disabled:opacity-50 text-[10px] font-bold text-white transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10 cursor-pointer disabled:cursor-not-allowed"
                     >
-                      <Send size={11} />
+                      <Send size={11} className={isPublishing ? 'animate-spin' : ''} />
                       {isPublishing ? 'Yayınlanıyor...' : "Google'a Yayınla"}
                     </button>
                   )}
@@ -468,10 +523,11 @@ export function ReviewDetailPanel({
                     <>
                       <button
                         type="button"
-                        onClick={() => onUpdateStatus(review.id, 'pending_approval', responseVal)}
-                        className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 text-[10px] font-bold text-amber-700 transition-colors"
+                        onClick={handleUpdateStatusClick}
+                        disabled={isSendingApproval}
+                        className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 text-[10px] font-bold text-amber-700 transition-colors disabled:opacity-50"
                       >
-                        Onaya Gönder
+                        {isSendingApproval ? 'Gönderiliyor...' : 'Onaya Gönder'}
                       </button>
                       
                       {/* Default publish button for other statuses when editable */}
@@ -484,18 +540,19 @@ export function ReviewDetailPanel({
                           onClick={handlePublishGoogleClick}
                           className="px-3.5 py-1.5 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500 disabled:opacity-50 text-[10px] font-bold text-white transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10 cursor-pointer disabled:cursor-not-allowed"
                         >
-                          <Send size={11} />
+                          <Send size={11} className={isPublishing ? 'animate-spin' : ''} />
                           {isPublishing ? 'Yayınlanıyor...' : "Google'a Yayınla"}
                         </button>
                       )}
 
                       <button
                         type="button"
-                        onClick={() => onSubmitResponse(review.id, responseVal)}
-                        className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-[10px] font-bold text-white transition-colors flex items-center gap-1"
+                        onClick={handleSubmitResponseClick}
+                        disabled={isSubmitting}
+                        className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-[10px] font-bold text-white transition-colors flex items-center gap-1 disabled:opacity-50"
                       >
-                        <Send size={11} />
-                        Yayınla
+                        <Send size={11} className={isSubmitting ? 'animate-spin' : ''} />
+                        {isSubmitting ? 'Yayınlanıyor...' : 'Yayınla'}
                       </button>
                     </>
                   )}

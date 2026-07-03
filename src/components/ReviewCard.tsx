@@ -16,10 +16,10 @@ import {
 interface ReviewCardProps {
   review: Review;
   isSelected: boolean;
-  onClick: () => void;
+  onSelect: (id: string) => void;
 }
 
-export function ReviewCard({ review, isSelected, onClick }: ReviewCardProps) {
+export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, onSelect }: ReviewCardProps) {
   // Helper to choose platform icon representation
   const getPlatformIcon = () => {
     switch (review.source) {
@@ -51,66 +51,33 @@ export function ReviewCard({ review, isSelected, onClick }: ReviewCardProps) {
     }
   };
 
-  // Sentiment dot styles
-  const getSentimentDot = () => {
-    switch (review.sentiment) {
-      case 'positive':
-        return 'bg-emerald-500 ring-2 ring-emerald-100';
-      case 'negative':
-        return 'bg-rose-500 ring-2 ring-rose-100';
-      default:
-        return 'bg-amber-500 ring-2 ring-amber-100';
-    }
-  };
-
-  // Sentiment strip colors
-  const getSentimentStrip = () => {
-    switch (review.sentiment) {
-      case 'positive':
-        return 'bg-emerald-500';
-      case 'negative':
-        return 'bg-rose-500';
-      default:
-        return 'bg-amber-500';
-    }
-  };
-
   return (
     <div
-      onClick={onClick}
-      className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between gap-4 relative overflow-hidden transform hover:-translate-y-0.5 ${
+      onClick={() => onSelect(review.id)}
+      className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col gap-3 group relative ${
         isSelected
-          ? 'bg-blue-50/50 border-blue-200 shadow-md shadow-blue-500/5'
-          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-lg shadow-sm'
+          ? 'bg-blue-50/50 border-blue-200 shadow-sm shadow-blue-500/5'
+          : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-100'
       }`}
     >
-      {/* Sentiment indicator strip */}
-      <div className={`absolute top-0 left-0 right-0 h-[3px] w-full ${getSentimentStrip()}`} />
-
-      {/* Card Header */}
+      {/* Top row: Platform, name, date */}
       <div className="flex justify-between items-start gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-slate-800 text-sm tracking-tight">{review.guestName}</span>
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-50 border border-slate-100 text-[10px] text-slate-600 font-medium">
-              {getPlatformIcon()}
-              <span>{review.source}</span>
-            </div>
-            
-            {/* Sentiment indicator dot */}
-            <span className={`w-2.5 h-2.5 rounded-full ${getSentimentDot()}`} title={`Duygu Analizi: ${review.sentiment}`} />
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-colors ${
+            isSelected 
+              ? 'bg-white border-blue-100' 
+              : 'bg-slate-50 border-slate-100 group-hover:bg-white group-hover:border-slate-200'
+          }`}>
+            {getPlatformIcon()}
           </div>
-          
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10.5px] text-slate-500 font-medium">
-            <span className="flex items-center gap-1">
-              <Building size={11} className="text-slate-400" />
-              {review.hotel || 'Demo Hotel'}
-            </span>
-            <span>&bull;</span>
-            <span className="flex items-center gap-1">
+          <div>
+            <h4 className="text-xs font-bold text-slate-800 line-clamp-1">
+              {review.guestName}
+            </h4>
+            <div className="flex items-center gap-1 text-[10.5px] text-slate-500 font-medium">
               <Calendar size={11} className="text-slate-400" />
               <span>{getRelativeTime(review.date)}</span>
-            </span>
+            </div>
           </div>
         </div>
 
@@ -149,4 +116,4 @@ export function ReviewCard({ review, isSelected, onClick }: ReviewCardProps) {
       )}
     </div>
   );
-}
+});

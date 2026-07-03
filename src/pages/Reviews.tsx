@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
@@ -551,119 +551,122 @@ export default function Reviews() {
     }
   };
 
-  const handleSyncAllPlatforms = async () => {
+  const handleSyncAllPlatforms = () => {
     if (!currentHotelId) {
       alert('Lütfen bir otel seçin.');
       return;
     }
 
-    const currentHotel = hotels?.find(h => h.id === currentHotelId);
-    let dbRow: any = null;
-    try {
-      const { data } = await supabase
-        .from('hotels')
-        .select('google_maps_url, google_maps_link, tripadvisor_url, booking_property_id')
-        .eq('id', currentHotelId)
-        .maybeSingle();
-      dbRow = data;
-    } catch (e) {
-      console.error(e);
-    }
-
-    const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
-    const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
-    const bookingPropertyId = currentHotel?.bookingPropertyId || dbRow?.booking_property_id;
-
-    if (!googleMapsUrl && !tripadvisorUrl && !bookingPropertyId) {
-      alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
-      return;
-    }
-
     setIsSyncingAll(true);
-    let results: string[] = [];
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Oturum bulunamadı.');
-
-      // 1. Google
-      if (googleMapsUrl) {
-        try {
-          const response = await fetch('/api/reviews?action=import-google-maps', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
-          });
-          const res = await response.json();
-          if (response.ok) {
-            results.push(`Google: ${res.importedCount} yeni yorum`);
-          } else {
-            results.push(`Google: Hata (${res.error || 'İçe aktarılamadı'})`);
-          }
-        } catch (e: any) {
-          results.push(`Google: Hata (${e.message})`);
-        }
+    setTimeout(async () => {
+      const currentHotel = hotels?.find(h => h.id === currentHotelId);
+      let dbRow: any = null;
+      try {
+        const { data } = await supabase
+          .from('hotels')
+          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_property_id')
+          .eq('id', currentHotelId)
+          .maybeSingle();
+        dbRow = data;
+      } catch (e) {
+        console.error(e);
       }
 
-      // 2. TripAdvisor
-      if (tripadvisorUrl) {
-        try {
-          const response = await fetch('/api/reviews?action=import-tripadvisor', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl })
-          });
-          const res = await response.json();
-          if (response.ok) {
-            results.push(`Tripadvisor: ${res.importedCount} yeni yorum`);
-          } else {
-            results.push(`Tripadvisor: Hata (${res.error || 'İçe aktarılamadı'})`);
-          }
-        } catch (e: any) {
-          results.push(`Tripadvisor: Hata (${e.message})`);
-        }
+      const googleMapsUrl = currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
+      const tripadvisorUrl = currentHotel?.tripadvisorUrl || dbRow?.tripadvisor_url;
+      const bookingPropertyId = currentHotel?.bookingPropertyId || dbRow?.booking_property_id;
+
+      if (!googleMapsUrl && !tripadvisorUrl && !bookingPropertyId) {
+        alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
+        setIsSyncingAll(false);
+        return;
       }
 
-      // 3. Booking.com
-      if (bookingPropertyId) {
-        try {
-          const response = await fetch('/api/reviews?action=import-booking', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ hotelId: currentHotelId, range: importRange })
-          });
-          const res = await response.json();
-          if (response.ok) {
-            results.push(`Booking.com: ${res.importedCount} yeni yorum`);
-          } else {
-            results.push(`Booking.com: Hata (${res.error || 'İçe aktarılamadı'})`);
-          }
-        } catch (e: any) {
-          results.push(`Booking.com: Hata (${e.message})`);
-        }
-      }
+      let results: string[] = [];
 
-      setToastMessage(`Senkronizasyon tamamlandı:\n${results.join('\n')}`);
-      refetch();
-    } catch (err: any) {
-      console.error(err);
-      alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
-    } finally {
-      setIsSyncingAll(false);
-    }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('Oturum bulunamadı.');
+
+        // 1. Google
+        if (googleMapsUrl) {
+          try {
+            const response = await fetch('/api/reviews?action=import-google-maps', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl })
+            });
+            const res = await response.json();
+            if (response.ok) {
+              results.push(`Google: ${res.importedCount} yeni yorum`);
+            } else {
+              results.push(`Google: Hata (${res.error || 'İçe aktarılamadı'})`);
+            }
+          } catch (e: any) {
+            results.push(`Google: Hata (${e.message})`);
+          }
+        }
+
+        // 2. TripAdvisor
+        if (tripadvisorUrl) {
+          try {
+            const response = await fetch('/api/reviews?action=import-tripadvisor', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl })
+            });
+            const res = await response.json();
+            if (response.ok) {
+              results.push(`Tripadvisor: ${res.importedCount} yeni yorum`);
+            } else {
+              results.push(`Tripadvisor: Hata (${res.error || 'İçe aktarılamadı'})`);
+            }
+          } catch (e: any) {
+            results.push(`Tripadvisor: Hata (${e.message})`);
+          }
+        }
+
+        // 3. Booking.com
+        if (bookingPropertyId) {
+          try {
+            const response = await fetch('/api/reviews?action=import-booking', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ hotelId: currentHotelId, range: importRange })
+            });
+            const res = await response.json();
+            if (response.ok) {
+              results.push(`Booking.com: ${res.importedCount} yeni yorum`);
+            } else {
+              results.push(`Booking.com: Hata (${res.error || 'İçe aktarılamadı'})`);
+            }
+          } catch (e: any) {
+            results.push(`Booking.com: Hata (${e.message})`);
+          }
+        }
+
+        setToastMessage(`Senkronizasyon tamamlandı:\n${results.join('\n')}`);
+        refetch();
+      } catch (err: any) {
+        console.error(err);
+        alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
+      } finally {
+        setIsSyncingAll(false);
+      }
+    }, 50);
   };
 
-  const handleUpdateStatus = async (id: string, newStatus: ReviewStatus, responseText?: string) => {
+  const handleUpdateStatus = useCallback(async (id: string, newStatus: ReviewStatus, responseText?: string) => {
     try {
       if (responseText !== undefined) {
         await reviewService.saveResponseDraft(id, responseText);
@@ -698,9 +701,9 @@ export default function Reviews() {
       console.warn('Failed to update review status:', err);
       refetch();
     }
-  };
+  }, [refetch]);
 
-  const handleSubmitResponse = async (id: string, responseText: string) => {
+  const handleSubmitResponse = useCallback(async (id: string, responseText: string) => {
     try {
       const updated = await reviewService.submitResponse(id, responseText);
       if (updated && updated.id) {
@@ -711,9 +714,9 @@ export default function Reviews() {
       console.warn('Failed to submit response:', err);
       refetch();
     }
-  };
+  }, [refetch]);
 
-  const handlePublishGoogleReply = async (id: string, replyText: string) => {
+  const handlePublishGoogleReply = useCallback(async (id: string, replyText: string) => {
     try {
       const res = await reviewService.publishGoogleReply(id, replyText);
       if (res.success) {
@@ -727,10 +730,10 @@ export default function Reviews() {
       console.error('Failed to publish Google reply:', err);
       throw err;
     }
-  };
+  }, [refetch]);
 
 
-  const handleSaveDraft = async (id: string, responseText: string) => {
+  const handleSaveDraft = useCallback(async (id: string, responseText: string) => {
     try {
       const updated = await reviewService.saveResponseDraft(id, responseText);
       if (updated && updated.id) {
@@ -741,9 +744,9 @@ export default function Reviews() {
       console.warn('Failed to save response draft:', err);
       refetch();
     }
-  };
+  }, [refetch]);
 
-  const handleUpdateNotes = async (id: string, managerNotes: string, internalNotes: string) => {
+  const handleUpdateNotes = useCallback(async (id: string, managerNotes: string, internalNotes: string) => {
     try {
       const updated = await reviewService.updateReviewNotes(id, managerNotes, internalNotes);
       if (updated && updated.id) {
@@ -754,12 +757,12 @@ export default function Reviews() {
       console.warn('Failed to update notes:', err);
       refetch();
     }
-  };
+  }, [refetch]);
 
-  const handleGenerateAiReply = async (id: string): Promise<string> => {
+  const handleGenerateAiReply = useCallback(async (id: string): Promise<string> => {
     const res = await reviewService.generateAiResponse(id);
     return res.response;
-  };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -923,7 +926,7 @@ export default function Reviews() {
                     key={review.id}
                     review={review}
                     isSelected={selectedReviewId === review.id}
-                    onClick={() => setSelectedReviewId(review.id)}
+                    onSelect={setSelectedReviewId}
                   />
                 ))}
               </div>
