@@ -773,80 +773,86 @@ export default function Admin() {
       {/* Title Header */}
       <div className="border-b border-slate-200 pb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-slate-100 m-0">{t('admin.title')}</h1>
+          <h1 className="text-xl font-bold text-slate-100 m-0">
+            {isTrueSuperAdmin ? 'Owner Admin Console' : 'Organization User Management'}
+          </h1>
           <p className="text-xs text-slate-400 mt-1.5">
-            Manage users, hotels, organization profiles, and connected external pipelines.
+            {isTrueSuperAdmin 
+              ? 'Manage users, hotels, organization profiles, and connected external pipelines.' 
+              : 'List and manage users, roles, and hotel access permissions for your organization.'}
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 gap-2">
-        <button
-          onClick={() => handleTabChange('users')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-            activeTab === 'users' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Users size={14} />
-          {t('admin.tabs.users')}
-        </button>
-        {isSuperOrAdmin && (
+      {isTrueSuperAdmin && (
+        <div className="flex border-b border-slate-200 gap-2">
           <button
-            onClick={() => handleTabChange('hotels')}
+            onClick={() => handleTabChange('users')}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              activeTab === 'users' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Building size={14} />
-            {t('admin.tabs.hotels')}
+            <Users size={14} />
+            {t('admin.tabs.users')}
           </button>
-        )}
-        {(isSuperOrAdmin || roleNameLower === 'hotel manager') && (
-          <button
-            onClick={() => handleTabChange('org')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Building2 size={14} />
-            {t('admin.tabs.org')}
-          </button>
-        )}
-        {isSuperOrAdmin && (
-          <button
-            onClick={() => handleTabChange('integrations')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sliders size={14} />
-            {t('admin.tabs.integrations')}
-          </button>
-        )}
-        {isTrueSuperAdmin && (
-          <>
+          {isSuperOrAdmin && (
             <button
-              onClick={() => handleTabChange('onboarding')}
+              onClick={() => handleTabChange('hotels')}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'onboarding' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                activeTab === 'hotels' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Sparkles size={14} />
-              {t('admin.tabs.onboarding')}
+              <Building size={14} />
+              {t('admin.tabs.hotels')}
             </button>
+          )}
+          {(isSuperOrAdmin || roleNameLower === 'hotel manager') && (
             <button
-              onClick={() => handleTabChange('google-locations')}
+              onClick={() => handleTabChange('org')}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'google-locations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                activeTab === 'org' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <MapPin size={14} />
-              <span>Google Lokasyonları</span>
+              <Building2 size={14} />
+              {t('admin.tabs.org')}
             </button>
-          </>
-        )}
-      </div>
+          )}
+          {isSuperOrAdmin && (
+            <button
+              onClick={() => handleTabChange('integrations')}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'integrations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sliders size={14} />
+              {t('admin.tabs.integrations')}
+            </button>
+          )}
+          {isTrueSuperAdmin && (
+            <>
+              <button
+                onClick={() => handleTabChange('onboarding')}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                  activeTab === 'onboarding' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Sparkles size={14} />
+                {t('admin.tabs.onboarding')}
+              </button>
+              <button
+                onClick={() => handleTabChange('google-locations')}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all ${
+                  activeTab === 'google-locations' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <MapPin size={14} />
+                <span>Google Lokasyonları</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Tab Contents */}
       <div className="space-y-6">
@@ -1247,7 +1253,7 @@ export default function Admin() {
         )}
 
         {/* TAB 2: HOTEL MANAGEMENT */}
-        {isSuperOrAdmin && activeTab === 'hotels' && (
+        {isTrueSuperAdmin && activeTab === 'hotels' && (
           <div className="space-y-6">
             {/* Hotel Form Panel */}
             {(isAddingHotel || editingHotel) && (
@@ -1418,7 +1424,7 @@ export default function Admin() {
         )}
 
         {/* TAB 3: ORGANIZATION */}
-        {(isSuperOrAdmin || roleNameLower === 'hotel manager') && activeTab === 'org' && (
+        {isTrueSuperAdmin && activeTab === 'org' && (
           <div className="space-y-6 max-w-4xl">
             {/* Organization Edit Card */}
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
@@ -1660,7 +1666,7 @@ export default function Admin() {
         )}
 
         {/* TAB 4: INTEGRATIONS & ROLES */}
-        {isSuperOrAdmin && activeTab === 'integrations' && (
+        {isTrueSuperAdmin && activeTab === 'integrations' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Integrations Card */}
             <div className="glass-panel p-6 rounded-2xl relative overflow-hidden card-glow space-y-6">
