@@ -601,5 +601,97 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // -------------------------------------------------------------
+  // Action: update-user
+  // -------------------------------------------------------------
+  if (action === 'update-user') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+    }
+
+    try {
+      const {
+        id,
+        email,
+        firstName,
+        lastName,
+        status,
+        roleId,
+        hotelIds,
+        organizationId,
+        phone,
+        title,
+        department,
+        avatarUrl,
+        language,
+        timezone
+      } = req.body;
+
+      if (!id) {
+        return res.status(400).json({ error: 'User ID is required for update' });
+      }
+
+      console.log('[API Admin Update User] Payload received:', { id, email, firstName, lastName, roleId, hotelIds, organizationId });
+
+      // Check if profile exists
+      const { data: existingProfile } = await supabaseAdmin.from('profiles').select('id, email').eq('id', id).maybeSingle();
+      if (!existingProfile) {
+        return res.status(404).json({ error: 'User profile not found' });
+      }
+
+      // Update email in auth if it changed
+      if (email && email !== existingProfile.email) {
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(id, { email });
+        if (authUpdateError) throw authUpdateError;
+      }
+
+      // Update profiles
+      const { error: profileError } = await supabaseAdmin.from('profiles').update({
+        email: email || existingProfile.email,
+        first_name: firstName || '',
+        last_name: lastName || '',
+        status: status || 'active',
+        organization_id: organizationId || null,
+        phone: phone || null,
+        title: title || null,
+        department: department || null,
+        avatar_url: avatarUrl || null,
+        language: language || 'tr',
+        timezone: timezone || 'Europe/Istanbul'
+      }).eq('id', id);
+
+      if (profileError) throw profileError;
+
+      // Update user_roles
+      if (roleId) {
+        let resolvedRoleId = roleId;
+        // Resolve roles case-insensitivity mapping (e.g. 'Super Admin' vs 'super_admin')
+        if (roleId.length < 30) {
+          const { data: dbRole } = await supabaseAdmin.from('roles').select('id').ilike('name', roleId.replace('_', ' ')).maybeSingle();
+          if (dbRole) resolvedRoleId = dbRole.id;
+        }
+        await supabaseAdmin.from('user_roles').delete().eq('profile_id', id);
+        await supabaseAdmin.from('user_roles').insert({ profile_id: id, role_id: resolvedRoleId });
+      }
+
+      // Update user_hotels
+      if (hotelIds) {
+        await supabaseAdmin.from('user_hotels').delete().eq('profile_id', id);
+        if (hotelIds.length > 0) {
+          const hotelAccess = hotelIds.map((hId: string) => ({ profile_id: id, hotel_id: hId }));
+          await supabaseAdmin.from('user_hotels').insert(hotelAccess);
+        }
+      }
+
+      return res.status(200).json({ success: true, userId: id });
+    } catch (err: any) {
+      console.error('[API Admin Update User Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   return res.status(400).json({ error: `Unknown action: ${action}` });
 }

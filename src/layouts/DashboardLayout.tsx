@@ -118,10 +118,8 @@ export default function DashboardLayout() {
         console.log('[Hotel Loader] Hotels result:', data);
         console.log('[Hotel Loader] Number of hotels returned:', data.length);
 
-        // Filter hotels list by user's clearance access list (unless Super Admin/Admin)
-        const roleLower = role?.toLowerCase();
-        const isSuper = roleLower === 'admin' || roleLower === 'super admin';
-        if (!isSuper && userHotelsClearance.length > 0) {
+        // Filter hotels list by user's clearance access list (if specifically configured)
+        if (userHotelsClearance.length > 0) {
           data = data.filter(h => userHotelsClearance.includes(h.id));
           console.log('[Hotel Loader] Filtered hotels by user clearances:', data);
         }

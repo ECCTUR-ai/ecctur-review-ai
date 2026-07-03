@@ -121,46 +121,39 @@ export const userRepository = {
   },
 
   async editUser(id: string, user: Omit<UserProfile, 'id' | 'createdAt'>): Promise<UserProfile> {
-    // 1. Update Profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=update-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        id,
         email: user.email,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        status: user.status,
-        organization_id: user.organizationId,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        status: user.status || 'active',
+        roleId: user.roleId || null,
+        hotelIds: user.hotelIds || [],
+        organizationId: user.organizationId || null,
         phone: user.phone || null,
         title: user.title || null,
         department: user.department || null,
-        avatar_url: user.avatarUrl || null,
+        avatarUrl: user.avatarUrl || null,
         language: user.language || 'tr',
         timezone: user.timezone || 'Europe/Istanbul'
       })
-      .eq('id', id);
+    });
 
-    if (profileError) throw profileError;
+    const result = await response.json();
 
-    // Stubbed: Disabling user logins at Auth level requires service role keys, handled via backend triggers
-    console.info('User status updated in profiles. Auth level status sync requires backend logic.');
-
-    // 2. Update Role mapping (delete and insert)
-    await supabase.from('user_roles').delete().eq('profile_id', id);
-    if (user.roleId) {
-      await supabase.from('user_roles').insert({
-        profile_id: id,
-        role_id: user.roleId
-      });
-    }
-
-    // 3. Update Hotel mappings (delete and insert)
-    await supabase.from('user_hotels').delete().eq('profile_id', id);
-    if (user.hotelIds && user.hotelIds.length > 0) {
-      const hotelAccess = user.hotelIds.map(hId => ({
-        profile_id: id,
-        hotel_id: hId
-      }));
-      await supabase.from('user_hotels').insert(hotelAccess);
+    if (!response.ok) {
+      console.error('[User Repository] API admin update-user failed:', result.error);
+      throw new Error(result.error || 'Failed to update user via API');
     }
 
     return this.getUserById(id);
