@@ -154,7 +154,7 @@ export default function Reviews() {
     data,
     loading,
     error,
-    refetch
+    refetch: refetchMain
   } = useFetch(() => reviewService.getReviews({
     hotelId: queriedHotelId,
     search: search || undefined,
@@ -164,6 +164,20 @@ export default function Reviews() {
     priority: priority || undefined,
     limit: backendLimit
   }), [queriedHotelId, search, source, rating, status, priority, backendLimit]);
+
+  // Fetch count base list with only hotelId to calculate platform tab counts
+  const {
+    data: countData,
+    refetch: refetchCounts
+  } = useFetch(() => reviewService.getReviews({
+    hotelId: queriedHotelId,
+    limit: 1000
+  }), [queriedHotelId]);
+
+  const refetch = useCallback(() => {
+    refetchMain();
+    refetchCounts();
+  }, [refetchMain, refetchCounts]);
 
   if (hasNoAssignedHotels) {
     return (
@@ -281,32 +295,32 @@ export default function Reviews() {
       });
   }, [selectedReviewId]);
 
-  const allLoadedReviews = data?.reviews || [];
+  const fullReviewsForCounts = countData?.reviews || [];
   
   // Apply date and department filters to the count base so counts match active date/dept filters
-  let baseForCounts = allLoadedReviews;
+  let baseReviewsForCounts = fullReviewsForCounts;
   if (fromParam || toParam) {
     const startLimit = fromParam ? new Date(fromParam) : new Date(0);
     const endLimit = toParam ? new Date(toParam) : new Date();
     endLimit.setHours(23, 59, 59);
-    baseForCounts = baseForCounts.filter(r => {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => {
       if (!r.date) return false;
       const rDate = new Date(r.date);
       return rDate >= startLimit && rDate <= endLimit;
     });
   }
   if (departmentParam) {
-    baseForCounts = baseForCounts.filter(r => matchesDepartment(r, departmentParam));
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => matchesDepartment(r, departmentParam));
   }
 
-  const googleCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'google').length;
-  const tripadvisorCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'tripadvisor').length;
-  const bookingCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'booking').length;
-  const holidaycheckCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'holidaycheck').length;
-  const hotelscomCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'hotelscom').length;
-  const otherCount = baseForCounts.filter(r => normalizeReviewPlatform(r.source) === 'other').length;
+  const googleCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'google').length;
+  const tripadvisorCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'tripadvisor').length;
+  const bookingCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'booking').length;
+  const holidaycheckCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'holidaycheck').length;
+  const hotelscomCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'hotelscom').length;
+  const otherCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'other').length;
 
-  const totalCount = googleCount + tripadvisorCount + bookingCount + holidaycheckCount + hotelscomCount + otherCount;
+  const allCount = baseReviewsForCounts.length;
 
   let reviews = data?.reviews || [];
 
@@ -1453,7 +1467,7 @@ export default function Reviews() {
       <div className="flex flex-wrap gap-2 mb-4 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
         {(() => {
           const platformTabs = [
-            { key: '', label: 'Tümü', count: totalCount, activeClass: 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-slate-100 text-slate-600', dotColor: '' },
+            { key: '', label: 'Tümü', count: allCount, activeClass: 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-slate-100 text-slate-600', dotColor: '' },
             { key: 'Google', label: 'Google Reviews', count: googleCount, activeClass: 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-blue-50 text-blue-600', dotColor: 'bg-blue-500' },
             { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-emerald-50 text-emerald-600', dotColor: 'bg-emerald-500' },
             { key: 'Booking', label: 'Booking.com', count: bookingCount, activeClass: 'bg-sky-600 border-sky-600 text-white shadow-sm shadow-sky-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-sky-50 text-sky-600', dotColor: 'bg-sky-500' },

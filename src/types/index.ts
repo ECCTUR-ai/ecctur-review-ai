@@ -17,6 +17,8 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
+  review_date?: string;
+  created_at?: string;
   source: ReviewSource;
   status: ReviewStatus;
   priority: ReviewPriority;

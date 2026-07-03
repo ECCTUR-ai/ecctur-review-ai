@@ -28,6 +28,8 @@ export function mapReview(item: any): Review {
     rating: item.rating,
     comment: item.review_text || item.comment || '',
     date: item.review_date || item.date || item.created_at || '',
+    review_date: item.review_date || undefined,
+    created_at: item.created_at || undefined,
     source: (item.platform?.toLowerCase() === 'booking' ? 'Booking' :
              item.platform?.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' :
              item.platform?.toLowerCase() === 'google' ? 'Google' :

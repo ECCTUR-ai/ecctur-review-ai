@@ -124,14 +124,17 @@ export async function fetchTripadvisorReviews(url: string, limit?: number): Prom
       '';
 
     const reviewDate = 
+      item.publishedDate || 
+      item.reviewDate || 
+      item.date || 
+      item.createdAt || 
+      item.writtenDate || 
       item.publishAt || 
       item.publishedAt || 
       item.publishedAtDate || 
       item.createTime || 
       item.relativeTimeDate || 
       item.relativeTime || 
-      item.publishedDate || 
-      item.date || 
       item.datePublished || 
       item.publishDate || 
       item.created || 

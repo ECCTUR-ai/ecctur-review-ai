@@ -114,10 +114,14 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: num
     
     // Rule 2: Chronologically check fields for date
     const rawDate = 
+      item.reviewTime ||
+      item.relativeTimeDescription ||
+      item.createTime ||
+      item.updateTime ||
+      item.publishedAt ||
+      item.date ||
       item.publishAt || 
-      item.publishedAt || 
       item.publishedAtDate || 
-      item.createTime || 
       item.relativeTimeDate || 
       item.relativeTime || 
       'recently';

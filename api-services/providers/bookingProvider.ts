@@ -168,10 +168,14 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     });
 
     const reviewDate = 
+      item.reviewDate ||
+      item.date ||
+      item.publishedDate ||
+      item.stayDate ||
+      item.createdAt ||
       item.publishAt || 
       item.publishedAt || 
       item.createTime || 
-      item.date || 
       item.created || 
       new Date().toISOString();
 

@@ -57,8 +57,28 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
 
   // Helper for relative time calculation
   const getRelativeTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    const lower = dateStr.toLowerCase();
+    if (
+      lower.includes('önce') || 
+      lower.includes('ago') || 
+      lower.includes('month') || 
+      lower.includes('year') || 
+      lower.includes('day') || 
+      lower.includes('week') || 
+      lower.includes('monat') || 
+      lower.includes('recently') || 
+      lower.includes('tarih yok')
+    ) {
+      return dateStr;
+    }
+
     try {
-      const diff = Date.now() - new Date(dateStr).getTime();
+      const parsedDate = new Date(dateStr);
+      if (isNaN(parsedDate.getTime())) {
+        return dateStr;
+      }
+      const diff = Date.now() - parsedDate.getTime();
       const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
       if (diffDays <= 0) return 'Bugün';
       if (diffDays === 1) return 'Dün';
@@ -68,6 +88,12 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
     } catch (e) {
       return dateStr;
     }
+  };
+
+  const getReviewDateToShow = () => {
+    const rawDate = review.review_date || review.created_at || review.date;
+    if (!rawDate) return 'Tarih yok';
+    return getRelativeTime(rawDate);
   };
 
   return (
@@ -96,7 +122,7 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-1 text-[10.5px] text-slate-500 font-medium">
                 <Calendar size={11} className="text-slate-400" />
-                <span>{getRelativeTime(review.date)}</span>
+                <span>{getReviewDateToShow()}</span>
               </div>
               {review.hotel && (
                 <div className="flex items-center gap-1 text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">
