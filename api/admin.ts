@@ -896,7 +896,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to create hotels' });
     }
     try {
-      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId, bookingUrl } = req.body;
+      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl } = req.body;
       if (!name || !organizationId) {
         return res.status(400).json({ error: 'Missing name or organizationId parameter' });
       }
@@ -908,7 +908,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           google_maps_link: googleMapsUrl || googleMapsLink || null,
           google_maps_url: googleMapsUrl || googleMapsLink || null,
           tripadvisor_url: tripadvisorUrl || null,
-          booking_property_id: bookingPropertyId || null,
           booking_url: cleanBookingUrl(bookingUrl) || null
         })
         .select()
@@ -932,7 +931,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Admin permissions required to update hotels' });
     }
     try {
-      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingPropertyId, bookingUrl } = req.body;
+      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl } = req.body;
       if (!id || !name || !organizationId) {
         return res.status(400).json({ error: 'Missing id, name or organizationId parameter' });
       }
@@ -953,7 +952,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           google_maps_link: googleMapsUrl || googleMapsLink || null,
           google_maps_url: googleMapsUrl || googleMapsLink || null,
           tripadvisor_url: tripadvisorUrl || null,
-          booking_property_id: bookingPropertyId || null,
           booking_url: cleanBookingUrl(bookingUrl) || null
         })
         .eq('id', id)

@@ -214,7 +214,6 @@ export default function Reviews() {
             googleMapsLink: data.google_maps_url || data.google_maps_link || '',
             googleMapsUrl: data.google_maps_url || data.google_maps_link || '',
             tripadvisorUrl: data.tripadvisor_url || '',
-            bookingPropertyId: data.booking_property_id || '',
             bookingUrl: data.booking_url || '',
             address: data.address || '',
             phone: data.phone || '',

@@ -155,7 +155,6 @@ export interface Hotel {
   googleLocationId?: string;
   googleBusinessName?: string;
   googleBusinessConnected?: boolean;
-  bookingPropertyId?: string;
   bookingUrl?: string;
 }
 

@@ -488,7 +488,6 @@ export default function Admin() {
   const [hotelOrgId, setHotelOrgId] = useState(currentOrg.id);
   const [hotelGoogleMapsLink, setHotelGoogleMapsLink] = useState('');
   const [hotelTripadvisorLink, setHotelTripadvisorLink] = useState('');
-  const [hotelBookingPropertyId, setHotelBookingPropertyId] = useState('');
   const [hotelBookingUrl, setHotelBookingUrl] = useState('');
 
   // Form States - Organization
@@ -653,7 +652,6 @@ export default function Admin() {
     setHotelOrgId(currentOrg.id);
     setHotelGoogleMapsLink('');
     setHotelTripadvisorLink('');
-    setHotelBookingPropertyId('');
     setHotelBookingUrl('');
   };
 
@@ -664,7 +662,6 @@ export default function Admin() {
     setHotelOrgId(h.organizationId);
     setHotelGoogleMapsLink(h.googleMapsUrl || h.googleMapsLink || '');
     setHotelTripadvisorLink(h.tripadvisorUrl || '');
-    setHotelBookingPropertyId(h.bookingPropertyId || '');
     setHotelBookingUrl(h.bookingUrl || '');
   };
 
@@ -676,7 +673,6 @@ export default function Admin() {
         organizationId: hotelOrgId,
         googleMapsUrl: hotelGoogleMapsLink,
         tripadvisorUrl: hotelTripadvisorLink,
-        bookingPropertyId: hotelBookingPropertyId,
         bookingUrl: hotelBookingUrl
       };
       console.log('[SAVE PAYLOAD]', payload);
@@ -693,7 +689,6 @@ export default function Admin() {
       setEditingHotel(null);
       setHotelGoogleMapsLink('');
       setHotelTripadvisorLink('');
-      setHotelBookingPropertyId('');
       setHotelBookingUrl('');
       refetchHotels();
     } catch (err: any) {
@@ -1326,17 +1321,6 @@ export default function Admin() {
                       value={hotelTripadvisorLink}
                       onChange={(e) => setHotelTripadvisorLink(e.target.value)}
                       placeholder="https://www.tripadvisor.com/Hotel_Review-..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Booking.com Property ID</label>
-                    <input
-                      type="text"
-                      value={hotelBookingPropertyId}
-                      onChange={(e) => setHotelBookingPropertyId(e.target.value)}
-                      placeholder="Örn: 1234567"
                       className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                     />
                   </div>

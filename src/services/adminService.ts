@@ -43,26 +43,24 @@ export const adminService = {
   },
 
   // Hotel Management
-  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string; bookingPropertyId?: string; bookingUrl?: string }): Promise<Hotel> {
+  async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string; bookingUrl?: string }): Promise<Hotel> {
     console.log('[ADMIN SERVICE ADD HOTEL]', hotel);
     return await hotelRepository.addHotel({
       name: hotel.name,
       organizationId: hotel.organizationId,
       googleMapsLink: hotel.googleMapsUrl || hotel.googleMapsLink,
       tripadvisorUrl: hotel.tripadvisorUrl,
-      bookingPropertyId: hotel.bookingPropertyId,
       bookingUrl: hotel.bookingUrl
     });
   },
 
-  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string; bookingPropertyId?: string; bookingUrl?: string }): Promise<Hotel> {
+  async editHotel(id: string, hotel: { name: string; organizationId: string; googleMapsLink?: string; googleMapsUrl?: string; tripadvisorUrl?: string; bookingUrl?: string }): Promise<Hotel> {
     console.log('[ADMIN SERVICE EDIT HOTEL]', { id, hotel });
     return await hotelRepository.editHotel(id, {
       name: hotel.name,
       organizationId: hotel.organizationId,
       googleMapsLink: hotel.googleMapsUrl || hotel.googleMapsLink,
       tripadvisorUrl: hotel.tripadvisorUrl,
-      bookingPropertyId: hotel.bookingPropertyId,
       bookingUrl: hotel.bookingUrl
     });
   },
