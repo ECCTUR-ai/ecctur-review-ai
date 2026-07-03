@@ -880,6 +880,138 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // -------------------------------------------------------------
+  // Action: review-action
+  // -------------------------------------------------------------
+  if (action === 'review-action') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    const { reviewId, actionType, responseText, aiGenerated } = req.body;
+    if (!reviewId || !actionType) {
+      return res.status(400).json({ success: false, error: 'Missing reviewId or actionType parameter' });
+    }
+
+    try {
+      // 1. Fetch the review
+      const { data: review, error: revErr } = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('id', reviewId)
+        .maybeSingle();
+
+      if (revErr || !review) {
+        return res.status(404).json({ success: false, error: 'Review not found' });
+      }
+
+      // 2. Tenant isolation check
+      const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+      let userRole = userRolesData?.[0]?.roles?.name;
+      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+        userRole = 'Super Admin';
+      }
+      const roleKey = (userRole || 'staff').toLowerCase();
+
+      // Check organization membership & hotel assignment
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (roleKey !== 'super_admin' && roleKey !== 'admin' && roleKey !== 'owner') {
+        const { data: userHotels } = await supabaseAdmin
+          .from('user_hotels')
+          .select('hotel_id')
+          .eq('profile_id', user.id)
+          .eq('hotel_id', review.hotel_id);
+
+        if (!userHotels || userHotels.length === 0) {
+          return res.status(403).json({ success: false, error: 'Forbidden: You do not have access to this hotel\'s reviews.' });
+        }
+      }
+
+      const userName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'User';
+
+      // 3. Perform database updates on public.reviews
+      let updateData: any = { updated_at: new Date().toISOString() };
+      let prevStatus = review.status;
+      let newStatus = review.status;
+
+      if (actionType === 'approved') {
+        newStatus = 'Approved';
+        updateData.status = 'Approved';
+      } else if (actionType === 'published') {
+        newStatus = 'Published';
+        updateData.status = 'Published';
+        updateData.publish_status = 'Published';
+        updateData.published = 'Yes';
+        if (responseText) {
+          updateData.ai_reply = responseText;
+        }
+      } else if (actionType === 'sent_to_whatsapp') {
+        newStatus = 'Pending Approval';
+        updateData.status = 'Pending Approval';
+      } else if (actionType === 'regenerated') {
+        newStatus = 'Draft';
+        updateData.status = 'Draft';
+        if (responseText) {
+          updateData.ai_reply = responseText;
+        }
+      } else if (actionType === 'edited') {
+        newStatus = 'Draft';
+        updateData.status = 'Draft';
+        if (responseText) {
+          updateData.ai_reply = responseText;
+        }
+      }
+
+      const { data: updatedReview, error: updateErr } = await supabaseAdmin
+        .from('reviews')
+        .update(updateData)
+        .eq('id', reviewId)
+        .select('*')
+        .maybeSingle();
+
+      if (updateErr || !updatedReview) {
+        throw new Error(updateErr?.message || 'Failed to update review record');
+      }
+
+      // 4. Create review_action_logs audit log
+      const { error: logErr } = await supabaseAdmin.from('review_action_logs').insert({
+        review_id: reviewId,
+        hotel_id: review.hotel_id,
+        organization_id: review.organization_id,
+        action_type: actionType,
+        action_by_user_id: user.id,
+        action_by_user_email: user.email,
+        action_by_user_name: userName,
+        action_at: new Date().toISOString(),
+        previous_status: prevStatus,
+        new_status: newStatus,
+        platform: review.platform,
+        guest_name: review.guest_name,
+        review_reply_text: responseText || review.ai_reply || review.response || null,
+        ai_generated: !!aiGenerated || actionType === 'regenerated',
+        whatsapp_sent_at: actionType === 'sent_to_whatsapp' ? new Date().toISOString() : null,
+        published_at: actionType === 'published' ? new Date().toISOString() : null,
+        approved_at: actionType === 'approved' ? new Date().toISOString() : null,
+        ip_address: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || null,
+        user_agent: req.headers['user-agent'] || null
+      });
+
+      if (logErr) {
+        console.error('[review-action] Failed to create action log:', logErr);
+      }
+
+      return res.status(200).json({ success: true, review: updatedReview });
+    } catch (err: any) {
+      console.error('[API review-action] Failure:', err);
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  }
+
+  // -------------------------------------------------------------
   // Action: translate-review
   // -------------------------------------------------------------
   if (action === 'translate-review') {
@@ -1695,6 +1827,39 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         .select('*')
         .eq('id', reviewId)
         .maybeSingle();
+
+      // Retrieve user profile name for log
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      const userName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'User';
+
+      // 5. Create audit log
+      const { error: logErr } = await supabaseAdmin.from('review_action_logs').insert({
+        review_id: reviewId,
+        hotel_id: review.hotel_id,
+        organization_id: review.organization_id,
+        action_type: 'published',
+        action_by_user_id: user.id,
+        action_by_user_email: user.email,
+        action_by_user_name: userName,
+        action_at: new Date().toISOString(),
+        previous_status: review.status,
+        new_status: 'Published',
+        platform: review.platform,
+        guest_name: review.guest_name,
+        review_reply_text: replyText || review.ai_reply || review.response || null,
+        ai_generated: true, // Google replies from this flow are AI compiled
+        published_at: new Date().toISOString(),
+        ip_address: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || null,
+        user_agent: req.headers['user-agent'] || null
+      });
+
+      if (logErr) {
+        console.error('[publish-google-reply] Failed to create action log:', logErr);
+      }
 
       return res.status(200).json({
         success: true,

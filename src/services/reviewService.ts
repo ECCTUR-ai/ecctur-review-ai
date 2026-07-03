@@ -1189,6 +1189,33 @@ export const reviewService = {
     }
   },
 
+  async performReviewAction(params: {
+    reviewId: string;
+    actionType: 'approved' | 'published' | 'sent_to_whatsapp' | 'regenerated' | 'edited';
+    responseText?: string;
+  }): Promise<Review> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/reviews?action=review-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(params)
+    });
+
+    if (!response.ok) {
+      const errRes = await response.json().catch(() => ({ error: 'Action failed' }));
+      throw new Error(errRes.error || 'Action failed');
+    }
+
+    const data = await response.json();
+    return mapReview(data.review);
+  },
+
   async submitResponse(id: string, responseText: string): Promise<Review> {
     if (id.startsWith('test-')) {
       const found = testReviews.find(r => r.id === id);
@@ -1198,7 +1225,7 @@ export const reviewService = {
       }
       return found || testReviews[0];
     }
-    return await reviewRepository.submitResponse(id, responseText);
+    return await this.performReviewAction({ reviewId: id, actionType: 'published', responseText });
   },
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
@@ -1210,7 +1237,7 @@ export const reviewService = {
       }
       return found || testReviews[0];
     }
-    return await reviewRepository.saveResponseDraft(id, responseText);
+    return await this.performReviewAction({ reviewId: id, actionType: 'edited', responseText });
   },
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
@@ -1233,9 +1260,17 @@ export const reviewService = {
       }
       return found || testReviews[0];
     }
-    const updatedReview = await reviewRepository.updateReviewStatus(id, status);
 
-    if (status === 'waiting_approval') {
+    let actionType: 'approved' | 'published' | 'sent_to_whatsapp' | 'regenerated' | 'edited' = 'edited';
+    const sLower = String(status).toLowerCase();
+    if (sLower === 'approved') actionType = 'approved';
+    else if (sLower === 'published') actionType = 'published';
+    else if (sLower === 'pending_approval' || sLower === 'waiting_approval') actionType = 'sent_to_whatsapp';
+    else if (sLower === 'draft') actionType = 'edited';
+
+    const updatedReview = await this.performReviewAction({ reviewId: id, actionType });
+
+    if (sLower === 'waiting_approval' || sLower === 'pending_approval') {
       try {
         const { notificationService } = await import('./notificationService');
         await notificationService.createNotification({

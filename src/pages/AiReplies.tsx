@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +20,6 @@ import {
   RefreshCw,
   Search,
   Filter,
-  Trash2,
   Check,
   ChevronRight,
   X,
@@ -28,7 +27,9 @@ import {
   BookOpen,
   Sliders,
   TrendingUp,
-  Briefcase
+  Briefcase,
+  Archive,
+  UserCheck
 } from 'lucide-react';
 
 interface KPIStats {
@@ -40,12 +41,22 @@ interface KPIStats {
   aiSuccessRate: number;
 }
 
+interface PublishLogInfo {
+  publisherName: string;
+  publishedAt: string;
+  aiGenerated: boolean;
+  whatsappSent: boolean;
+}
+
 export default function AiReplies() {
   const { t } = useTranslation();
   const { roleKey, hotelIds, organizationId } = useAuth();
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: Hotel[] }>();
 
   const isOwnerOrAdmin = roleKey === 'super_admin' || roleKey === 'admin' || roleKey === 'owner';
+
+  // Navigation / Tabs State ('active' | 'archived')
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
   // State Management
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -60,10 +71,16 @@ export default function AiReplies() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [selectedRating, setSelectedRating] = useState<number | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('30d');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  
+  // Archived-specific filters
+  const [archivePublishers, setArchivePublishers] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPublisherId, setSelectedPublisherId] = useState<string>('all');
+
+  // Publish Logs mapping (review_id -> PublishLogInfo)
+  const [publishLogs, setPublishLogs] = useState<Record<string, PublishLogInfo>>({});
 
   // Bulk Operations State
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
@@ -82,11 +99,11 @@ export default function AiReplies() {
     aiSuccessRate: 0
   });
 
-  // Edit State Map (Review ID -> Draft Text)
+  // Edit State Map
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // Translation State Map (Review ID + 'comment'|'reply' + Target Lang -> Translated Text)
+  // Translation State Map
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingKeys, setTranslatingKeys] = useState<Record<string, boolean>>({});
 
@@ -204,7 +221,31 @@ export default function AiReplies() {
     }
   }, [selectedHotelId, activeHotelId, roleKey, hotelIds, organizationId]);
 
-  // Load Reviews List
+  // Load Unique Publishers for Archive Filter
+  const fetchUniquePublishers = useCallback(async () => {
+    try {
+      const { data: logs, error } = await supabase
+        .from('review_action_logs')
+        .select('action_by_user_id, action_by_user_name')
+        .eq('action_type', 'published');
+
+      if (error) throw error;
+
+      const userMap: Record<string, string> = {};
+      (logs || []).forEach(log => {
+        if (log.action_by_user_id && log.action_by_user_name) {
+          userMap[log.action_by_user_id] = log.action_by_user_name;
+        }
+      });
+
+      const uniqueUsers = Object.entries(userMap).map(([id, name]) => ({ id, name }));
+      setArchivePublishers(uniqueUsers);
+    } catch (e) {
+      console.error('Failed to load unique publishers:', e);
+    }
+  }, []);
+
+  // Load Reviews List (Active vs Archived Tab)
   const fetchReviewsList = useCallback(async (isLoadMore = false) => {
     if (!activeHotelId) return;
 
@@ -246,12 +287,37 @@ export default function AiReplies() {
         query = query.eq('rating', selectedRating);
       }
 
-      // Apply Status Filter
-      if (selectedStatus !== 'all') {
-        if (selectedStatus === 'unanswered') {
-          query = query.is('ai_reply', null).is('response', null);
-        } else {
-          query = query.eq('status', selectedStatus);
+      // Apply Tabs constraint
+      if (activeTab === 'active') {
+        // Active reviews are those NOT published
+        query = query.or('status.neq.Published,status.neq.published,status.is.null');
+        
+        // Status filter applies only to non-published status values in Active tab
+        if (selectedStatus !== 'all') {
+          if (selectedStatus === 'unanswered') {
+            query = query.is('ai_reply', null).is('response', null);
+          } else {
+            query = query.eq('status', selectedStatus);
+          }
+        }
+      } else {
+        // Archived reviews are those that ARE published
+        query = query.or('status.eq.Published,status.eq.published');
+
+        // Apply publisher filter if active in archive tab
+        if (selectedPublisherId !== 'all') {
+          const { data: logs, error: logsErr } = await supabase
+            .from('review_action_logs')
+            .select('review_id')
+            .eq('action_by_user_id', selectedPublisherId)
+            .eq('action_type', 'published');
+          
+          if (!logsErr && logs && logs.length > 0) {
+            const reviewIds = logs.map(l => l.review_id);
+            query = query.in('id', reviewIds);
+          } else {
+            query = query.in('id', ['00000000-0000-0000-0000-000000000000']);
+          }
         }
       }
 
@@ -293,20 +359,48 @@ export default function AiReplies() {
 
       const mappedReviews = (data || []).map(mapReview);
 
-      // Apply client-side language detection filter if selected
-      let finalMapped = mappedReviews;
-      if (selectedLanguage !== 'all') {
-        finalMapped = mappedReviews.filter(r => {
-          const lang = reviewService.detectLanguage(r.comment);
-          return lang === selectedLanguage;
-        });
+      // Fetch published audit logs details if loading reviews
+      if (mappedReviews.length > 0) {
+        const reviewIds = mappedReviews.map(r => r.id);
+        const { data: logsData } = await supabase
+          .from('review_action_logs')
+          .select('review_id, action_by_user_name, action_at, ai_generated, whatsapp_sent_at, action_type')
+          .in('review_id', reviewIds);
+
+        if (logsData) {
+          const logMapping: Record<string, PublishLogInfo> = {};
+          
+          reviewIds.forEach(id => {
+            logMapping[id] = {
+              publisherName: '',
+              publishedAt: '',
+              aiGenerated: false,
+              whatsappSent: false
+            };
+          });
+
+          logsData.forEach(log => {
+            const mapped = logMapping[log.review_id];
+            if (mapped) {
+              if (log.action_type === 'published') {
+                mapped.publisherName = log.action_by_user_name || mapped.publisherName || 'Sistem';
+                mapped.publishedAt = log.action_at || mapped.publishedAt;
+                mapped.aiGenerated = log.ai_generated || mapped.aiGenerated || false;
+              }
+              if (log.action_type === 'sent_to_whatsapp' || log.whatsapp_sent_at) {
+                mapped.whatsappSent = true;
+              }
+            }
+          });
+          setPublishLogs(prev => ({ ...prev, ...logMapping }));
+        }
       }
 
       if (isLoadMore) {
-        setReviews(prev => [...prev, ...finalMapped]);
+        setReviews(prev => [...prev, ...mappedReviews]);
         setOffset(prev => prev + LIMIT);
       } else {
-        setReviews(finalMapped);
+        setReviews(mappedReviews);
         setOffset(LIMIT);
       }
 
@@ -315,7 +409,7 @@ export default function AiReplies() {
 
       // Prepopulate editable draft text map
       const newEditTexts: Record<string, string> = {};
-      finalMapped.forEach(r => {
+      mappedReviews.forEach(r => {
         newEditTexts[r.id] = r.response || '';
       });
       setEditTexts(prev => ({ ...prev, ...newEditTexts }));
@@ -335,28 +429,31 @@ export default function AiReplies() {
     selectedPlatform,
     selectedRating,
     selectedStatus,
-    selectedLanguage,
     selectedDateRange,
     customStartDate,
     customEndDate,
     search,
+    activeTab,
+    selectedPublisherId,
     offset
   ]);
 
   // Trigger reloading lists on filter/hotel changes
   useEffect(() => {
     fetchKPIStats();
+    fetchUniquePublishers();
     fetchReviewsList(false);
   }, [
     selectedHotelId,
     selectedPlatform,
     selectedRating,
     selectedStatus,
-    selectedLanguage,
     selectedDateRange,
     customStartDate,
     customEndDate,
-    search
+    search,
+    activeTab,
+    selectedPublisherId
   ]);
 
   // Infinite Scroll Listener
@@ -369,10 +466,10 @@ export default function AiReplies() {
     }
   };
 
-  // Perform translation call for review or response draft
+  // Perform translation call
   const handleTranslate = async (reviewId: string, type: 'comment' | 'reply', text: string, targetLang: 'tr' | 'en' | 'ru') => {
     const key = `${reviewId}_${type}_${targetLang}`;
-    if (translations[key]) return; // Already translated
+    if (translations[key]) return;
 
     setTranslatingKeys(prev => ({ ...prev, [key]: true }));
     try {
@@ -396,7 +493,6 @@ export default function AiReplies() {
     setSavingId(review.id);
     try {
       await reviewService.saveResponseDraft(review.id, draftText);
-      // Reload matching review item properties
       setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: draftText, status: 'draft' } : r));
       if (activePanelReview?.id === review.id) {
         setActivePanelReview(prev => prev ? { ...prev, response: draftText, status: 'draft' } : null);
@@ -460,10 +556,23 @@ export default function AiReplies() {
       } else {
         await reviewService.submitResponse(review.id, replyText);
       }
-      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: replyText, status: 'published' } : r));
+
+      // Instantly remove card from active list and move to archive list dynamically
+      if (activeTab === 'active') {
+        setReviews(prev => prev.filter(r => r.id !== review.id));
+        setSelectedReviewIds(prev => prev.filter(id => id !== review.id));
+      } else {
+        setReviews(prev => prev.map(r => r.id === review.id ? { ...r, response: replyText, status: 'published' } : r));
+      }
+
       if (activePanelReview?.id === review.id) {
         setActivePanelReview(prev => prev ? { ...prev, response: replyText, status: 'published' } : null);
       }
+      
+      // Update statistics
+      fetchKPIStats();
+      fetchUniquePublishers();
+
     } catch (err: any) {
       alert(`Publishing Failed: ${err.message || String(err)}`);
     } finally {
@@ -585,7 +694,6 @@ export default function AiReplies() {
 
       {/* 2. Top KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        {/* Card 1 */}
         <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 shrink-0">
             <Clock size={20} />
@@ -596,7 +704,6 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* Card 2 */}
         <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
             <MessageSquare size={20} />
@@ -607,7 +714,6 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* Card 3 */}
         <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
             <CheckCircle2 size={20} />
@@ -618,7 +724,6 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* Card 4 */}
         <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 shrink-0">
             <CornerDownRight size={20} />
@@ -629,7 +734,6 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* Card 5 */}
         <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 shrink-0">
             <AlertTriangle size={20} />
@@ -640,7 +744,6 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* Card 6 */}
         <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
             <CheckCheck size={20} />
@@ -652,12 +755,38 @@ export default function AiReplies() {
         </div>
       </div>
 
-      {/* 3. Filters Toolbar */}
+      {/* 3. Section/Tabs Pills */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => { setActiveTab('active'); setSelectedReviewIds([]); }}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'active' 
+              ? 'border-blue-600 text-blue-600' 
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Sparkles size={16} />
+          Aktif Cevaplar
+        </button>
+        <button
+          onClick={() => { setActiveTab('archived'); setSelectedReviewIds([]); }}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'archived' 
+              ? 'border-blue-600 text-blue-600' 
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Archive size={16} />
+          Arşivlenen Cevaplar
+        </button>
+      </div>
+
+      {/* 4. Filters Toolbar */}
       <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
             <Filter size={16} className="text-blue-600" />
-            Gelişmiş Filtreleme
+            Filtreler
           </div>
 
           <div className="relative max-w-xs w-full">
@@ -673,7 +802,7 @@ export default function AiReplies() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Hotel Context Selector */}
+          {/* Otel Seçimi */}
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Otel Seçimi</label>
             <select
@@ -692,7 +821,7 @@ export default function AiReplies() {
             </select>
           </div>
 
-          {/* Platform Selector */}
+          {/* Platform */}
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Platform</label>
             <select
@@ -707,7 +836,7 @@ export default function AiReplies() {
             </select>
           </div>
 
-          {/* Stars Selector */}
+          {/* Puan */}
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Puan (Stars)</label>
             <select
@@ -724,42 +853,41 @@ export default function AiReplies() {
             </select>
           </div>
 
-          {/* Status Selector */}
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Yanıt Durumu</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">Tümü</option>
-              <option value="draft">Taslak</option>
-              <option value="pending_approval">Onay Bekliyor</option>
-              <option value="published">Yayınlandı</option>
-              <option value="unanswered">Cevaplanmadı</option>
-            </select>
-          </div>
+          {/* Yanıt Durumu (Active) / Yayınlayan (Archived) */}
+          {activeTab === 'active' ? (
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Yanıt Durumu</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">Tümü</option>
+                <option value="draft">Taslak</option>
+                <option value="pending_approval">Onay Bekliyor</option>
+                <option value="unanswered">Cevaplanmadı</option>
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Yayınlayan Kullanıcı</label>
+              <select
+                value={selectedPublisherId}
+                onChange={(e) => setSelectedPublisherId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">Tüm Kullanıcılar</option>
+                {archivePublishers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Language Selector */}
+          {/* Tarih Aralığı */}
           <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Yorum Dili</label>
-            <select
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">Tümü</option>
-              <option value="tr">Türkçe (TR)</option>
-              <option value="en">English (EN)</option>
-              <option value="de">Deutsch (DE)</option>
-              <option value="ru">Русский (RU)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Date Selector */}
-        <div className="flex flex-wrap items-end gap-4 border-t border-slate-50 pt-3">
-          <div className="w-48">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Tarih Aralığı</label>
             <select
               value={selectedDateRange}
@@ -773,37 +901,37 @@ export default function AiReplies() {
               <option value="custom">Özel Tarih...</option>
             </select>
           </div>
-
-          {selectedDateRange === 'custom' && (
-            <>
-              <div className="w-44 animate-fadeIn">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Başlangıç</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="w-44 animate-fadeIn">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Bitiş</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </>
-          )}
         </div>
+
+        {/* Custom date range triggers */}
+        {selectedDateRange === 'custom' && (
+          <div className="flex gap-4 border-t border-slate-50 pt-3 animate-fadeIn">
+            <div className="w-44">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Başlangıç</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div className="w-44">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Bitiş</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 4. List View & Side Panel Grid */}
+      {/* 5. List View & Side Panel Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
         {/* Left: Review Cards List */}
         <div className="xl:col-span-2 space-y-4">
-          {/* List Headers / Controls */}
           {reviews.length > 0 && (
             <div className="flex justify-between items-center px-2">
               <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 cursor-pointer">
@@ -822,10 +950,8 @@ export default function AiReplies() {
             </div>
           )}
 
-          {/* Cards List container */}
           <div className="space-y-4 max-h-[900px] overflow-y-auto pr-1 scrollbar-thin">
             {loading ? (
-              // Loading Skeletons
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4 shadow-sm animate-pulse">
                   <div className="flex justify-between">
@@ -837,26 +963,29 @@ export default function AiReplies() {
                 </div>
               ))
             ) : reviews.length === 0 ? (
-              // Empty State
               <div className="bg-white border border-slate-100 rounded-2xl p-16 text-center shadow-sm space-y-4">
                 <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mx-auto">
-                  <Sparkles size={28} />
+                  {activeTab === 'active' ? <Sparkles size={28} /> : <Archive size={28} />}
                 </div>
                 <div className="space-y-1.5 max-w-sm mx-auto">
-                  <h4 className="text-sm font-semibold text-slate-800">Filtrelere Uygun Yorum Bulunmadı</h4>
+                  <h4 className="text-sm font-semibold text-slate-800">
+                    {activeTab === 'active' ? 'Aktif Yorum Bulunmadı' : 'Arşivlenmiş Yorum Bulunmadı'}
+                  </h4>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Seçtiğiniz platform, tarih aralığı veya yanıt durumu filtrelerine uyan bir kayıt bulunamadı. Yeni bir senkronizasyon yapmayı deneyebilirsiniz.
+                    Seçtiğiniz filtreleme kriterlerine uygun bir misafir yorumu bulunamadı.
                   </p>
                 </div>
               </div>
             ) : (
-              // Active list
               reviews.map((review) => {
                 const commentLang = reviewService.detectLanguage(review.comment);
                 const editedReplyText = editTexts[review.id] ?? '';
                 const reviewHotel = hotels.find(h => h.id === review.hotelId);
                 const isSelected = selectedReviewIds.includes(review.id);
                 const isPanelActive = activePanelReview?.id === review.id;
+                
+                // Fetch audit logs publish details
+                const publishDetail = publishLogs[review.id];
 
                 return (
                   <div
@@ -880,7 +1009,7 @@ export default function AiReplies() {
                       <div className="flex justify-between items-start gap-4">
                         <div onClick={() => setActivePanelReview(review)} className="cursor-pointer">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-slate-800 capitalize leading-none">
+                            <span className="font-semibold text-sm text-slate-800 capitalize leading-none font-sans">
                               {review.guestName}
                             </span>
                             <span className="text-[10px] text-slate-400">•</span>
@@ -918,11 +1047,36 @@ export default function AiReplies() {
                         </div>
                       </div>
 
+                      {/* Display Audit Trail details if published */}
+                      {publishDetail && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 border border-slate-100 p-4 rounded-xl text-xs text-slate-600">
+                          <div>
+                            <span className="font-bold text-slate-400 block uppercase text-[9px] tracking-wider mb-0.5">Yayınlayan</span>
+                            <span className="font-medium text-slate-700">{publishDetail.publisherName || 'Sistem'}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-400 block uppercase text-[9px] tracking-wider mb-0.5">Yayınlanma Tarihi</span>
+                            <span className="font-medium text-slate-700">{publishDetail.publishedAt ? new Date(publishDetail.publishedAt).toLocaleString() : '-'}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-400 block uppercase text-[9px] tracking-wider mb-0.5">Yanıt Türü</span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${publishDetail.aiGenerated ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-slate-100 text-slate-750 border border-slate-200/50'}`}>
+                              {publishDetail.aiGenerated ? '🤖 Yapay Zeka' : '✍ Manuel'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-400 block uppercase text-[9px] tracking-wider mb-0.5">WhatsApp Gönderimi</span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${publishDetail.whatsappSent ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-600'}`}>
+                              {publishDetail.whatsappSent ? '✓ Gönderildi' : '✗ Gönderilmedi'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Comment section */}
                       <div className="space-y-2 mt-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Misafir Yorumu</span>
-                          {/* Yorum Çeviri butonları */}
                           <div className="flex items-center gap-1">
                             <span className="text-[9px] text-slate-400 font-medium mr-1 flex items-center gap-0.5">
                               <Languages size={10} /> Çevir:
@@ -933,7 +1087,7 @@ export default function AiReplies() {
                               const isTranslating = translatingKeys[transKey];
                               const isTranslated = !!translations[transKey];
 
-                              if (commentLang === target) return null; // No need to translate to own lang
+                              if (commentLang === target) return null;
 
                               return (
                                 <button
@@ -957,7 +1111,6 @@ export default function AiReplies() {
                           "{review.comment}"
                         </p>
 
-                        {/* Display comment translation if active */}
                         {['tr', 'en', 'ru'].map(lang => {
                           const transKey = `${review.id}_comment_${lang}`;
                           if (translations[transKey]) {
@@ -983,7 +1136,6 @@ export default function AiReplies() {
                             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">AI Taslak Cevap</span>
                           </div>
 
-                          {/* Cevap Çeviri butonları */}
                           {review.response && (
                             <div className="flex items-center gap-1">
                               <span className="text-[9px] text-slate-400 font-medium mr-1 flex items-center gap-0.5">
@@ -1025,7 +1177,6 @@ export default function AiReplies() {
                           />
                         </div>
 
-                        {/* Display reply translation if active */}
                         {['tr', 'en', 'ru'].map(lang => {
                           const transKey = `${review.id}_reply_${lang}`;
                           if (translations[transKey]) {
@@ -1039,7 +1190,6 @@ export default function AiReplies() {
                           return null;
                         })}
 
-                        {/* AI Quality scores block */}
                         {review.response && (
                           <div className="flex flex-wrap gap-x-4 gap-y-1.5 py-2 px-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] text-slate-500">
                             <div>
@@ -1063,7 +1213,6 @@ export default function AiReplies() {
 
                       {/* Card Footer Actions */}
                       <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-50">
-                        {/* More analysis trigger */}
                         <button
                           onClick={() => setActivePanelReview(review)}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-500 flex items-center gap-1 border-none bg-transparent cursor-pointer"
@@ -1072,7 +1221,6 @@ export default function AiReplies() {
                         </button>
 
                         <div className="flex flex-wrap items-center gap-2">
-                          {/* Save Draft inline */}
                           <button
                             onClick={() => handleSaveDraft(review)}
                             disabled={savingId !== null}
@@ -1081,7 +1229,6 @@ export default function AiReplies() {
                             {savingId === review.id ? 'Kaydediliyor...' : 'Taslak Kaydet'}
                           </button>
 
-                          {/* Regenerate AI */}
                           <button
                             onClick={() => handleRegenerateAI(review)}
                             disabled={savingId !== null}
@@ -1091,7 +1238,6 @@ export default function AiReplies() {
                             Yeniden AI Üret
                           </button>
 
-                          {/* WhatsApp Approval */}
                           <button
                             onClick={() => handleSendWhatsApp(review)}
                             disabled={savingId !== null || !review.response}
@@ -1101,7 +1247,6 @@ export default function AiReplies() {
                             WhatsApp Onaya Gönder
                           </button>
 
-                          {/* OTA Publish */}
                           <button
                             onClick={() => handlePublish(review)}
                             disabled={savingId !== null || !editedReplyText.trim()}
@@ -1119,7 +1264,6 @@ export default function AiReplies() {
               })
             )}
 
-            {/* Load more spinner */}
             {loadingMore && (
               <div className="py-4 text-center">
                 <div className="w-6 h-6 rounded-full border-2 border-t-blue-500 border-slate-200 animate-spin mx-auto" />
@@ -1145,7 +1289,6 @@ export default function AiReplies() {
                 </button>
               </div>
 
-              {/* Analysis Parameters */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-50 pb-2">
                   <span className="text-xs text-slate-500">Misafir</span>
@@ -1185,7 +1328,6 @@ export default function AiReplies() {
                   </div>
                 </div>
 
-                {/* Emotion score */}
                 {activePanelReview.aiAnalysis?.emotion && (
                   <div className="flex justify-between items-center border-b border-slate-50 pb-2">
                     <span className="text-xs text-slate-500">Duygu İklimi</span>
@@ -1195,7 +1337,6 @@ export default function AiReplies() {
                   </div>
                 )}
 
-                {/* Key Topics list */}
                 <div className="border-b border-slate-50 pb-2">
                   <span className="text-xs text-slate-500 block mb-1 flex items-center gap-1">
                     <BookOpen size={12} className="text-slate-400" /> Ana Konu Başlıkları
@@ -1213,7 +1354,6 @@ export default function AiReplies() {
                   </div>
                 </div>
 
-                {/* Keyword Tag clouds */}
                 <div>
                   <span className="text-xs text-slate-500 block mb-1 flex items-center gap-1">
                     <TrendingUp size={12} className="text-slate-400" /> Kelime Frekans Analizi
@@ -1233,7 +1373,6 @@ export default function AiReplies() {
                   </div>
                 </div>
 
-                {/* Urgency Level */}
                 <div className="flex justify-between items-center border-t border-slate-100 pt-3">
                   <span className="text-xs text-slate-500 flex items-center gap-1">
                     <AlertTriangle size={12} className="text-amber-500" /> Öncelik Derecesi (Urgency)
@@ -1247,7 +1386,6 @@ export default function AiReplies() {
                   </span>
                 </div>
 
-                {/* Prompt Template used */}
                 <div className="pt-2">
                   <span className="text-xs text-slate-500 block mb-1.5 flex items-center gap-1">
                     <Briefcase size={12} className="text-slate-400" /> AI Prompt Template
@@ -1273,7 +1411,7 @@ export default function AiReplies() {
         </div>
       </div>
 
-      {/* 5. Bulk Actions Bar */}
+      {/* 6. Bulk Actions Bar */}
       {selectedReviewIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white rounded-2xl px-6 py-4 shadow-2xl z-40 border border-slate-800 flex items-center gap-6 animate-slideUp">
           <span className="text-xs font-bold tracking-wide">
@@ -1283,7 +1421,6 @@ export default function AiReplies() {
           <div className="w-px h-6 bg-slate-800" />
 
           <div className="flex items-center gap-2">
-            {/* Bulk AI Response */}
             <button
               onClick={handleBulkAI}
               disabled={bulkActionLoading}
@@ -1293,7 +1430,6 @@ export default function AiReplies() {
               Toplu AI Üret
             </button>
 
-            {/* Bulk WhatsApp approvals */}
             <button
               onClick={handleBulkWhatsApp}
               disabled={bulkActionLoading}
@@ -1303,7 +1439,6 @@ export default function AiReplies() {
               Toplu WhatsApp Onayı
             </button>
 
-            {/* Bulk Publish */}
             <button
               onClick={handleBulkPublish}
               disabled={bulkActionLoading}
@@ -1313,7 +1448,6 @@ export default function AiReplies() {
               Toplu Yayınla
             </button>
 
-            {/* Deselect / Close */}
             <button
               onClick={() => setSelectedReviewIds([])}
               className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors border-none bg-transparent cursor-pointer"
