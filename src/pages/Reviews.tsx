@@ -885,9 +885,9 @@ export default function Reviews() {
           ) : reviews.length === 0 ? (
             <div className="rounded-2xl p-12 text-center space-y-4 bg-white border border-slate-200 shadow-sm">
               <Database className="mx-auto text-slate-300" size={40} />
-              <h3 className="text-sm font-bold text-slate-800">{t('reviews.empty')}</h3>
+              <h3 className="text-sm font-bold text-slate-800">Henüz bu otele ait yorum bulunmuyor.</h3>
               <p className="text-xs text-slate-500 max-w-[280px] mx-auto leading-relaxed">
-                Filtrelerinize uygun misafir yorumu bulunamadı veya veritabanı boş.
+                Yorumları içe aktarmak için yukarıdaki senkronizasyon butonlarını kullanabilirsiniz.
               </p>
             </div>
           ) : (

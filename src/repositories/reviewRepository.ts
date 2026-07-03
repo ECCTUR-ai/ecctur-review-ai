@@ -69,16 +69,20 @@ export const reviewRepository = {
     limit?: number;
     offset?: number;
   }): Promise<{ reviews: Review[]; total: number }> {
+    if (!params || !params.hotelId) {
+      console.warn('[reviewRepository] Warning: getReviews called without hotelId parameter. Enforcing tenant isolation.');
+      return { reviews: [], total: 0 };
+    }
+
     const runQuery = async (useHotelFilter: boolean) => {
       let query = supabase
         .from('reviews')
         .select('*', { count: 'exact' });
 
-      if (params) {
-        if (useHotelFilter && params.hotelId) {
-          query = query.eq('hotel_id', params.hotelId);
-        }
-        if (params.source) {
+      if (useHotelFilter && params.hotelId) {
+        query = query.eq('hotel_id', params.hotelId);
+      }
+      if (params.source) {
           if (params.source.toLowerCase() === 'booking') {
             query = query.or('platform.eq.booking,platform.eq.Booking');
           } else if (params.source.toLowerCase() === 'tripadvisor') {
@@ -110,7 +114,6 @@ export const reviewRepository = {
         const limit = params.limit || 20;
         const offset = params.offset || 0;
         query = query.range(offset, offset + limit - 1);
-      }
 
       query = query.order('created_at', { ascending: false });
       return await query;

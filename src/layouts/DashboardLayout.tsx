@@ -82,32 +82,37 @@ export default function DashboardLayout() {
       console.log('[Hotel Loader] Initializing...');
       console.log('[Hotel Loader] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
       try {
-        // 1. Fetch organizations dynamically
-        console.log('[Hotel Loader] Querying organizations...');
-        const orgs = await hotelService.getOrganizations();
-        console.log('[Hotel Loader] Organizations result:', orgs);
-        
-        // 2. Find the GuestReview.ai or ECCTUR organization or fall back to the first one
-        const eccturOrg = orgs.find(o => o.name === 'GuestReview.ai' || o.name === 'ECCTUR') || orgs[0];
-        if (eccturOrg) {
-          setCurrentOrg(eccturOrg);
-        }
-        const orgId = eccturOrg ? eccturOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
-        console.log('[Hotel Loader] Selected Organization ID:', orgId);
-
         let userHotelsClearance: string[] = [];
+        let userOrgId: string | null = null;
         if (userId) {
           try {
             const { userRepository } = await import('@/repositories/userRepository');
             const profile = await userRepository.getUserById(userId);
             userHotelsClearance = profile.hotelIds || [];
+            userOrgId = profile.organizationId || null;
             console.log('[Hotel Loader] User clearance hotel IDs:', userHotelsClearance);
+            console.log('[Hotel Loader] User organization ID:', userOrgId);
           } catch (e) {
             console.warn('[Hotel Loader] Could not fetch profile clearances:', e);
           }
         }
 
-        // 3. Load hotels filtered by current organization ID from Supabase
+        // 1. Fetch organizations dynamically
+        console.log('[Hotel Loader] Querying organizations...');
+        const orgs = await hotelService.getOrganizations();
+        console.log('[Hotel Loader] Organizations result:', orgs);
+        
+        // 2. Find the user's organization, or GuestReview.ai, or fall back to the first one
+        const activeOrg = orgs.find(o => o.id === userOrgId) || 
+                          orgs.find(o => o.name === 'GuestReview.ai' || o.name === 'ECCTUR') || 
+                          orgs[0];
+        if (activeOrg) {
+          setCurrentOrg(activeOrg);
+        }
+        const orgId = activeOrg ? activeOrg.id : '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7';
+        console.log('[Hotel Loader] Selected Organization ID:', orgId);
+
+        // 3. Load hotels filtered by resolved organization ID from Supabase
         console.log('[Hotel Loader] Querying hotels...');
         let data = await hotelService.getHotels(orgId);
         console.log('[Hotel Loader] Hotels result:', data);

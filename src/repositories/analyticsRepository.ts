@@ -4,6 +4,18 @@ import { AnalyticsTrend, MetricCardData } from '@/types';
 
 export const analyticsRepository = {
   async getMetrics(hotelId?: string): Promise<MetricCardData[]> {
+    if (!hotelId) {
+      console.warn('[analyticsRepository] getMetrics called without hotelId. Enforcing tenant isolation.');
+      return [
+        { title: 'Total Reviews', value: 0, change: 'Lifetime volume', changeType: 'neutral' },
+        { title: 'Average Rating', value: '0.00 / 5.0', change: 'Based on all reviews', changeType: 'neutral' },
+        { title: 'Draft Reviews', value: 0, change: 'Awaiting manager edits', changeType: 'neutral' },
+        { title: 'Published Reviews', value: 0, change: 'Published to public OTAs', changeType: 'neutral' },
+        { title: 'High Priority Reviews', value: 0, change: 'Action items required', changeType: 'neutral' },
+        { title: 'AI Response Rate', value: '0%', change: 'Auto & approved responses', changeType: 'neutral' }
+      ];
+    }
+
     const runQueries = async (useHotelFilter: boolean) => {
       let qTotal = supabase.from('reviews').select('*', { count: 'exact', head: true });
       let qAvg = supabase.from('reviews').select('rating');
@@ -60,6 +72,11 @@ export const analyticsRepository = {
   },
 
   async getTrends(range: '7d' | '30d' | '90d', hotelId?: string): Promise<any[]> {
+    if (!hotelId) {
+      console.warn('[analyticsRepository] getTrends called without hotelId. Enforcing tenant isolation.');
+      return [];
+    }
+
     const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
     const cutOffDate = new Date();
     cutOffDate.setDate(cutOffDate.getDate() - days);
@@ -111,6 +128,11 @@ export const analyticsRepository = {
   },
 
   async getPlatformShare(hotelId?: string): Promise<{ source: string; count: number; rating: number }[]> {
+    if (!hotelId) {
+      console.warn('[analyticsRepository] getPlatformShare called without hotelId. Enforcing tenant isolation.');
+      return [];
+    }
+
     const runQuery = async (useHotelFilter: boolean) => {
       // Map 'source' to 'platform' as 'source' doesn't exist in database
       let query = supabase.from('reviews').select('platform, rating');

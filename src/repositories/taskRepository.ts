@@ -27,19 +27,22 @@ export const taskRepository = {
     department?: string;
     search?: string;
   }): Promise<Task[]> {
+    if (!params || !params.hotelId) {
+      console.warn('[taskRepository] Warning: getTasks called without hotelId parameter. Enforcing tenant isolation.');
+      return [];
+    }
+
     const runQuery = async (useHotelFilter: boolean) => {
       let query = supabase.from('tasks').select('*');
 
-      if (params) {
-        if (useHotelFilter && params.hotelId) {
-          query = query.eq('hotel_id', params.hotelId);
-        }
-        if (params.status) query = query.eq('status', params.status);
-        if (params.priority) query = query.eq('priority', params.priority);
-        if (params.department) query = query.eq('department', params.department);
-        if (params.search) {
-          query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`);
-        }
+      if (useHotelFilter && params.hotelId) {
+        query = query.eq('hotel_id', params.hotelId);
+      }
+      if (params.status) query = query.eq('status', params.status);
+      if (params.priority) query = query.eq('priority', params.priority);
+      if (params.department) query = query.eq('department', params.department);
+      if (params.search) {
+        query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`);
       }
 
       query = query.order('created_at', { ascending: false });
