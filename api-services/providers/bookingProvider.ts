@@ -94,6 +94,24 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     return [];
   }
 
+  // Log first 5 raw items for debugging
+  items.slice(0, 5).forEach((item: any, idx: number) => {
+    console.log(`[BOOKING RAW DEBUG #${idx + 1}]`);
+    console.log(`  - id:`, item.id || item.reviewId);
+    console.log(`  - reviewer:`, item.reviewer || item.reviewerName || item.author);
+    console.log(`  - review:`, item.review || item.reviewText);
+    console.log(`  - reviewText:`, item.reviewText);
+    console.log(`  - text:`, item.text);
+    console.log(`  - comment:`, item.comment);
+    console.log(`  - pros:`, item.pros || item.liked);
+    console.log(`  - cons:`, item.cons || item.disliked);
+    console.log(`  - title:`, item.title || item.reviewTitle);
+    console.log(`  - score:`, item.score || item.rating);
+    console.log(`  - rating:`, item.rating);
+    console.log(`  - reviewDate:`, item.reviewDate || item.date);
+    console.log(`  - keys:`, Object.keys(item));
+  });
+
   const normalized = items.map((item: any) => {
     const guestName = 
       item.reviewerName || 
@@ -110,10 +128,25 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     }
     const rating = Math.max(1, Math.min(5, Math.round(score / 2)));
 
-    const reviewText = 
-      item.pros || item.cons
-        ? `${item.pros || ''} ${item.cons || ''}`.trim()
-        : item.text || item.reviewText || item.comment || '';
+    // Priority order: reviewText, review, text, comment
+    let rText = item.reviewText || item.review || item.text || item.comment || '';
+
+    // If those are empty, try fallback to pros/cons (also check for liked/disliked keys as they map to pros/cons in some scrapers)
+    if (!rText) {
+      const pVal = item.pros || item.liked || '';
+      const cVal = item.cons || item.disliked || '';
+      if (pVal && cVal) {
+        rText = `${pVal}\n\n${cVal}`;
+      } else if (pVal) {
+        rText = pVal;
+      } else if (cVal) {
+        rText = cVal;
+      }
+    }
+
+    if (!rText) {
+      rText = 'No comment review.';
+    }
 
     const reviewDate = 
       item.publishAt || 
@@ -126,17 +159,25 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     const externalId = 
       item.id || 
       item.reviewId || 
-      `${guestName}_${rating}_${reviewText.substring(0, 50)}`;
+      `${guestName}_${rating}_${rText.substring(0, 50)}`;
 
     return {
       platform: 'Booking',
       guestName: String(guestName).trim(),
       rating: Number(rating),
-      reviewText: String(reviewText).trim() || 'No comment review.',
+      reviewText: String(rText).trim(),
       reviewDate: String(reviewDate).trim(),
       externalId: String(externalId).trim()
     };
   });
+
+  const total = normalized.length;
+  const withText = normalized.filter(n => n.reviewText && n.reviewText !== 'No comment review.').length;
+  const scoreOnly = total - withText;
+  console.log(`Booking Import Summary:`);
+  console.log(`  - Toplam: ${total}`);
+  console.log(`  - Metinli: ${withText}`);
+  console.log(`  - Sadece puan: ${scoreOnly}`);
 
   console.log(`Booking Parsed Reviews: ${normalized.length}`);
   return normalized;
