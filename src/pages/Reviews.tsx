@@ -41,6 +41,23 @@ const isTimeoutError = (err: any, responseText?: string) => {
   );
 };
 
+const formatImportPopupMessage = (platform: string, res: any) => {
+  const modeKey = res.effectiveMode || 'initial_import';
+  let modeText = 'İlk Kurulum';
+  if (modeKey === 'daily_sync') {
+    modeText = 'Günlük Senkronizasyon';
+  } else if (modeKey === 'backfill_import') {
+    modeText = 'Geçmiş Yorum Tamamlama';
+  }
+
+  const fetchedCount = res.fetchedCount !== undefined ? res.fetchedCount : 0;
+  const insertedCount = res.insertedCount !== undefined ? res.insertedCount : 0;
+  const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
+  const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
+
+  return `${platform} Reviews Senkronizasyonu\n\nMod:\n${modeText}\n\nToplam Kontrol Edilen: ${fetchedCount}\nYeni Eklenen: ${insertedCount}\nDuplicate Atlanan: ${duplicateCount}\nHata Sayısı: ${failedCount}`;
+};
+
 export default function Reviews() {
   const { t } = useTranslation();
   const { hotelIds, roleKey } = useAuth();
@@ -501,16 +518,9 @@ export default function Reviews() {
         throw new Error(res.error || 'İçe aktarım başarısız oldu.');
       }
 
-      const totalFetched = res.fetchedCount !== undefined ? res.fetchedCount : 0;
-      const importedCount = res.insertedCount !== undefined ? res.insertedCount : 0;
-      const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
-      const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
-      const importMode = res.effectiveMode || 'initial_import';
-
-      const alertMsg = `Google Reviews yorumları içe aktarıldı (${importMode === 'initial_import' ? 'İlk Kurulum' : 'Günlük Senkronizasyon'}):\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
-      
+      const alertMsg = formatImportPopupMessage('Google', res);
       alert(alertMsg);
-      setToastMessage(`Google: ${importedCount} yeni yorum eklendi.`);
+      setToastMessage(`Google: ${res.insertedCount !== undefined ? res.insertedCount : 0} yeni yorum eklendi.`);
       refetch();
     } catch (err: any) {
       console.error(err);
@@ -614,16 +624,9 @@ export default function Reviews() {
 
       console.log('[DEBUG-TRIPADVISOR-IMPORT-RESPONSE-SUCCESS]', res);
       
-      const totalFetched = res.fetchedCount !== undefined ? res.fetchedCount : 0;
-      const importedCount = res.insertedCount !== undefined ? res.insertedCount : 0;
-      const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
-      const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
-      const importMode = res.effectiveMode || 'initial_import';
-
-      const alertMsg = `TripAdvisor yorumları içe aktarıldı (${importMode === 'initial_import' ? 'İlk Kurulum' : 'Günlük Senkronizasyon'}):\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
-      
+      const alertMsg = formatImportPopupMessage('TripAdvisor', res);
       alert(alertMsg);
-      setToastMessage(`TripAdvisor: ${importedCount} yeni yorum eklendi.`);
+      setToastMessage(`TripAdvisor: ${res.insertedCount !== undefined ? res.insertedCount : 0} yeni yorum eklendi.`);
       refetch();
     } catch (err: any) {
       console.error(err);
