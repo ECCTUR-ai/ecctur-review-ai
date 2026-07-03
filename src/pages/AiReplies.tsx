@@ -551,10 +551,65 @@ export default function AiReplies() {
 
     setSavingId(review.id);
     try {
-      if (review.source === 'Google') {
-        await reviewService.publishGoogleReply(review.id, replyText);
+      const isBooking = review.source?.toLowerCase() === 'booking';
+      const isTripAdvisor = review.source?.toLowerCase() === 'tripadvisor';
+
+      if (isBooking || isTripAdvisor) {
+        // Direct local update to bypass external API publishing
+        const { error } = await supabase
+          .from('reviews')
+          .update({
+            status: 'Published',
+            publish_status: 'Published',
+            published: 'Yes',
+            ai_reply: replyText,
+            responded_at: new Date().toISOString()
+          })
+          .eq('id', review.id);
+
+        if (error) throw error;
+
+        // Try to insert audit log
+        try {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const userEmail = currentUser?.email || '';
+          const userMetadata = currentUser?.user_metadata || {};
+          const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
+
+          await supabase.from('review_action_logs').insert({
+            review_id: review.id,
+            hotel_id: review.hotelId,
+            organization_id: review.organizationId,
+            action_type: 'published',
+            action_by_user_id: currentUser?.id,
+            action_by_user_email: userEmail,
+            action_by_user_name: userName,
+            action_at: new Date().toISOString(),
+            previous_status: review.status,
+            new_status: 'published',
+            platform: review.source?.toLowerCase(),
+            guest_name: review.guestName,
+            review_reply_text: replyText,
+            ai_generated: true,
+            published_at: new Date().toISOString(),
+            approved_at: new Date().toISOString()
+          });
+        } catch (logErr) {
+          console.warn('[handlePublish] Failed to insert audit log:', logErr);
+        }
+
+        // Show platform-specific alert
+        if (isBooking) {
+          alert("Booking.com cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.");
+        } else {
+          alert("TripAdvisor cevabı sistem içinde yayınlandı olarak işaretlendi. Harici platforma otomatik gönderim aktif değil.");
+        }
       } else {
-        await reviewService.submitResponse(review.id, replyText);
+        if (review.source === 'Google') {
+          await reviewService.publishGoogleReply(review.id, replyText);
+        } else {
+          await reviewService.submitResponse(review.id, replyText);
+        }
       }
 
       // Instantly remove card from active list and move to archive list dynamically
@@ -647,13 +702,63 @@ export default function AiReplies() {
       try {
         const review = reviews.find(r => r.id === id);
         const text = editTexts[id] || review?.response || '';
-        if (text) {
-          if (review?.source === 'Google') {
-            await reviewService.publishGoogleReply(id, text);
+        if (text && review) {
+          const isBooking = review.source?.toLowerCase() === 'booking';
+          const isTripAdvisor = review.source?.toLowerCase() === 'tripadvisor';
+
+          if (isBooking || isTripAdvisor) {
+            // Direct local update to bypass external API publishing
+            const { error } = await supabase
+              .from('reviews')
+              .update({
+                status: 'Published',
+                publish_status: 'Published',
+                published: 'Yes',
+                ai_reply: text,
+                responded_at: new Date().toISOString()
+              })
+              .eq('id', id);
+
+            if (error) throw error;
+
+            // Try to insert audit log
+            try {
+              const { data: { user: currentUser } } = await supabase.auth.getUser();
+              const userEmail = currentUser?.email || '';
+              const userMetadata = currentUser?.user_metadata || {};
+              const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
+
+              await supabase.from('review_action_logs').insert({
+                review_id: id,
+                hotel_id: review.hotelId,
+                organization_id: review.organizationId,
+                action_type: 'published',
+                action_by_user_id: currentUser?.id,
+                action_by_user_email: userEmail,
+                action_by_user_name: userName,
+                action_at: new Date().toISOString(),
+                previous_status: review.status,
+                new_status: 'published',
+                platform: review.source?.toLowerCase(),
+                guest_name: review.guestName,
+                review_reply_text: text,
+                ai_generated: true,
+                published_at: new Date().toISOString(),
+                approved_at: new Date().toISOString()
+              });
+            } catch (logErr) {
+              console.warn('[handleBulkPublish] Failed to insert audit log:', logErr);
+            }
+
+            success++;
           } else {
-            await reviewService.submitResponse(id, text);
+            if (review.source === 'Google') {
+              await reviewService.publishGoogleReply(id, text);
+            } else {
+              await reviewService.submitResponse(id, text);
+            }
+            success++;
           }
-          success++;
         }
       } catch (e) {
         console.error(`Bulk Publish failure for review ${id}:`, e);
