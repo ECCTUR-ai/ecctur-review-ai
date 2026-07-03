@@ -56,7 +56,7 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 export default function DashboardLayout() {
-  const { hasPermission, permissions, role, userId } = useAuth();
+  const { hasPermission, permissions, role, userId, hotelIds: authHotelIds, organizationId: authOrgId } = useAuth();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const { t, i18n } = useTranslation();
@@ -82,20 +82,10 @@ export default function DashboardLayout() {
       console.log('[Hotel Loader] Initializing...');
       console.log('[Hotel Loader] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
       try {
-        let userHotelsClearance: string[] = [];
-        let userOrgId: string | null = null;
-        if (userId) {
-          try {
-            const { userRepository } = await import('@/repositories/userRepository');
-            const profile = await userRepository.getUserById(userId);
-            userHotelsClearance = profile.hotelIds || [];
-            userOrgId = profile.organizationId || null;
-            console.log('[Hotel Loader] User clearance hotel IDs:', userHotelsClearance);
-            console.log('[Hotel Loader] User organization ID:', userOrgId);
-          } catch (e) {
-            console.warn('[Hotel Loader] Could not fetch profile clearances:', e);
-          }
-        }
+        const userHotelsClearance = authHotelIds || [];
+        const userOrgId = authOrgId || null;
+        console.log('[Hotel Loader] Loaded from Auth Context clearances:', userHotelsClearance);
+        console.log('[Hotel Loader] Loaded from Auth Context organization ID:', userOrgId);
 
         // 1. Fetch organizations dynamically
         console.log('[Hotel Loader] Querying organizations...');

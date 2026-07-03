@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 export interface UserRoleInfo {
   role: string;
   permissions: string[];
+  hotelIds?: string[];
+  organizationId?: string | null;
 }
 
 export const rbacService = {
@@ -22,7 +24,9 @@ export const rbacService = {
           console.log('[rbacService] User role loaded from backend API:', result.user.role);
           return {
             role: result.user.role || '',
-            permissions: result.user.permissions || []
+            permissions: result.user.permissions || [],
+            hotelIds: result.user.hotelIds || [],
+            organizationId: result.user.organizationId || null
           };
         }
       }

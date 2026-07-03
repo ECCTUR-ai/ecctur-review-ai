@@ -9,6 +9,8 @@ interface AuthContextType {
   userId: string | null;
   role: string | null;
   permissions: string[];
+  hotelIds: string[];
+  organizationId: string | null;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
 }
@@ -17,6 +19,8 @@ const AuthContext = createContext<AuthContextType>({
   userId: null,
   role: null,
   permissions: [],
+  hotelIds: [],
+  organizationId: null,
   loading: true,
   hasPermission: () => false
 });
@@ -27,6 +31,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [hotelIds, setHotelIds] = useState<string[]>([]);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,10 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
           setRole(rbac.role);
           setPermissions(rbac.permissions);
+          setHotelIds(rbac.hotelIds || []);
+          setOrganizationId(rbac.organizationId || null);
         } else {
           setUserId(null);
           setRole(null);
           setPermissions([]);
+          setHotelIds([]);
+          setOrganizationId(null);
         }
       } catch (err) {
         console.error('Error loading session:', err);
@@ -61,10 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
         setRole(rbac.role);
         setPermissions(rbac.permissions);
+        setHotelIds(rbac.hotelIds || []);
+        setOrganizationId(rbac.organizationId || null);
       } else {
         setUserId(null);
         setRole(null);
         setPermissions([]);
+        setHotelIds([]);
+        setOrganizationId(null);
       }
       setLoading(false);
     });
@@ -80,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ userId, role, permissions, loading, hasPermission }}>
+    <AuthContext.Provider value={{ userId, role, permissions, hotelIds, organizationId, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );
