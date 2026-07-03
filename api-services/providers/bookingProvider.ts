@@ -112,87 +112,46 @@ export async function fetchBookingReviews(url: string, limit?: number): Promise<
     console.log(`  - keys:`, Object.keys(item));
   });
 
-  const normalized = items.map((item: any) => {
-    const guestName = 
-      item.reviewerName || 
-      item.userName || 
-      item.username || 
-      item.author || 
-      item.authorName || 
-      'Booking Guest';
+  const normalized = items.map((item: any, idx: number) => {
+    const rawRating = Number(item.rating || 0);
+    const rating = rawRating > 5 ? Math.max(1, Math.min(5, Math.round(rawRating / 2))) : Math.max(1, Math.min(5, Math.round(rawRating)));
 
-    // Booking.com uses 10-point scale. Map to 5-point scale:
-    let score = item.rating || item.score || item.average_score || item.reviewRating || 10;
-    if (typeof score === 'string') {
-      score = parseFloat(score);
-    }
-    const rating = Math.max(1, Math.min(5, Math.round(score / 2)));
+    const reviewText = [
+      item.reviewTitle,
+      item.likedText,
+      item.dislikedText
+    ]
+      .filter(Boolean)
+      .join("\n\n") || 'No comment review.';
 
-    const positive =
-      item.likedText ??
-      item.liked ??
-      item.positive ??
-      item.pros;
-
-    const negative =
-      item.dislikedText ??
-      item.disliked ??
-      item.negative ??
-      item.cons;
-
-    let reviewText = "";
-
-    if (positive) {
-      reviewText += `Pozitif:\n${positive}`;
-    }
-
-    if (negative) {
-      if (reviewText) reviewText += "\n\n";
-      reviewText += `Negatif:\n${negative}`;
-    }
-
-    // Eğer reviewText boş kaldıysa eski fallbacklere geç
-    if (!reviewText) {
-      reviewText = item.reviewText || item.text || item.comment || item.review || item.content || item.userReview || item.localizedReview || '';
-    }
-
-    if (!reviewText) {
-      reviewText = 'No comment review.';
-    }
-
-    console.log("NORMALIZED BOOKING REVIEW", {
-      reviewTitle: item.reviewTitle,
-      likedText: item.likedText,
-      dislikedText: item.dislikedText,
-      finalReviewText: reviewText
-    });
-
-    const reviewDate = 
-      item.reviewDate ||
-      item.date ||
-      item.publishedDate ||
-      item.stayDate ||
-      item.createdAt ||
-      item.publishAt || 
-      item.publishedAt || 
-      item.createTime || 
-      item.created || 
-      new Date().toISOString();
-
-    const externalId = 
-      item.id || 
-      item.reviewId || 
-      `${guestName}_${rating}_${reviewText.substring(0, 50)}`;
-
-    return {
+    const normalizedReview = {
       platform: 'Booking',
-      guestName: String(guestName).trim(),
-      rating: Number(rating),
-      reviewText: String(reviewText).trim(),
-      reviewDate: String(reviewDate).trim(),
-      externalId: String(externalId).trim(),
+      guestName: item.userName || "Booking Guest",
+      rating: rating,
+      reviewTitle: item.reviewTitle || "",
+      reviewText,
+      reviewDate: item.reviewDate || null,
+      travelerType: item.travelerType || null,
+      numberOfNights: item.numberOfNights || null,
+      likedText: item.likedText || null,
+      dislikedText: item.dislikedText || null,
+      sourceUrl: targetUrl,
+      externalId: item.id || item.reviewId || `${item.userName || 'guest'}_${rating}_${item.reviewDate || 'nodate'}_${idx}`,
+      metadata: {
+        travelerType: item.travelerType || null,
+        numberOfNights: item.numberOfNights || null,
+        likedText: item.likedText || null,
+        dislikedText: item.dislikedText || null,
+        reviewTitle: item.reviewTitle || ""
+      },
       raw: item
     };
+
+    if (idx < 3) {
+      console.log("[BOOKING NORMALIZED]", normalizedReview);
+    }
+
+    return normalizedReview;
   });
 
   const total = normalized.length;

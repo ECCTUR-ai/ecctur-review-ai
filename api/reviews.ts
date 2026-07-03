@@ -1579,15 +1579,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             }
           }
 
-          // Parse and guarantee review date
-          let parsedDateStr = new Date().toISOString();
-          if (r.reviewDate) {
-            const dateObj = new Date(r.reviewDate);
-            if (!isNaN(dateObj.getTime())) {
-              parsedDateStr = dateObj.toISOString();
-            }
-          }
-
           const reviewRecord = {
             platform_review_id: r.externalId || null,
             guest_name: r.guestName || 'Booking Guest',
@@ -1598,10 +1589,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             status: 'draft',
             published: 'No',
             created_at: new Date().toISOString(),
-            review_date: parsedDateStr,
+            review_date: r.reviewDate || null,
             hotel_id: hotelId,
             hotel_name: hotelName,
-            organization_id: orgId
+            organization_id: orgId,
+            metadata: r.metadata || null
           };
 
           const { error: insErr } = await supabaseAdmin.from('reviews').insert(reviewRecord);
@@ -1612,7 +1604,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             reviewer_display_name: r.guestName,
             star_rating: r.rating,
             comment_text: r.reviewText,
-            create_update_time: parsedDateStr,
+            create_update_time: r.reviewDate || null,
             reply: null,
             platform: 'booking',
             hotel_id: hotelId,

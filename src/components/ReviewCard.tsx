@@ -84,7 +84,11 @@ export const ReviewCard = React.memo(function ReviewCard({ review, isSelected, o
       if (diffDays === 1) return 'Dün';
       if (diffDays < 7) return `${diffDays} gün önce`;
       if (diffDays < 30) return `${Math.floor(diffDays / 7)} hafta önce`;
-      return `${Math.floor(diffDays / 30)} ay önce`;
+      if (diffDays < 365) return `${Math.floor(diffDays / 30)} ay önce`;
+      
+      // Localized format for older reviews
+      const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+      return parsedDate.toLocaleDateString('tr-TR', options);
     } catch (e) {
       return dateStr;
     }

@@ -12,6 +12,12 @@ export interface NormalizedReview {
   reviewDate: string;
   externalId?: string;
   raw?: any;
+  reviewTitle?: string;
+  travelerType?: string;
+  numberOfNights?: number;
+  likedText?: string;
+  dislikedText?: string;
+  sourceUrl?: string;
 }
 
 export const reviewImportService = {
