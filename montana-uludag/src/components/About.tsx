@@ -1,70 +1,67 @@
-
-
 export default function About() {
   const highlights = [
-    { title: '2.543m Yükseklik', desc: 'Uludağ Zirve noktasının hemen altında, temiz hava ve sınırsız manzara sunan özel lokasyon.' },
-    { title: 'Sıcak Mimari Yapı', desc: 'Bölgeye özgü doğal ahşap ve taş dokuların harmanlandığı sıcak dağ evi konsepti.' },
-    { title: 'Şömine & Sosyal Alanlar', desc: 'Ortak oturma alanlarındaki dev şöminelerle günün yorgunluğunu atabileceğiniz dinlendirici lobi.' }
+    { title: '2.543m Rakım', desc: 'Uludağ Zirve noktası yamaçlarında, eşsiz kar kalitesi ve tertemiz dağ havası.' },
+    { title: 'Doğal Malzemeler', desc: 'Doğal ahşap ve taş dokuların harmanlandığı sıcak dağ evi mimarisi.' },
+    { title: 'Sosyal Alanlar', desc: 'Dev şöminelerle donatılmış lobi ve dinlenme alanlarında huzurlu dağ atmosferi.' }
   ];
 
   return (
     <section id="about" className="about-section section">
-      <div className="container">
-        <div className="about-layout">
-          <div className="about-content">
-            <span className="subtitle">HİKAYEMİZ</span>
-            <h2 className="heading-md">Montana 2543 Uludağ</h2>
-            <p className="about-desc">
-              Adını Uludağ'ın büyüleyici zirvelerinden biri olan 2.543 metre yükseklikten alan otelimiz, doğanın kalbinde sıcak ve konforlu bir konaklama sunmak için tasarlandı. Dağ kültürünün samimi dokusunu modern mimari ile birleştirerek kış tatillerinizi unutulmaz bir deneyime dönüştürüyoruz.
-            </p>
-            <p className="about-desc">
-              Misafirlerimize konaklamadan daha fazlasını sunarak kendilerini evlerinde hissettirmeyi amaçlıyoruz. Pist erişiminden lezzetli atıştırmalıklara, şömine başı sıcak sohbetlerden rahat odalara kadar Montana 2543, dağ ruhunu en samimi şekilde hissetmeniz için var.
-            </p>
-
-            <div className="about-highlights-list">
-              {highlights.map((item, idx) => (
-                <div key={idx} className="about-highlight-item">
-                  <div className="highlight-bullet">✓</div>
-                  <div className="highlight-text">
-                    <h4 className="highlight-title">{item.title}</h4>
-                    <p className="highlight-desc">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="container about-layout">
+        {/* Left: Image block */}
+        <div className="about-visuals animate-fade-up">
+          <div className="image-frame">
+            <img 
+              src="/assets/montana/montana-lobby-fireplace.jpeg" 
+              alt="Montana 2543 Uludağ lobby" 
+              className="about-img"
+              loading="lazy"
+            />
           </div>
+        </div>
 
-          <div className="about-visuals">
-            <div className="video-card">
-              <img 
-                src="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800&auto=format&fit=crop" 
-                alt="Fireplace lobby" 
-                className="about-img"
-              />
-              <div className="play-button-overlay">
-                <span className="play-icon">▶</span>
+        {/* Right: Story content block */}
+        <div className="about-content animate-fade-up">
+          <span className="subtitle">HİKAYEMİZ</span>
+          <h2 className="heading-md about-title">The Legacy of Fahri, Reimagined.</h2>
+          
+          <p className="about-desc">
+            Uludağ'ın köklü dağ kültürü mirasını modern ve samimi bir dokunuşla yeniden hayal ettik. Montana 2543, adını zirvenin hemen altındaki benzersiz rakımından alırken, köklü misafirperverlik geleneğini günümüzün sade konforuyla buluşturuyor.
+          </p>
+          <p className="about-desc">
+            Sakinlik, samimiyet ve doğallığı merkezimize koyarak, dağ ruhunu en saf haliyle hissedebileceğiniz bir dinlenme köşesi yarattık. Pist erişiminden şömine başı sıcak sohbetlere kadar her detay, huzur dolu anlar paylaşmanız için düşünüldü.
+          </p>
+
+          <div className="about-highlights-list">
+            {highlights.map((item, idx) => (
+              <div key={idx} className="about-highlight-item">
+                <span className="highlight-bullet">✓</span>
+                <div className="highlight-text">
+                  <h4 className="highlight-title">{item.title}</h4>
+                  <p className="highlight-desc">{item.desc}</p>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
       <style>{`
         .about-section {
-          background-color: var(--krem-dark);
+          background-color: var(--bg);
         }
 
         .about-layout {
           display: grid;
-          grid-template-columns: 1.15fr 0.85fr;
-          gap: 60px;
+          grid-template-columns: 0.9fr 1.1fr;
+          gap: 64px;
           align-items: center;
         }
 
         @media (max-width: 991px) {
           .about-layout {
             grid-template-columns: 1fr;
-            gap: 40px;
+            gap: 48px;
           }
         }
 
@@ -74,10 +71,15 @@ export default function About() {
           gap: 20px;
         }
 
+        .about-title {
+          margin-bottom: 8px;
+        }
+
         .about-desc {
-          font-size: 1.05rem;
-          color: var(--koyu-gri-light);
+          font-size: 1rem;
+          color: var(--text);
           line-height: 1.7;
+          font-weight: 400;
         }
 
         .about-highlights-list {
@@ -94,9 +96,9 @@ export default function About() {
         }
 
         .highlight-bullet {
-          color: var(--ahsap);
-          font-weight: 900;
-          font-size: 1.2rem;
+          color: var(--accent);
+          font-weight: 700;
+          font-size: 1.1rem;
           line-height: 1;
         }
 
@@ -107,38 +109,37 @@ export default function About() {
         }
 
         .highlight-title {
-          font-size: 1.05rem;
-          font-weight: 700;
-          color: var(--bordo);
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--primary);
         }
 
         .highlight-desc {
           font-size: 0.85rem;
-          color: var(--koyu-gri-light);
+          color: var(--secondary);
         }
 
         /* About Visuals Frame */
         .about-visuals {
           display: flex;
           justify-content: center;
+          width: 100%;
         }
 
-        .video-card {
+        .image-frame {
           position: relative;
-          border-radius: 30px;
+          border-radius: 2px;
           overflow: hidden;
           box-shadow: var(--shadow-lg);
-          border: 4px solid var(--beyaz);
+          border: 1px solid var(--border);
           width: 100%;
-          max-width: 440px;
-          height: 480px;
-          cursor: pointer;
+          height: 520px;
         }
 
         @media (max-width: 991px) {
-          .video-card {
-            height: 380px;
-            max-width: 500px;
+          .image-frame {
+            height: 400px;
+            max-width: 600px;
           }
         }
 
@@ -146,49 +147,11 @@ export default function About() {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.6s ease;
+          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .video-card:hover .about-img {
-          transform: scale(1.05);
-        }
-
-        .play-button-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background-color: rgba(91, 30, 40, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background-color 0.3s ease;
-        }
-
-        .video-card:hover .play-button-overlay {
-          background-color: rgba(91, 30, 40, 0.35);
-        }
-
-        .play-icon {
-          width: 70px;
-          height: 70px;
-          background-color: var(--beyaz);
-          color: var(--bordo);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.5rem;
-          padding-left: 5px; /* Alignment fix */
-          box-shadow: var(--shadow-lg);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .video-card:hover .play-icon {
-          transform: scale(1.15);
-          background-color: var(--ahsap);
-          color: var(--beyaz);
+        .image-frame:hover .about-img {
+          transform: scale(1.03);
         }
       `}</style>
     </section>

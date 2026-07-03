@@ -3,6 +3,7 @@ export interface ScrapedReview {
   rating: number;
   reviewText: string;
   relativeDate: string;
+  reviewId?: string | null;
 }
 
 export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: number): Promise<ScrapedReview[]> {
@@ -97,12 +98,14 @@ export async function scrapeGoogleMapsReviews(googleMapsUrl: string, limit?: num
     const rating = item.starsScore || item.stars || 5;
     const reviewText = item.text || item.textTranslated || '';
     const relativeDate = item.relativeTime || item.publishAt || 'recently';
+    const reviewId = item.reviewId || item.id || null;
 
     return {
       guestName: String(guestName).trim(),
       rating: Number(rating),
       reviewText: String(reviewText).trim(),
-      relativeDate: String(relativeDate).trim()
+      relativeDate: String(relativeDate).trim(),
+      reviewId: reviewId ? String(reviewId).trim() : null
     };
   });
 }

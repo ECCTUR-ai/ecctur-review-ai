@@ -105,6 +105,43 @@ function mapGoogleReview(raw: any, hotelId: string, orgId: string) {
   };
 }
 
+async function checkIsDuplicate(
+  hotelId: string,
+  platform: string,
+  platformReviewId: string | null,
+  guestName: string,
+  rating: number,
+  reviewText: string
+): Promise<boolean> {
+  if (platformReviewId) {
+    const { data: existing, error } = await supabaseAdmin
+      .from('reviews')
+      .select('id')
+      .eq('platform', platform)
+      .eq('platform_review_id', platformReviewId)
+      .limit(1);
+    if (!error && existing && existing.length > 0) {
+      return true;
+    }
+  }
+
+  const { data: existingSec, error: errorSec } = await supabaseAdmin
+    .from('reviews')
+    .select('id')
+    .eq('hotel_id', hotelId)
+    .eq('platform', platform)
+    .eq('guest_name', guestName)
+    .eq('rating', rating)
+    .eq('review_text', reviewText)
+    .limit(1);
+  if (!errorSec && existingSec && existingSec.length > 0) {
+    return true;
+  }
+
+  return false;
+}
+
+
 function parseRelativeDate(relative: string): string {
   const now = new Date();
   const lower = relative.toLowerCase();
@@ -1148,8 +1185,15 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (let r of filteredReviews) {
         try {
-          const { data: existingReview } = await supabaseAdmin.from('reviews').select('id').eq('platform_review_id', r.platform_review_id);
-          if (existingReview && existingReview.length > 0) {
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            'Google',
+            r.platform_review_id,
+            r.reviewer_display_name,
+            r.star_rating,
+            r.comment_text
+          );
+          if (isDuplicate) {
             duplicateCount++;
             importDetails.push({ reviewId: r.platform_review_id, status: 'duplicate_skipped' });
             continue;
@@ -1267,8 +1311,15 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (let r of filteredReviews) {
         try {
-          const { data: existingReview } = await supabaseAdmin.from('reviews').select('id').eq('platform_review_id', r.review_id);
-          if (existingReview && existingReview.length > 0) {
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            'booking',
+            r.review_id,
+            r.guest_name,
+            Math.round(r.rating) || 10,
+            r.review_text || r.headline || ''
+          );
+          if (isDuplicate) {
             duplicateCount++;
             importDetails.push({ reviewId: r.review_id, status: 'duplicate_skipped' });
             continue;
@@ -1341,11 +1392,40 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+      let userRole = userRolesData?.[0]?.roles?.name;
+      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+        userRole = 'Super Admin';
+      }
+      const roleNameLower = (userRole || 'staff').toLowerCase();
+
+      // Rule 4: backfill_import is only for Owner (allowing Super Admin as system admin)
+      const isOwner = roleNameLower === 'owner' || roleNameLower === 'super admin';
+      if (mode === 'backfill_import' && !isOwner) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Only Owner role can trigger backfill import.' });
+      }
+
       const { data: hotelData, error: hotelError } = await supabaseAdmin.from('hotels').select('organization_id, name').eq('id', hotelId).maybeSingle();
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
-      const limit = mode === 'initial_import' || mode === 'backfill_import' ? 200 : 50;
+
+      // Rules 1 & 2: check existing count to determine effective mode
+      const { count: existingCount, error: countErr } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'Google');
+
+      if (countErr) throw countErr;
+
+      let effectiveMode = mode;
+      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
+        effectiveMode = 'daily_sync';
+      }
+
+      // Rule 3: daily_sync limit is 50, otherwise 200
+      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
       const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl, limit);
 
       let importedCount = 0;
@@ -1354,17 +1434,17 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (const r of scrapedReviews) {
         try {
-          const { data: existingReview } = await supabaseAdmin
-            .from('reviews')
-            .select('id')
-            .eq('hotel_id', hotelId)
-            .eq('platform', 'Google')
-            .eq('guest_name', r.guestName)
-            .eq('review_text', r.reviewText)
-            .eq('rating', r.rating)
-            .limit(1);
+          // Rule 5: Strengthen duplicate control
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            'Google',
+            r.externalId || null,
+            r.guestName,
+            r.rating,
+            r.reviewText
+          );
 
-          if (existingReview && existingReview.length > 0) {
+          if (isDuplicate) {
             duplicateCount++;
             continue;
           }
@@ -1378,6 +1458,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             rating: r.rating,
             review_text: r.reviewText,
             platform: 'Google',
+            platform_review_id: r.externalId || null,
             sentiment,
             status: 'draft',
             published: 'No',
@@ -1396,13 +1477,23 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         }
       }
 
+      const { count: totalAfterImport } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'Google');
+
+      // Rule 6: Clear import result summary
       return res.status(200).json({
         success: true,
-        totalFetched: scrapedReviews.length,
-        importedCount,
+        platform: 'Google',
+        requestedMode: mode,
+        effectiveMode,
+        fetchedCount: scrapedReviews.length,
+        insertedCount: importedCount,
         duplicateCount,
         failedCount,
-        importMode: mode
+        totalAfterImport: totalAfterImport || 0
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });
@@ -1423,11 +1514,40 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+      let userRole = userRolesData?.[0]?.roles?.name;
+      if (!userRole && (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com')) {
+        userRole = 'Super Admin';
+      }
+      const roleNameLower = (userRole || 'staff').toLowerCase();
+
+      // Rule 4: backfill_import is only for Owner (allowing Super Admin as system admin)
+      const isOwner = roleNameLower === 'owner' || roleNameLower === 'super admin';
+      if (mode === 'backfill_import' && !isOwner) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Only Owner role can trigger backfill import.' });
+      }
+
       const { data: hotelData, error: hotelError } = await supabaseAdmin.from('hotels').select('organization_id, name').eq('id', hotelId).maybeSingle();
       if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
 
       const orgId = hotelData.organization_id;
-      const limit = mode === 'initial_import' || mode === 'backfill_import' ? 200 : 50;
+
+      // Rules 1 & 2: check existing count to determine effective mode
+      const { count: existingCount, error: countErr } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'Tripadvisor');
+
+      if (countErr) throw countErr;
+
+      let effectiveMode = mode;
+      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
+        effectiveMode = 'daily_sync';
+      }
+
+      // Rule 3: daily_sync limit is 50, otherwise 200
+      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
       const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl, limit);
 
       let importedCount = 0;
@@ -1436,17 +1556,17 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (const r of scrapedReviews) {
         try {
-          const { data: existingReview } = await supabaseAdmin
-            .from('reviews')
-            .select('id')
-            .eq('hotel_id', hotelId)
-            .eq('platform', 'Tripadvisor')
-            .eq('guest_name', r.guestName)
-            .eq('review_text', r.reviewText)
-            .eq('rating', r.rating)
-            .limit(1);
+          // Rule 5: Strengthen duplicate control
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            'Tripadvisor',
+            r.externalId || null,
+            r.guestName,
+            r.rating,
+            r.reviewText
+          );
 
-          if (existingReview && existingReview.length > 0) {
+          if (isDuplicate) {
             duplicateCount++;
             continue;
           }
@@ -1460,6 +1580,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             rating: r.rating,
             review_text: r.reviewText,
             platform: 'Tripadvisor',
+            platform_review_id: r.externalId || null,
             sentiment,
             status: 'draft',
             published: 'No',
@@ -1478,13 +1599,23 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         }
       }
 
+      const { count: totalAfterImport } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'Tripadvisor');
+
+      // Rule 6: Clear import result summary
       return res.status(200).json({
         success: true,
-        totalFetched: scrapedReviews.length,
-        importedCount,
+        platform: 'Tripadvisor',
+        requestedMode: mode,
+        effectiveMode,
+        fetchedCount: scrapedReviews.length,
+        insertedCount: importedCount,
         duplicateCount,
         failedCount,
-        importMode: mode
+        totalAfterImport: totalAfterImport || 0
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });

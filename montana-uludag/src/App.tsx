@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
-import Stats from './components/Stats';
 import Rooms from './components/Rooms';
 import Restaurant from './components/Restaurant';
-import SkiExperience from './components/SkiExperience';
 import Gallery from './components/Gallery';
 import About from './components/About';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
+import Facilities from './components/Facilities';
+import Reviews from './components/Reviews';
+import ReservationCTA from './components/ReservationCTA';
 
 export default function App() {
   const [activePage, setActivePage] = useState('home');
@@ -52,37 +53,42 @@ export default function App() {
 
       {/* Main Sections (Single Page Application Flow) */}
       <main>
-        {/* Home Section / Hero intro */}
+        {/* 1. Hero */}
         <div id="home">
           <Hero onBookClick={handleBookClick} />
         </div>
 
-        {/* Stats Panel */}
-        <Stats />
-
-        {/* Rooms showcase */}
-        <Rooms onBookRoom={handleBookRoom} />
-
-        {/* Dining */}
-        <Restaurant />
-
-        {/* Slopes & Sports */}
-        <SkiExperience />
-
-        {/* Image Showcase */}
-        <Gallery />
-
-        {/* Story */}
+        {/* 2. Story (About) */}
         <About />
 
-        {/* Reservations Form & Map */}
+        {/* 3. Rooms */}
+        <Rooms onBookRoom={handleBookRoom} />
+
+        {/* 4. Facilities */}
+        <div id="facilities">
+          <Facilities />
+        </div>
+
+        {/* 5. Gallery */}
+        <Gallery />
+
+        {/* 6. Restaurant */}
+        <Restaurant />
+
+        {/* 7. Location (Contact Form & Map) */}
         <Contact 
           preselectedRoom={preselectedRoom} 
           clearPreselectedRoom={() => setPreselectedRoom('')} 
         />
+
+        {/* 8. Reviews */}
+        <Reviews />
+
+        {/* 9. Reservation CTA */}
+        <ReservationCTA onReserveClick={handleBookClick} />
       </main>
 
-      {/* Footer details */}
+      {/* 10. Footer */}
       <Footer setActivePage={handlePageChange} />
 
       <style>{`
@@ -91,7 +97,7 @@ export default function App() {
           flex-direction: column;
           min-height: 100vh;
           overflow-x: hidden;
-          background-color: var(--krem);
+          background-color: var(--bg);
         }
 
         main {

@@ -1,13 +1,25 @@
-
+import { useState } from 'react';
 
 interface FooterProps {
   setActivePage: (page: string) => void;
 }
 
 export default function Footer({ setActivePage }: FooterProps) {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubsubscribed] = useState(false);
+
   const handleNavClick = (id: string) => {
     setActivePage(id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      setSubsubscribed(true);
+      setEmail('');
+      setTimeout(() => setSubsubscribed(false), 5000);
+    }
   };
 
   return (
@@ -16,16 +28,17 @@ export default function Footer({ setActivePage }: FooterProps) {
         {/* Brand Info */}
         <div className="footer-brand-col">
           <div className="footer-logo" onClick={() => handleNavClick('home')}>
-            MONTANA <span className="logo-number">2543</span>
-            <span className="logo-sub">ULUDAĞ</span>
+            <img src="/assets/montana/logo.png" alt="Montana 2543 Logo" className="footer-logo-img" />
+            <span className="logo-sub">A FAHRI HERITAGE HOTEL</span>
           </div>
           <p className="footer-brand-desc">
-            Uludağ'ın 2. Gelişim bölgesinde, eşsiz pistlerin ve karın tadını en yüksek konforla çıkarmanız için tasarlanmış samimi dağ oteli.
+            Uludağ'ın yamaçlarında, doğallığı ve sadeliği İskandinav minimalizmiyle buluşturan samimi dağ oteli deneyimi.
           </p>
-          <div className="social-icons">
+          <div className="social-links">
             <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-link">Instagram</a>
             <a href="https://facebook.com" target="_blank" rel="noreferrer" className="social-link">Facebook</a>
             <a href="https://tripadvisor.com" target="_blank" rel="noreferrer" className="social-link">TripAdvisor</a>
+            <a href="https://api.whatsapp.com/send?phone=90XXXXXXXXXX" target="_blank" rel="noreferrer" className="social-link">WhatsApp</a>
           </div>
         </div>
 
@@ -35,19 +48,41 @@ export default function Footer({ setActivePage }: FooterProps) {
           <ul className="footer-links-list">
             <li><button onClick={() => handleNavClick('home')}>Ana Sayfa</button></li>
             <li><button onClick={() => handleNavClick('rooms')}>Odalarımız</button></li>
-            <li><button onClick={() => handleNavClick('restaurant')}>Snack Restaurant</button></li>
-            <li><button onClick={() => handleNavClick('gallery')}>Fotoğraf Galerisi</button></li>
+            <li><button onClick={() => handleNavClick('facilities')}>Olanaklar</button></li>
+            <li><button onClick={() => handleNavClick('gallery')}>Galeri</button></li>
             <li><button onClick={() => handleNavClick('about')}>Hakkımızda</button></li>
-            <li><button onClick={() => handleNavClick('contact')}>İletişim & Konum</button></li>
+            <li><button onClick={() => handleNavClick('contact')}>İletişim</button></li>
           </ul>
         </div>
 
-        {/* Quick Contact info */}
-        <div className="footer-contact-col">
-          <h4 className="footer-title">Bize Ulaşın</h4>
-          <p className="contact-detail-line">📍 2. Gelişim Bölgesi, Oteller Mevkii No: 12, Uludağ / Bursa</p>
-          <p className="contact-detail-line">📞 +90XXXXXXXXXX</p>
-          <p className="contact-detail-line">✉ info@montana2543.com</p>
+        {/* Newsletter Signup */}
+        <div className="footer-newsletter-col">
+          <h4 className="footer-title">Bültene Katılın</h4>
+          <p className="newsletter-desc">Montana 2543'ten özel haberler ve kış teklifleri almak için kaydolun.</p>
+          
+          {subscribed ? (
+            <p className="subscribe-success">Kaydınız başarıyla tamamlandı.</p>
+          ) : (
+            <form onSubmit={handleSubscribe} className="newsletter-form">
+              <input 
+                type="email" 
+                required 
+                placeholder="E-posta adresiniz" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="newsletter-input"
+              />
+              <button type="submit" className="newsletter-btn">
+                Gönder
+              </button>
+            </form>
+          )}
+
+          <div className="footer-contact-details">
+            <p>📍 2. Gelişim Bölgesi, Uludağ / Bursa</p>
+            <p>📞 +90XXXXXXXXXX</p>
+            <p>✉ info@montanauludag.com</p>
+          </div>
         </div>
       </div>
 
@@ -64,16 +99,16 @@ export default function Footer({ setActivePage }: FooterProps) {
 
       <style>{`
         .footer {
-          background-color: var(--koyu-gri);
-          color: var(--beyaz);
+          background-color: var(--primary);
+          color: var(--white);
           padding: 80px 0 0;
-          border-top: 4px solid var(--bordo);
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .footer-grid {
           display: grid;
           grid-template-columns: 1.2fr 0.8fr 1fr;
-          gap: 60px;
+          gap: 64px;
           padding-bottom: 60px;
         }
 
@@ -84,10 +119,10 @@ export default function Footer({ setActivePage }: FooterProps) {
           }
         }
 
-        @media (max-width: 576px) {
+        @media (max-width: 768px) {
           .footer-grid {
             grid-template-columns: 1fr;
-            gap: 30px;
+            gap: 32px;
           }
         }
 
@@ -99,28 +134,27 @@ export default function Footer({ setActivePage }: FooterProps) {
         }
 
         .footer-logo {
-          font-family: var(--serif);
-          font-size: 1.8rem;
-          font-weight: 800;
-          letter-spacing: 2px;
-          color: var(--beyaz);
           cursor: pointer;
           display: flex;
           flex-direction: column;
-          line-height: 1;
+          gap: 6px;
         }
 
-        .footer-logo .logo-number {
-          color: var(--ahsap);
-          font-weight: 400;
+        .footer-logo-img {
+          height: 60px;
+          width: auto;
+          object-fit: contain;
+          display: block;
+          align-self: flex-start;
+          filter: none;
         }
 
         .footer-logo .logo-sub {
-          font-family: var(--sans);
-          font-size: 0.6rem;
-          letter-spacing: 4px;
-          font-weight: 700;
-          color: rgba(255, 255, 255, 0.4);
+          font-family: var(--font-sans);
+          font-size: 0.55rem;
+          letter-spacing: 2px;
+          font-weight: 600;
+          color: var(--accent);
           margin-top: 2px;
         }
 
@@ -130,34 +164,35 @@ export default function Footer({ setActivePage }: FooterProps) {
           line-height: 1.6;
         }
 
-        .social-icons {
+        .social-links {
           display: flex;
           gap: 16px;
+          flex-wrap: wrap;
         }
 
         .social-link {
           font-size: 0.8rem;
           font-weight: 600;
-          color: var(--ahsap);
+          color: var(--accent);
           transition: color 0.3s ease;
         }
 
         .social-link:hover {
-          color: var(--beyaz);
+          color: var(--white);
         }
 
         /* Quick Links Column */
         .footer-links-col {
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 20px;
         }
 
         .footer-title {
-          font-family: var(--serif);
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: var(--ahsap);
+          font-family: var(--font-serif);
+          font-size: 1.15rem;
+          font-weight: 500;
+          color: var(--accent);
           letter-spacing: 1px;
           margin-bottom: 8px;
         }
@@ -181,27 +216,80 @@ export default function Footer({ setActivePage }: FooterProps) {
         }
 
         .footer-links-list button:hover {
-          color: var(--beyaz);
+          color: var(--white);
           transform: translateX(4px);
         }
 
-        /* Contact Details Column */
-        .footer-contact-col {
+        /* Newsletter Column */
+        .footer-newsletter-col {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 16px;
         }
 
-        .contact-detail-line {
-          font-size: 0.9rem;
+        .newsletter-desc {
+          font-size: 0.85rem;
           color: rgba(255, 255, 255, 0.6);
           line-height: 1.5;
+        }
+
+        .newsletter-form {
+          display: flex;
+          width: 100%;
+        }
+
+        .newsletter-input {
+          flex-grow: 1;
+          background-color: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 12px 16px;
+          font-size: 0.85rem;
+          color: var(--white);
+          border-radius: 2px 0 0 2px;
+          outline: none;
+        }
+
+        .newsletter-input:focus {
+          border-color: var(--accent);
+        }
+
+        .newsletter-btn {
+          background-color: var(--accent);
+          color: var(--white);
+          border: none;
+          padding: 0 24px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          border-radius: 0 2px 2px 0;
+          cursor: pointer;
+        }
+
+        .newsletter-btn:hover {
+          background-color: var(--white);
+          color: var(--primary);
+        }
+
+        .subscribe-success {
+          font-size: 0.85rem;
+          color: var(--accent);
+        }
+
+        .footer-contact-details {
+          margin-top: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.6);
         }
 
         /* Footer Bottom */
         .footer-bottom {
           border-top: 1px solid rgba(255, 255, 255, 0.05);
           padding: 24px 0;
+          margin-top: 60px;
           background-color: #161616;
         }
 
@@ -233,7 +321,7 @@ export default function Footer({ setActivePage }: FooterProps) {
         }
 
         .footer-legal-links a:hover {
-          color: var(--beyaz);
+          color: var(--white);
         }
 
         .legal-separator {

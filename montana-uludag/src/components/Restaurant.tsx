@@ -1,22 +1,20 @@
-
-
 export default function Restaurant() {
   const menuHighlights = [
-    { title: 'Uludağ Sucuk Ekmek', desc: 'Izgarada pişen özel kasap sucuğu, taze çıtır ekmek ve dağ kekikli sosu ile eşsiz kar klasiği.' },
-    { title: 'Şömine Başında Sıcak İçecekler', desc: 'Salep, sıcak çikolata, taze demlenmiş dağ çayı ve şifalı bitki çayları ile içinizi ısıtacak seçenekler.' },
-    { title: 'Montana Burger', desc: 'Özel baharatlı 200g burger köftesi, karamelize soğan, cheddar peyniri ve el yapımı çıtır patates.' },
-    { title: 'Acenta & Grup Menüleri', desc: 'Günübirlik turlar ve acenta grupları için önceden planlanabilen pratik ve doyurucu toplu yemek menüleri.' }
+    { title: 'Uludağ Kasap Sucuk', desc: 'Izgarada pişen özel kasap sucuğu, taze dağ kekikli soslar ve sıcak ekmek eşliğinde klasik lezzet.' },
+    { title: 'Şömine Başında Sıcak Çay', desc: 'Salep, sıcak çikolata, taze demlenmiş dağ çayı ve şifalı bitki çayları seçenekleri.' },
+    { title: 'Montana Burger', desc: 'Özel baharatlı 200g köfte, karamelize soğan, cheddar peyniri ve el yapımı çıtır patates.' },
+    { title: 'Grup & Acenta Menüleri', desc: 'Günübirlik turlar ve acenta grupları için önceden rezerve edilebilen toplu yemek menüleri.' }
   ];
 
   return (
     <section id="restaurant" className="restaurant-section section">
       <div className="container">
         <div className="restaurant-layout">
-          <div className="restaurant-content">
+          <div className="restaurant-content animate-fade-up">
             <span className="subtitle">LEZZET DURAGI</span>
-            <h2 className="heading-md">Montana Snack Restaurant</h2>
+            <h2 className="heading-md">Mountain Flavors. <br />Warm Moments.</h2>
             <p className="restaurant-description">
-              Pist dönüşünde, günübirlik turlarınızda ya da acenta gruplarınızla sıcak bir mola verin. Şömine başında sucuk ekmek keyfi, içinizi ısıtacak zengin sıcak içecekler ve odun ateşinde pişen lezzetlerimizle hem günübirlik dağ ziyaretçilerimize hem de otel konuklarımıza hizmet vermekteyiz.
+              Pist dönüşünde, günübirlik turlarınızda ya da acenta gruplarınızla sıcak bir mola verin. Şömine başında sıcak içecekler, taze lezzetlerimiz ve Montana Cafe terasının karlı atmosferiyle hem günübirlik ziyaretçilerimize hem de otel konuklarımıza hizmet vermekteyiz.
             </p>
             
             <div className="menu-list">
@@ -32,19 +30,13 @@ export default function Restaurant() {
             </div>
           </div>
 
-          <div className="restaurant-images">
-            <div className="image-card card-large">
+          <div className="restaurant-images animate-fade-up">
+            <div className="image-card">
               <img 
-                src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=800&auto=format&fit=crop" 
-                alt="Restaurant Interior" 
+                src="/assets/montana/montana-outdoor-cafe.jpeg" 
+                alt="Montana 2543 Uludağ cafe" 
                 className="rest-img"
-              />
-            </div>
-            <div className="image-card card-small">
-              <img 
-                src="https://images.unsplash.com/photo-1543007630-9710e4a00a20?q=80&w=600&auto=format&fit=crop" 
-                alt="Hot Drinks Fireside" 
-                className="rest-img"
+                loading="lazy"
               />
             </div>
           </div>
@@ -53,15 +45,14 @@ export default function Restaurant() {
 
       <style>{`
         .restaurant-section {
-          background-color: var(--krem-dark);
-          position: relative;
-          overflow: hidden;
+          background-color: var(--bg);
+          border-bottom: 1px solid var(--border);
         }
 
         .restaurant-layout {
           display: grid;
           grid-template-columns: 1.1fr 0.9fr;
-          gap: 60px;
+          gap: 64px;
           align-items: center;
         }
 
@@ -79,8 +70,8 @@ export default function Restaurant() {
         }
 
         .restaurant-description {
-          font-size: 1.05rem;
-          color: var(--koyu-gri-light);
+          font-size: 1rem;
+          color: var(--text);
           line-height: 1.7;
         }
 
@@ -105,20 +96,20 @@ export default function Restaurant() {
         }
 
         .menu-item-title {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: var(--bordo);
+          font-size: 1.05rem;
+          font-weight: 600;
+          color: var(--primary);
         }
 
         .menu-divider {
           flex-grow: 1;
           height: 1px;
-          background-color: rgba(91, 30, 40, 0.15);
+          background-color: var(--border);
         }
 
         .menu-item-desc {
           font-size: 0.85rem;
-          color: var(--koyu-gri-light);
+          color: var(--secondary);
         }
 
         /* Images Layout Grid */
@@ -126,48 +117,35 @@ export default function Restaurant() {
           position: relative;
           display: flex;
           height: 520px;
+          width: 100%;
         }
 
         @media (max-width: 991px) {
           .restaurant-images {
             height: 400px;
             max-width: 600px;
-            width: 100%;
             margin: 0 auto;
           }
         }
 
         .image-card {
-          border-radius: 24px;
+          border-radius: 2px;
           overflow: hidden;
           box-shadow: var(--shadow-lg);
-          border: 4px solid var(--beyaz);
+          border: 1px solid var(--border);
+          width: 100%;
+          height: 100%;
         }
 
         .rest-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.5s ease;
+          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .image-card:hover .rest-img {
-          transform: scale(1.05);
-        }
-
-        .card-large {
-          width: 75%;
-          height: 80%;
-          z-index: 1;
-        }
-
-        .card-small {
-          width: 50%;
-          height: 55%;
-          position: absolute;
-          right: 0;
-          bottom: 0;
-          z-index: 2;
+          transform: scale(1.03);
         }
       `}</style>
     </section>

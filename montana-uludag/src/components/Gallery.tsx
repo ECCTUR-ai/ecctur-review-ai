@@ -7,21 +7,19 @@ export default function Gallery() {
   const filters = [
     { id: 'all', label: 'TÜMÜ' },
     { id: 'rooms', label: 'ODALARIMIZ' },
-    { id: 'restaurant', label: 'RESTAURANT & BAR' },
-    { id: 'ski', label: 'KAYAK & DAĞ' },
-    { id: 'social', label: 'SOSYAL ALANLAR' }
+    { id: 'social', label: 'LOBİ & SOSYAL ALANLAR' },
+    { id: 'cafe', label: 'CAFE & RESTAURANT' },
+    { id: 'exterior', label: 'DIŞ CEPHE' }
   ];
 
   const galleryImages = [
-    { url: 'https://images.unsplash.com/photo-1544860707-c37d9c9db80d?q=80&w=600&auto=format&fit=crop', category: 'ski', title: 'Montana 2543 Yamaçları' },
-    { url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600&auto=format&fit=crop', category: 'restaurant', title: 'Snack Restaurant Salonu' },
-    { url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?q=80&w=600&auto=format&fit=crop', category: 'rooms', title: 'Standart Orman Odası' },
-    { url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=600&auto=format&fit=crop', category: 'rooms', title: 'Deluxe Şömineli Süit' },
-    { url: 'https://images.unsplash.com/photo-1543007630-9710e4a00a20?q=80&w=600&auto=format&fit=crop', category: 'restaurant', title: 'Sıcak İçecek Köşesi' },
-    { url: 'https://images.unsplash.com/photo-1551698618-1ffdfe079820?q=80&w=600&auto=format&fit=crop', category: 'ski', title: 'Pist Kayak Keyfi' },
-    { url: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=600&auto=format&fit=crop', category: 'social', title: 'Açık Ateş Şömine Alanı' },
-    { url: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?q=80&w=600&auto=format&fit=crop', category: 'rooms', title: 'Loft Süit Asma Kat' },
-    { url: 'https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?q=80&w=600&auto=format&fit=crop', category: 'social', title: 'Lobi Oturma Alanları' }
+    { url: '/assets/montana/montana-exterior-entrance.jpeg', category: 'exterior', title: 'Montana Dış Cephe Giriş', alt: 'Montana 2543 Uludağ otel girişi' },
+    { url: '/assets/montana/montana-lobby-fireplace.jpeg', category: 'social', title: 'Lobi Şömine Salonu', alt: 'Montana 2543 Uludağ lobby' },
+    { url: '/assets/montana/montana-reception.jpeg', category: 'social', title: 'Resepsiyon Karşılama', alt: 'Montana 2543 Uludağ lobby' },
+    { url: '/assets/montana/montana-room-triple.jpeg', category: 'rooms', title: 'Geniş Üç Kişilik Oda', alt: 'Montana 2543 Uludağ oda' },
+    { url: '/assets/montana/montana-room-minibar.jpeg', category: 'rooms', title: 'Makyaj Masası & Minibar', alt: 'Montana 2543 Uludağ minibar ve makyaj masası' },
+    { url: '/assets/montana/montana-outdoor-cafe.jpeg', category: 'cafe', title: 'Açık Hava Montana Cafe', alt: 'Montana 2543 Uludağ cafe' },
+    { url: '/assets/montana/montana-corridor.jpeg', category: 'social', title: 'Sakin Ahşap Koridor', alt: 'Montana 2543 Uludağ koridor' }
   ];
 
   const filteredImages = selectedFilter === 'all' 
@@ -31,16 +29,16 @@ export default function Gallery() {
   return (
     <section id="gallery" className="gallery-section section">
       <div className="container">
-        <div className="section-header text-center">
-          <span className="subtitle">MONTANA KARELERİ</span>
+        <div className="section-header text-center animate-fade-up">
+          <span className="subtitle">MONTANA DETAYLARI</span>
           <h2 className="heading-md">Fotoğraf Galerisi</h2>
           <p className="header-desc">
-            Otelimizin büyüleyici manzaralarını, sıcacık iç mekanlarını ve kış sporlarının coşkusunu fotoğraflarla keşfedin.
+            Sıcak iç mekanlarimizi, kış manzaralarımızı ve şömineli dinlenme köşelerimizi fotoğraflarla keşfedin.
           </p>
         </div>
 
         {/* Filter Buttons */}
-        <div className="gallery-filters">
+        <div className="gallery-filters animate-fade-up">
           {filters.map(filter => (
             <button
               key={filter.id}
@@ -57,11 +55,11 @@ export default function Gallery() {
           {filteredImages.map((img, index) => (
             <div 
               key={index} 
-              className="gallery-item animate-fade-in"
+              className="gallery-item animate-fade-up"
               onClick={() => setLightboxImg(img.url)}
             >
               <div className="gallery-image-wrapper">
-                <img src={img.url} alt={img.title} className="gallery-img" />
+                <img src={img.url} alt={img.alt} className="gallery-img" loading="lazy" />
                 <div className="gallery-overlay">
                   <div className="gallery-text">
                     <span className="gallery-cat">{img.category.toUpperCase()}</span>
@@ -77,14 +75,15 @@ export default function Gallery() {
       {/* Lightbox Modal */}
       {lightboxImg && (
         <div className="lightbox-modal" onClick={() => setLightboxImg(null)}>
-          <span className="lightbox-close">&times;</span>
+          <span className="lightbox-close" onClick={() => setLightboxImg(null)}>&times;</span>
           <img src={lightboxImg} alt="Enlarged view" className="lightbox-content" />
         </div>
       )}
 
       <style>{`
         .gallery-section {
-          background-color: var(--krem);
+          background-color: var(--bg);
+          border-bottom: 1px solid var(--border);
         }
 
         .gallery-filters {
@@ -96,26 +95,24 @@ export default function Gallery() {
         }
 
         .filter-btn {
-          background-color: var(--beyaz);
-          color: var(--koyu-gri-light);
-          border: 1px solid rgba(91, 30, 40, 0.1);
+          background-color: var(--white);
+          color: var(--secondary);
+          border: 1px solid var(--border);
           padding: 10px 24px;
           font-size: 0.75rem;
-          font-weight: 700;
-          letter-spacing: 1px;
-          border-radius: 50px;
+          font-weight: 600;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          border-radius: 2px;
           cursor: pointer;
           transition: all 0.3s ease;
-          box-shadow: var(--shadow-sm);
         }
 
         .filter-btn:hover,
         .filter-btn.active {
-          background-color: var(--bordo);
-          color: var(--beyaz);
-          border-color: var(--bordo);
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
+          background-color: var(--primary);
+          color: var(--white);
+          border-color: var(--primary);
         }
 
         /* Gallery Grid Layout */
@@ -140,10 +137,10 @@ export default function Gallery() {
 
         .gallery-item {
           cursor: pointer;
-          border-radius: 20px;
+          border-radius: 2px;
           overflow: hidden;
-          box-shadow: var(--shadow-md);
-          border: 1px solid rgba(91, 30, 40, 0.03);
+          box-shadow: var(--shadow-sm);
+          border: 1px solid var(--border);
           aspect-ratio: 4 / 3;
         }
 
@@ -157,11 +154,11 @@ export default function Gallery() {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .gallery-item:hover .gallery-img {
-          transform: scale(1.08);
+          transform: scale(1.04);
         }
 
         .gallery-overlay {
@@ -170,7 +167,7 @@ export default function Gallery() {
           left: 0;
           width: 100%;
           height: 100%;
-          background: linear-gradient(to top, rgba(91, 30, 40, 0.85) 0%, rgba(91, 30, 40, 0.2) 60%, transparent 100%);
+          background: linear-gradient(to top, rgba(30, 30, 30, 0.8) 0%, rgba(30, 30, 30, 0.2) 60%, transparent 100%);
           opacity: 0;
           transition: opacity 0.4s ease;
           display: flex;
@@ -183,7 +180,7 @@ export default function Gallery() {
         }
 
         .gallery-text {
-          color: var(--beyaz);
+          color: var(--white);
           transform: translateY(15px);
           transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -195,16 +192,16 @@ export default function Gallery() {
         .gallery-cat {
           font-size: 0.65rem;
           font-weight: 700;
-          color: var(--ahsap);
+          color: var(--accent);
           letter-spacing: 1.5px;
           display: block;
           margin-bottom: 4px;
         }
 
         .gallery-title {
-          font-family: var(--serif);
-          font-size: 1.15rem;
-          font-weight: 600;
+          font-family: var(--font-serif);
+          font-size: 1.1rem;
+          font-weight: 500;
         }
 
         /* Lightbox CSS */
@@ -214,7 +211,7 @@ export default function Gallery() {
           left: 0;
           width: 100%;
           height: 100%;
-          background-color: rgba(22, 12, 15, 0.95);
+          background-color: rgba(30, 30, 30, 0.95);
           z-index: 2000;
           display: flex;
           align-items: center;
@@ -226,16 +223,16 @@ export default function Gallery() {
           max-width: 90%;
           max-height: 80%;
           object-fit: contain;
-          border-radius: 16px;
-          box-shadow: var(--shadow-xl);
-          animation: fadeIn 0.4s ease;
+          border-radius: 2px;
+          box-shadow: var(--shadow-lg);
+          border: 1px solid var(--border);
         }
 
         .lightbox-close {
           position: absolute;
           top: 30px;
           right: 40px;
-          color: var(--beyaz);
+          color: var(--white);
           font-size: 2.5rem;
           font-weight: 300;
           cursor: pointer;
@@ -243,7 +240,7 @@ export default function Gallery() {
         }
 
         .lightbox-close:hover {
-          transform: scale(1.2);
+          transform: scale(1.1);
         }
       `}</style>
     </section>

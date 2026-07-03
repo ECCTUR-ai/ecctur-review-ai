@@ -444,6 +444,22 @@ export default function Reviews() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bulunamadı.');
 
+      let existingCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', currentHotelId)
+          .eq('platform', 'Google');
+        if (!error && count !== null) {
+          existingCount = count;
+        }
+      } catch (e) {
+        console.error('Failed to get existing Google review count:', e);
+      }
+
+      const mode = existingCount === 0 ? 'initial_import' : 'daily_sync';
+
       const response = await fetch('/api/reviews?action=import-google-maps', {
         method: 'POST',
         headers: {
@@ -453,7 +469,7 @@ export default function Reviews() {
         body: JSON.stringify({
           hotelId: currentHotelId,
           googleMapsUrl,
-          mode: totalCount === 0 ? 'initial_import' : 'daily_sync'
+          mode
         })
       });
 
@@ -485,11 +501,11 @@ export default function Reviews() {
         throw new Error(res.error || 'İçe aktarım başarısız oldu.');
       }
 
-      const totalFetched = res.totalFetched !== undefined ? res.totalFetched : 0;
-      const importedCount = res.importedCount !== undefined ? res.importedCount : 0;
+      const totalFetched = res.fetchedCount !== undefined ? res.fetchedCount : 0;
+      const importedCount = res.insertedCount !== undefined ? res.insertedCount : 0;
       const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
       const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
-      const importMode = res.importMode || 'initial_import';
+      const importMode = res.effectiveMode || 'initial_import';
 
       const alertMsg = `Google Reviews yorumları içe aktarıldı (${importMode === 'initial_import' ? 'İlk Kurulum' : 'Günlük Senkronizasyon'}):\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
       
@@ -541,6 +557,22 @@ export default function Reviews() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bulunamadı.');
 
+      let existingCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', currentHotelId)
+          .eq('platform', 'Tripadvisor');
+        if (!error && count !== null) {
+          existingCount = count;
+        }
+      } catch (e) {
+        console.error('Failed to get existing TripAdvisor review count:', e);
+      }
+
+      const mode = existingCount === 0 ? 'initial_import' : 'daily_sync';
+
       const response = await fetch('/api/reviews?action=import-tripadvisor', {
         method: 'POST',
         headers: {
@@ -550,7 +582,7 @@ export default function Reviews() {
         body: JSON.stringify({
           hotelId: currentHotelId,
           tripadvisorUrl,
-          mode: totalCount === 0 ? 'initial_import' : 'daily_sync'
+          mode
         })
       });
 
@@ -582,11 +614,11 @@ export default function Reviews() {
 
       console.log('[DEBUG-TRIPADVISOR-IMPORT-RESPONSE-SUCCESS]', res);
       
-      const totalFetched = res.totalFetched !== undefined ? res.totalFetched : 0;
-      const importedCount = res.importedCount !== undefined ? res.importedCount : 0;
+      const totalFetched = res.fetchedCount !== undefined ? res.fetchedCount : 0;
+      const importedCount = res.insertedCount !== undefined ? res.insertedCount : 0;
       const duplicateCount = res.duplicateCount !== undefined ? res.duplicateCount : 0;
       const failedCount = res.failedCount !== undefined ? res.failedCount : 0;
-      const importMode = res.importMode || 'initial_import';
+      const importMode = res.effectiveMode || 'initial_import';
 
       const alertMsg = `TripAdvisor yorumları içe aktarıldı (${importMode === 'initial_import' ? 'İlk Kurulum' : 'Günlük Senkronizasyon'}):\n- Toplam Çekilen: ${totalFetched}\n- Yeni Eklenen: ${importedCount}\n- Duplicate Atlanan: ${duplicateCount}\n- Hata Sayısı: ${failedCount}`;
       
@@ -684,7 +716,29 @@ export default function Reviews() {
         const token = session?.access_token;
         if (!token) throw new Error('Oturum bulunamadı.');
 
-        const mode = totalCount === 0 ? 'initial_import' : 'daily_sync';
+        // Check existing Google reviews count
+        let googleExistingCount = 0;
+        try {
+          const { count } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('hotel_id', currentHotelId)
+            .eq('platform', 'Google');
+          if (count !== null) googleExistingCount = count;
+        } catch (e) {}
+        const googleMode = googleExistingCount === 0 ? 'initial_import' : 'daily_sync';
+
+        // Check existing TripAdvisor reviews count
+        let taExistingCount = 0;
+        try {
+          const { count } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('hotel_id', currentHotelId)
+            .eq('platform', 'Tripadvisor');
+          if (count !== null) taExistingCount = count;
+        } catch (e) {}
+        const taMode = taExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
         // 1. Google
         if (googleMapsUrl) {
@@ -695,7 +749,7 @@ export default function Reviews() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
               },
-              body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl, mode })
+              body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl, mode: googleMode })
             });
 
             let res: any;
@@ -711,7 +765,7 @@ export default function Reviews() {
             }
 
             if (response.ok) {
-              results.push(`Google: ${res.importedCount} yeni yorum`);
+              results.push(`Google: ${res.insertedCount} yeni yorum`);
             } else {
               if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
                 results.push(`Google: Hata (Zaman aşımı)`);
@@ -737,7 +791,7 @@ export default function Reviews() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
               },
-              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode })
+              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode: taMode })
             });
 
             let res: any;
@@ -753,7 +807,7 @@ export default function Reviews() {
             }
 
             if (response.ok) {
-              results.push(`Tripadvisor: ${res.importedCount} yeni yorum`);
+              results.push(`Tripadvisor: ${res.insertedCount} yeni yorum`);
             } else {
               if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
                 results.push(`Tripadvisor: Hata (Zaman aşımı)`);

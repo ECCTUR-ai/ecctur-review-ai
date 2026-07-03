@@ -9,6 +9,6 @@ export async function fetchGoogleReviews(url: string, limit?: number): Promise<N
     rating: r.rating,
     reviewText: r.reviewText,
     reviewDate: r.relativeDate,
-    externalId: `${r.guestName}_${r.rating}_${r.reviewText.substring(0, 50)}`
+    externalId: r.reviewId || `${r.guestName}_${r.rating}_${r.reviewText.substring(0, 50)}`
   }));
 }

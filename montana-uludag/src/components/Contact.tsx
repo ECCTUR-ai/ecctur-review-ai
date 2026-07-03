@@ -226,12 +226,13 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
 
       <style>{`
         .contact-section {
-          background-color: var(--krem);
+          background-color: var(--bg);
+          border-bottom: 1px solid var(--border);
         }
 
         .contact-layout {
           display: grid;
-          grid-template-columns: 0.9fr 1.1fr;
+          grid-template-columns: 0.95fr 1.05fr;
           gap: 60px;
         }
 
@@ -255,38 +256,40 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
         }
 
         .info-card {
-          background-color: var(--beyaz);
-          padding: 20px;
-          border-radius: 16px;
+          background-color: var(--white);
+          padding: 20px 24px;
+          border-radius: 2px;
           display: flex;
-          gap: 16px;
+          gap: 20px;
           box-shadow: var(--shadow-sm);
-          border: 1px solid rgba(91, 30, 40, 0.03);
+          border: 1px solid var(--border);
         }
 
         .info-icon {
           font-size: 1.5rem;
-          color: var(--ahsap);
+          color: var(--accent);
           line-height: 1;
         }
 
         .info-text h5 {
           font-size: 0.95rem;
-          font-weight: 700;
-          color: var(--bordo);
+          font-weight: 600;
+          color: var(--primary);
           margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
 
         .info-text p {
-          font-size: 0.85rem;
-          color: var(--koyu-gri-light);
+          font-size: 0.9rem;
+          color: var(--text);
         }
 
         .map-wrapper {
-          border-radius: 20px;
+          border-radius: 2px;
           overflow: hidden;
           box-shadow: var(--shadow-md);
-          border: 4px solid var(--beyaz);
+          border: 1px solid var(--border);
         }
 
         /* Form Container Column styling */
@@ -295,12 +298,12 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
         }
 
         .form-container-card {
-          background-color: var(--beyaz);
-          border-radius: 24px;
+          background-color: var(--white);
+          border-radius: 2px;
           padding: 40px;
           width: 100%;
           box-shadow: var(--shadow-lg);
-          border: 1px solid rgba(91, 30, 40, 0.05);
+          border: 1px solid var(--border);
           display: flex;
           flex-direction: column;
           justify-content: center;
@@ -327,24 +330,26 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
 
         .form-submit-btn {
           width: 100%;
-          background-color: var(--bordo);
-          color: var(--beyaz);
+          background-color: var(--primary);
+          color: var(--white);
           border: none;
           padding: 16px;
-          font-size: 0.9rem;
-          font-weight: 700;
-          letter-spacing: 1px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 2px;
           text-transform: uppercase;
-          border-radius: 12px;
+          border-radius: 2px;
           cursor: pointer;
           transition: all 0.3s ease;
-          box-shadow: 0 4px 14px rgba(91, 30, 40, 0.25);
+          box-shadow: var(--shadow-sm);
+          margin-top: 12px;
         }
 
         .form-submit-btn:hover {
-          background-color: var(--bordo-light);
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(91, 30, 40, 0.35);
+          background-color: var(--accent);
+          color: var(--white);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-md);
         }
 
         /* Success Message styling */
@@ -355,31 +360,32 @@ export default function Contact({ preselectedRoom, clearPreselectedRoom }: Conta
           flex-direction: column;
           align-items: center;
           gap: 16px;
-          animation: fadeIn 0.5s ease;
+          animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .success-icon {
-          width: 60px;
-          height: 60px;
-          background-color: rgba(16, 185, 129, 0.1);
-          color: rgb(16, 185, 129);
+          width: 50px;
+          height: 50px;
+          background-color: var(--bg);
+          color: var(--accent);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.8rem;
+          font-size: 1.5rem;
           font-weight: bold;
+          border: 1px solid var(--border);
         }
 
         .success-message h4 {
-          font-family: var(--serif);
-          font-size: 1.5rem;
-          color: var(--bordo);
+          font-family: var(--font-serif);
+          font-size: 1.4rem;
+          color: var(--primary);
         }
 
         .success-message p {
-          font-size: 0.95rem;
-          color: var(--koyu-gri-light);
+          font-size: 0.9rem;
+          color: var(--secondary);
           max-width: 320px;
         }
       `}</style>
