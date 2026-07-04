@@ -1441,6 +1441,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const { fetchBookingReviews } = await import('../api-services/providers/bookingProvider.js');
       const bookingReviews = await fetchBookingReviews(bookingUrl, limit);
 
+      console.log("[BOOKING SCRAPED FIRST ITEM]", bookingReviews[0]);
+
       // Console log raw items fields for debugging
       bookingReviews.slice(0, 3).forEach((r: any, idx: number) => {
         const item = r.raw || {};
@@ -1579,6 +1581,12 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             }
           }
 
+          console.log("[BOOKING INSERT]", r);
+          console.log("[BOOKING INSERT PAYLOAD]", {
+            review_date: r.reviewDate,
+            metadata: r.metadata
+          });
+
           const reviewRecord = {
             platform_review_id: r.externalId || null,
             guest_name: r.guestName || 'Booking Guest',
@@ -1698,6 +1706,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
       const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl, limit);
 
+      console.log("[GOOGLE SCRAPED FIRST ITEM]", scrapedReviews[0]);
+
       let importedCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
@@ -1720,6 +1730,12 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+
+          console.log("[GOOGLE INSERT]", r);
+          console.log("[GOOGLE INSERT PAYLOAD]", {
+            review_date: r.reviewDate,
+            metadata: r.metadata
+          });
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
@@ -1830,6 +1846,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
       const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl, limit);
 
+      console.log("[TRIPADVISOR SCRAPED FIRST ITEM]", scrapedReviews[0]);
+
       let importedCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
@@ -1852,6 +1870,12 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
 
           const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+
+          console.log("[TRIPADVISOR INSERT]", r);
+          console.log("[TRIPADVISOR INSERT PAYLOAD]", {
+            review_date: r.reviewDate,
+            metadata: r.metadata
+          });
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
