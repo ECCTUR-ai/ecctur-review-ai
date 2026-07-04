@@ -1474,7 +1474,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           if (r.externalId) {
             const { data: existing, error } = await supabaseAdmin
               .from('reviews')
-              .select('id, review_text')
+              .select('id, review_text, review_date, metadata, travel_date, owner_response_text, owner_response_date')
               .eq('platform', 'booking')
               .eq('platform_review_id', r.externalId)
               .limit(1)
@@ -1487,7 +1487,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           if (!existingBookingReview) {
             const { data: existingSec, error: errorSec } = await supabaseAdmin
               .from('reviews')
-              .select('id, review_text')
+              .select('id, review_text, review_date, metadata, travel_date, owner_response_text, owner_response_date')
               .eq('hotel_id', hotelId)
               .eq('platform', 'booking')
               .eq('guest_name', r.guestName)
@@ -1536,22 +1536,20 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             });
 
             if (canUpdatePlaceholder && hasNewRealText) {
-              let parsedDateStr = new Date().toISOString();
-              if (r.reviewDate) {
-                const dateObj = new Date(r.reviewDate);
-                if (!isNaN(dateObj.getTime())) {
-                  parsedDateStr = dateObj.toISOString();
-                }
-              }
-
               const updatePayload: any = {
                 review_text: newText,
-                review_date: parsedDateStr,
+                review_date: review.reviewDate || existingReview.review_date || null,
                 rating: r.rating,
                 guest_name: r.guestName || 'Booking Guest',
                 sentiment: r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative',
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                metadata: review.metadata || existingReview.metadata || null,
+                travel_date: review.travelDate || existingReview.travel_date || null,
+                owner_response_text: review.ownerResponseText || existingReview.owner_response_text || null,
+                owner_response_date: review.ownerResponseDate || existingReview.owner_response_date || null
               };
+
+              console.log("[BOOKING FINAL UPDATE PAYLOAD]", updatePayload);
 
               let { error: updErr } = await supabaseAdmin
                 .from('reviews')
@@ -1575,6 +1573,40 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
               importDetails.push({ reviewId: r.externalId, status: 'updated' });
               continue;
             } else {
+              const needsDateBackfill = !existingReview.review_date && review.reviewDate;
+              const needsMetadataBackfill = (!existingReview.metadata || Object.keys(existingReview.metadata).length === 0) && review.metadata;
+
+              if (needsDateBackfill || needsMetadataBackfill) {
+                const updatePayload: any = {
+                  review_date: review.reviewDate || existingReview.review_date || null,
+                  metadata: review.metadata || existingReview.metadata || null,
+                  travel_date: review.travelDate || existingReview.travel_date || null,
+                  owner_response_text: review.ownerResponseText || existingReview.owner_response_text || null,
+                  owner_response_date: review.ownerResponseDate || existingReview.owner_response_date || null,
+                  updated_at: new Date().toISOString()
+                };
+
+                console.log("[BOOKING FINAL UPDATE PAYLOAD]", updatePayload);
+
+                let { error: updErr } = await supabaseAdmin
+                  .from('reviews')
+                  .update(updatePayload)
+                  .eq('id', existingBookingReview.id);
+
+                if (updErr) {
+                  if (updErr.code === '42703' || updErr.message?.includes('updated_at')) {
+                    delete updatePayload.updated_at;
+                    const { error: retryErr } = await supabaseAdmin
+                      .from('reviews')
+                      .update(updatePayload)
+                      .eq('id', existingBookingReview.id);
+                    if (retryErr) throw retryErr;
+                  } else {
+                    throw updErr;
+                  }
+                }
+              }
+
               duplicateCount++;
               importDetails.push({ reviewId: r.externalId, status: 'duplicate_skipped' });
               continue;
@@ -1606,6 +1638,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             organization_id: orgId,
             metadata: r.metadata || null
           };
+
+          console.log("[BOOKING FINAL INSERT PAYLOAD]", reviewRecord);
 
           const { error: insErr } = await supabaseAdmin.from('reviews').insert(reviewRecord);
           if (insErr) throw insErr;
