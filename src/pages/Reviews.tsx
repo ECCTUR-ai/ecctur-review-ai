@@ -149,6 +149,95 @@ export default function Reviews() {
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [isImportingAggregator, setIsImportingAggregator] = useState(false);
+  const [aggregatorResult, setAggregatorResult] = useState<{
+    success: boolean;
+    hotelName: string;
+    provider: string;
+    imported: number;
+    duplicates: number;
+    skipped: number;
+    errors: any[];
+    answeredReviews?: number;
+    unansweredReviews?: number;
+    responseRate?: number;
+    rawError?: string;
+  } | null>(null);
+
+  const handleImportAggregatorReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const selectedHotel = hotels?.find(h => h.id === currentHotelId);
+    const googleMapsUrlFromLink = selectedHotel?.googleMapsLink;
+    const googleMapsUrlFromUrl = selectedHotel?.googleMapsUrl;
+    
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('id, name, google_maps_url, google_maps_link')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error('[DEBUG] Direct Supabase query failed:', e);
+    }
+
+    const finalUrlToSend = googleMapsUrlFromLink || googleMapsUrlFromUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
+
+    if (!finalUrlToSend) {
+      alert('Bu otel için Google Maps işletme linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+      return;
+    }
+
+    setIsImportingAggregator(true);
+    setAggregatorResult(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'import-hotel-review-aggregator',
+          hotelId: currentHotelId,
+          googleMapsUrl: finalUrlToSend
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP error! status: ${response.status}`);
+      }
+
+      setAggregatorResult(result);
+      refetchMain();
+    } catch (err: any) {
+      console.error('[Aggregator Import Error]', err);
+      setAggregatorResult({
+        success: false,
+        hotelName: selectedHotel?.name || '',
+        provider: 'hotel-review-aggregator',
+        imported: 0,
+        duplicates: 0,
+        skipped: 0,
+        errors: [],
+        rawError: err.message || String(err)
+      });
+    } finally {
+      setIsImportingAggregator(false);
+    }
+  };
+
 
 
   // Fetch reviews using clean repository service
@@ -1441,6 +1530,9 @@ export default function Reviews() {
             const hasHolidaycheck = !!(currentHotel?.holidaycheckUrl);
             const hasHotelscom = !!(currentHotel?.hotelscomUrl);
             const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking || hasHolidaycheck || hasHotelscom;
+            const isJuraAdaBeach = 
+              currentHotel?.name === 'Jura Hotels Ada Beach' || 
+              currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
 
             return (
               <>
@@ -1503,6 +1595,18 @@ export default function Reviews() {
                   <RefreshCw size={14} className={isSyncingAll ? 'animate-spin' : ''} />
                   <span>{isSyncingAll ? 'Senkronize Ediliyor...' : 'Tüm Platformları Senkronize Et'}</span>
                 </button>
+
+                {isJuraAdaBeach && (
+                  <button
+                    onClick={handleImportAggregatorReviews}
+                    disabled={isImportingAggregator}
+                    title="Hotel Review Aggregator Beta import"
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-violet-600 to-fuchsia-500 hover:from-violet-500 hover:to-fuchsia-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-fuchsia-500/10 min-h-[36px] cursor-pointer"
+                  >
+                    <RefreshCw size={14} className={isImportingAggregator ? 'animate-spin' : ''} />
+                    <span>{isImportingAggregator ? 'Aggregator Çekiliyor...' : 'Import (Aggregator Beta)'}</span>
+                  </button>
+                )}
 
                 <button
                   onClick={handleExportReviews}
@@ -1870,6 +1974,85 @@ export default function Reviews() {
                 Tamam
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Aggregator Import Result Modal */}
+      {aggregatorResult && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg p-6 rounded-2xl border border-slate-200 shadow-2xl relative overflow-hidden space-y-6 text-slate-800">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-bold text-slate-850 flex items-center gap-2 m-0">
+                <Bell size={16} className="text-violet-600" />
+                <span>Aggregator İçe Aktarım Sonuç Özeti (Beta)</span>
+              </h3>
+              <button 
+                onClick={() => setAggregatorResult(null)}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold"
+              >
+                Kapat
+              </button>
+            </div>
+            
+            <div className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Otel Adı:</span>
+                <span className="text-slate-800 font-bold text-right">{aggregatorResult.hotelName}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Sağlayıcı:</span>
+                <span className="text-slate-800 font-bold text-right">{aggregatorResult.provider}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Yeni Eklenen (Imported):</span>
+                <span className="text-emerald-600 font-bold text-right">{aggregatorResult.imported}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Mükerrer Atlanan (Duplicates):</span>
+                <span className="text-amber-600 font-bold text-right">{aggregatorResult.duplicates}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Atlanan (Skipped):</span>
+                <span className="text-slate-600 font-bold text-right">{aggregatorResult.skipped}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Cevaplanmış Yorumlar (Answered):</span>
+                <span className="text-blue-600 font-bold text-right">{aggregatorResult.answeredReviews ?? 0}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Cevaplanmamış Yorumlar (Unanswered):</span>
+                <span className="text-orange-600 font-bold text-right">{aggregatorResult.unansweredReviews ?? 0}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                <span className="text-slate-500 font-semibold">Cevaplama Oranı (Response Rate):</span>
+                <span className="text-indigo-600 font-bold text-right">%{Number(aggregatorResult.responseRate ?? 0).toFixed(1)}</span>
+              </div>
+            </div>
+
+            {/* Errors List */}
+            {aggregatorResult.errors && aggregatorResult.errors.length > 0 && (
+              <div className="space-y-2 border-t border-slate-200 pt-4">
+                <h4 className="font-bold text-rose-600 text-xs">Hata Detayları ({aggregatorResult.errors.length}):</h4>
+                <div className="max-h-24 overflow-y-auto space-y-1 bg-rose-50 p-2 rounded-xl border border-rose-100">
+                  {aggregatorResult.errors.map((err, idx) => (
+                    <div key={idx} className="text-[10px] text-rose-700 leading-normal font-mono">
+                      {err.externalId ? `[Id: ${err.externalId}] ` : ''}{err.message || String(err)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Raw/API Error */}
+            {aggregatorResult.rawError && (
+              <div className="space-y-2 border-t border-slate-200 pt-4">
+                <h4 className="font-bold text-rose-600 text-xs">Hata Mesajı:</h4>
+                <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-100 text-[10px] text-rose-700 font-mono overflow-x-auto max-h-32">
+                  {aggregatorResult.rawError}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
