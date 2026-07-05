@@ -25,6 +25,8 @@ import {
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -86,6 +88,7 @@ export default function Dashboard() {
   const [lastSyncHealth, setLastSyncHealth] = React.useState<any | null>(null);
   const [isExporting, setIsExporting] = React.useState(false);
   const [dbSyncStates, setDbSyncStates] = React.useState<any[]>([]);
+  const [timeFilter, setTimeFilter] = React.useState<string>('30_days');
 
   const fetchSyncStates = React.useCallback(async () => {
     if (!activeHotelId) return;
@@ -223,6 +226,35 @@ export default function Dashboard() {
     if (error) throw error;
     return data || [];
   }, [queriedHotelId]);
+
+  const filteredReviewsForStats = React.useMemo(() => {
+    if (!allReviewsForStats) return [];
+    if (timeFilter === 'all') return allReviewsForStats;
+
+    const now = new Date();
+    const limitDate = new Date();
+
+    if (timeFilter === 'today') {
+      limitDate.setHours(0, 0, 0, 0);
+    } else if (timeFilter === '7_days') {
+      limitDate.setDate(now.getDate() - 7);
+    } else if (timeFilter === '30_days') {
+      limitDate.setDate(now.getDate() - 30);
+    } else if (timeFilter === '3_months') {
+      limitDate.setMonth(now.getMonth() - 3);
+    } else if (timeFilter === '6_months') {
+      limitDate.setMonth(now.getMonth() - 6);
+    } else if (timeFilter === '1_year') {
+      limitDate.setFullYear(now.getFullYear() - 1);
+    }
+
+    return (allReviewsForStats as any[] || []).filter((r: any) => {
+      const dateVal = r.review_date || r.created_at;
+      if (!dateVal) return false;
+      return new Date(dateVal) >= limitDate;
+    });
+  }, [allReviewsForStats, timeFilter]);
+
 
   if (hasNoAssignedHotels) {
     return (
@@ -530,23 +562,23 @@ export default function Dashboard() {
       : 'Kademeli tarama aktif değil';
 
     const getPlatformStats = (platformKey: string) => {
-      const list = (allReviewsForStats || []).filter(r => {
+      const list = (filteredReviewsForStats || []).filter((r: any) => {
         const norm = normalizeReviewPlatform(r.platform).toLowerCase();
         return norm === platformKey.toLowerCase();
       });
 
       const count = list.length;
-      const totalRating = list.reduce((sum, r) => sum + (r.rating || 0), 0);
+      const totalRating = list.reduce((sum: number, r: any) => sum + (r.rating || 0), 0);
       const avg = count > 0 ? (totalRating / count).toFixed(1) : '0.0';
 
       let latestDate = 'Henüz veri yok';
-      const dates = list.map(r => r.review_date || r.created_at).filter(Boolean);
+      const dates = list.map((r: any) => r.review_date || r.created_at).filter(Boolean);
       if (dates.length > 0) {
-        dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+        dates.sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime());
         latestDate = new Date(dates[0]).toLocaleDateString('tr-TR');
       }
 
-      const unanswered = list.filter(r => r.status === 'draft').length;
+      const unanswered = list.filter((r: any) => r.status === 'draft').length;
 
       return { count, avg, latestDate, unanswered };
     };
@@ -652,43 +684,43 @@ export default function Dashboard() {
       { key: 'fiyat', label: 'Fiyat / Performans', keywords: ['fiyat', 'performans', 'uygun', 'değer', 'fp'] }
     ];
 
-    const issuesData = matchIssues.map(issue => {
-      const matching = (allReviewsForStats || []).filter(r => {
+    const issuesData = matchIssues.map((issue: any) => {
+      const matching = (filteredReviewsForStats || []).filter((r: any) => {
         const text = (r.review_text || '').toLowerCase();
-        return issue.keywords.some(k => text.includes(k));
+        return issue.keywords.some((k: any) => text.includes(k));
       });
       const count = matching.length;
-      const negativeCount = matching.filter(r => r.rating <= 3).length;
+      const negativeCount = matching.filter((r: any) => r.rating <= 3).length;
       return { label: issue.label, count, negativeCount };
-    }).sort((a, b) => b.negativeCount - a.negativeCount);
+    }).sort((a: any, b: any) => b.negativeCount - a.negativeCount);
 
-    const praisesData = matchPraises.map(praise => {
-      const matching = (allReviewsForStats || []).filter(r => {
+    const praisesData = matchPraises.map((praise: any) => {
+      const matching = (filteredReviewsForStats || []).filter((r: any) => {
         const text = (r.review_text || '').toLowerCase();
-        return praise.keywords.some(k => text.includes(k));
+        return praise.keywords.some((k: any) => text.includes(k));
       });
       const count = matching.length;
-      const positiveCount = matching.filter(r => r.rating >= 4).length;
+      const positiveCount = matching.filter((r: any) => r.rating >= 4).length;
       return { label: praise.label, count, positiveCount };
-    }).sort((a, b) => b.positiveCount - a.positiveCount);
+    }).sort((a: any, b: any) => b.positiveCount - a.positiveCount);
 
     const getDynamicInsight = (platformName: string) => {
-      const list = (allReviewsForStats || []).filter(r => {
+      const list = (filteredReviewsForStats || []).filter((r: any) => {
         const norm = normalizeReviewPlatform(r.platform).toLowerCase();
         const pKey = platformName === 'Booking.com' ? 'booking' : platformName.toLowerCase();
         return norm === pKey;
       });
 
-      const negatives = list.filter(r => (r.rating || 0) <= 3);
+      const negatives = list.filter((r: any) => (r.rating || 0) <= 3);
       if (negatives.length === 0) {
         return `Bu platformda son dönemde herhangi bir olumsuz geri bildirim bulunmamaktadır. Hizmet kalitesi stabil görünmektedir.`;
       }
 
       const matchedIssuesList: string[] = [];
-      matchIssues.forEach(issue => {
-        const count = negatives.filter(r => {
+      matchIssues.forEach((issue: any) => {
+        const count = negatives.filter((r: any) => {
           const text = (r.review_text || '').toLowerCase();
-          return issue.keywords.some(k => text.includes(k));
+          return issue.keywords.some((k: any) => text.includes(k));
         }).length;
         if (count > 0) {
           matchedIssuesList.push(issue.label);
@@ -703,20 +735,148 @@ export default function Dashboard() {
     };
 
     const getCommonInsight = () => {
-      const negatives = (allReviewsForStats || []).filter(r => (r.rating || 0) <= 3);
-      const matched: { label: string; count: number }[] = matchIssues.map(issue => {
-        const count = negatives.filter(r => {
+      const negatives = (filteredReviewsForStats || []).filter((r: any) => (r.rating || 0) <= 3);
+      const matched: { label: string; count: number }[] = matchIssues.map((issue: any) => {
+        const count = negatives.filter((r: any) => {
           const text = (r.review_text || '').toLowerCase();
-          return issue.keywords.some(k => text.includes(k));
+          return issue.keywords.some((k: any) => text.includes(k));
         }).length;
         return { label: issue.label, count };
-      }).filter(x => x.count > 0).sort((a,b) => b.count - a.count);
+      }).filter((x: any) => x.count > 0).sort((a: any, b: any) => b.count - a.count);
 
       if (matched.length === 0) {
         return `Tüm platformlar genelinde tekrarlayan kritik bir ortak sorun tespit edilmedi.`;
       }
 
       return `Ortak şikayetlerin başında sırasıyla ${matched.slice(0, 3).map(m => m.label).join(', ')} konuları geliyor.`;
+    };
+
+    const juraTotalReviews = filteredReviewsForStats.length;
+    const juraTotalRating = filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0);
+    const juraAvgRating = juraTotalReviews > 0 ? Number((juraTotalRating / juraTotalReviews).toFixed(1)) : 0.0;
+    const juraRespondedCount = filteredReviewsForStats.filter((r: any) => r.status === 'cevaplandi' || r.status === 'yayinlandi').length;
+    const juraAiResponseRate = juraTotalReviews > 0 ? Math.round((juraRespondedCount / juraTotalReviews) * 100) : 0;
+    const juraDraftReviews = filteredReviewsForStats.filter((r: any) => r.status === 'draft' || r.status === 'bekliyor' || r.status === 'AI Yanıt Hazır' || r.status === 'Onay Bekliyor').length;
+    const juraPublishedReviews = filteredReviewsForStats.filter((r: any) => r.status === 'yayinlandi' || r.status === 'cevaplandi').length;
+
+    const juraRatingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    filteredReviewsForStats.forEach((r: any) => {
+      const val = Math.round(Number(r.rating || 5));
+      const rating = Math.max(1, Math.min(5, val)) as 5 | 4 | 3 | 2 | 1;
+      juraRatingCounts[rating]++;
+    });
+
+    const juraDistributionData = [
+      { name: 'Mükemmel (5★)', value: juraRatingCounts[5], percentage: juraTotalReviews > 0 ? `${((juraRatingCounts[5] / juraTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#10b981' },
+      { name: 'İyi (4★)', value: juraRatingCounts[4], percentage: juraTotalReviews > 0 ? `${((juraRatingCounts[4] / juraTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#3b82f6' },
+      { name: 'Orta (3★)', value: juraRatingCounts[3], percentage: juraTotalReviews > 0 ? `${((juraRatingCounts[3] / juraTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#f59e0b' },
+      { name: 'Kötü (2★)', value: juraRatingCounts[2], percentage: juraTotalReviews > 0 ? `${((juraRatingCounts[2] / juraTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#f97316' },
+      { name: 'Çok Kötü (1★)', value: juraRatingCounts[1], percentage: juraTotalReviews > 0 ? `${((juraRatingCounts[1] / juraTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#ef4444' },
+    ];
+
+    const premiumTrendData = React.useMemo(() => {
+      if (!filteredReviewsForStats || filteredReviewsForStats.length === 0) return [];
+      
+      const dateBuckets: Record<string, Record<string, { count: number; ratingSum: number; posCount: number; negCount: number }>> = {};
+      
+      filteredReviewsForStats.forEach((r: any) => {
+        const d = new Date(r.review_date || r.created_at);
+        let dateKey = '';
+        
+        if (timeFilter === 'today') {
+          dateKey = d.toLocaleTimeString('tr-TR', { hour: '2-digit' }) + ':00';
+        } else if (timeFilter === '7_days') {
+          dateKey = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+        } else if (timeFilter === '30_days' || timeFilter === '3_months') {
+          dateKey = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+        } else {
+          dateKey = d.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+        }
+        
+        if (!dateBuckets[dateKey]) {
+          dateBuckets[dateKey] = {
+            Google: { count: 0, ratingSum: 0, posCount: 0, negCount: 0 },
+            "Booking.com": { count: 0, ratingSum: 0, posCount: 0, negCount: 0 },
+            TripAdvisor: { count: 0, ratingSum: 0, posCount: 0, negCount: 0 },
+            "Hotels.com": { count: 0, ratingSum: 0, posCount: 0, negCount: 0 },
+            HolidayCheck: { count: 0, ratingSum: 0, posCount: 0, negCount: 0 }
+          } as any;
+        }
+        
+        let platName: "Google" | "Booking.com" | "TripAdvisor" | "Hotels.com" | "HolidayCheck";
+        const norm = normalizeReviewPlatform(r.platform);
+        if (norm === 'google') platName = 'Google';
+        else if (norm === 'booking') platName = 'Booking.com';
+        else if (norm === 'tripadvisor') platName = 'TripAdvisor';
+        else if (norm === 'hotelscom') platName = 'Hotels.com';
+        else if (norm === 'holidaycheck') platName = 'HolidayCheck';
+        else return;
+        
+        if (dateBuckets[dateKey][platName]) {
+          dateBuckets[dateKey][platName].count++;
+          dateBuckets[dateKey][platName].ratingSum += (r.rating || 0);
+          if ((r.rating || 0) >= 4) dateBuckets[dateKey][platName].posCount++;
+          if ((r.rating || 0) <= 3) dateBuckets[dateKey][platName].negCount++;
+        }
+      });
+      
+      return Object.entries(dateBuckets)
+        .map(([date, platforms]) => {
+          const row: any = { date };
+          Object.entries(platforms).forEach(([plat, stats]) => {
+            row[plat] = stats.count;
+            row[`${plat}_stats`] = stats;
+          });
+          return row;
+        })
+        .sort((a, b) => {
+          const timeA = new Date(a.date).getTime() || 0;
+          const timeB = new Date(b.date).getTime() || 0;
+          return timeA - timeB;
+        });
+    }, [filteredReviewsForStats, timeFilter]);
+
+    const CustomTooltip = ({ active, payload, label }: any) => {
+      if (active && payload && payload.length) {
+        return (
+          <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xl border border-slate-800 space-y-2 text-[11px] min-w-[200px]">
+            <div className="font-bold border-b border-slate-850 pb-1 text-slate-400">{label}</div>
+            <div className="space-y-1.5 pt-1">
+              {payload.map((item: any) => {
+                const platName = item.name;
+                const stats = item.payload[`${platName}_stats`] || { count: 0, ratingSum: 0, posCount: 0, negCount: 0 };
+                if (stats.count === 0) return null;
+                
+                const avg = (stats.ratingSum / stats.count).toFixed(1);
+                const posPercent = ((stats.posCount / stats.count) * 100).toFixed(0);
+                const negPercent = ((stats.negCount / stats.count) * 100).toFixed(0);
+                
+                return (
+                  <div key={platName} className="space-y-0.5 border-l-2 pl-2" style={{ borderColor: item.color }}>
+                    <div className="flex justify-between items-center font-extrabold text-slate-100">
+                      <span>{platName}</span>
+                      <span>{stats.count} Yorum</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[10px]">
+                      <span>Ortalama:</span>
+                      <span className="text-amber-400 font-bold">{avg} ★</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[10px]">
+                      <span>Olumlu/Olumsuz:</span>
+                      <span className="font-bold">
+                        <span className="text-emerald-400">%{posPercent}</span>
+                        <span className="text-slate-500 mx-1">/</span>
+                        <span className="text-rose-400">%{negPercent}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+      return null;
     };
 
     return (
@@ -763,6 +923,30 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-1 bg-slate-105/80 p-1 rounded-xl border border-slate-200/50 mr-2 shadow-inner">
+              {[
+                { id: 'today', label: 'Bugün' },
+                { id: '7_days', label: '7 Gün' },
+                { id: '30_days', label: '30 Gün' },
+                { id: '3_months', label: '3 Ay' },
+                { id: '6_months', label: '6 Ay' },
+                { id: '1_year', label: '1 Yıl' },
+                { id: 'all', label: 'Tüm Zamanlar' }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setTimeFilter(f.id)}
+                  className={`px-3 py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                    timeFilter === f.id
+                      ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/30'
+                      : 'text-slate-550 hover:text-slate-800'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={() => {
                 refetchMetrics();
@@ -918,7 +1102,6 @@ export default function Dashboard() {
                     <th className="px-4 py-3 text-center">Sync Modu</th>
                     <th className="px-4 py-3 text-center">Son Yorum</th>
                     <th className="px-4 py-3 text-center">Yeni/Mük/Hat</th>
-                    <th className="px-4 py-3 text-left">Maliyet Tasarrufu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
@@ -963,15 +1146,6 @@ export default function Dashboard() {
                           <span className="text-slate-350 mx-1">/</span>
                           <span className="text-rose-600 font-bold">{health.errCount}</span>
                         </td>
-                        <td className="px-4 py-2.5 text-left">
-                          {health.savings && health.savings !== '-' ? (
-                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                              {health.savings}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic text-[9px]">-</span>
-                          )}
-                        </td>
                       </tr>
                     );
                   })}
@@ -988,29 +1162,39 @@ export default function Dashboard() {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Yorum Dağılım Trendi</h3>
             <div className="flex-1 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData as any} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={premiumTrendData as any} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorGoogle" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorBooking" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorTripadvisor" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorHotelscom" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorHolidaycheck" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#e11d48" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} tickLine={false} />
                   <YAxis stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' }}
-                    labelStyle={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}
-                  />
-                  {activePlatforms.map((platform, idx) => {
-                    const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f97316', '#ef4444'];
-                    const strokeColor = colors[idx % colors.length];
-                    return (
-                      <Line
-                        key={platform}
-                        type="monotone"
-                        dataKey={platform}
-                        stroke={strokeColor}
-                        strokeWidth={2.5}
-                        dot={{ r: 3, fill: strokeColor }}
-                      />
-                    );
-                  })}
-                </LineChart>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="Google" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorGoogle)" strokeWidth={2} name="Google" stackId="1" />
+                  <Area type="monotone" dataKey="Booking.com" stroke="#2563eb" fillOpacity={1} fill="url(#colorBooking)" strokeWidth={2} name="Booking.com" stackId="1" />
+                  <Area type="monotone" dataKey="TripAdvisor" stroke="#10b981" fillOpacity={1} fill="url(#colorTripadvisor)" strokeWidth={2} name="TripAdvisor" stackId="1" />
+                  <Area type="monotone" dataKey="Hotels.com" stroke="#f59e0b" fillOpacity={1} fill="url(#colorHotelscom)" strokeWidth={2} name="Hotels.com" stackId="1" />
+                  <Area type="monotone" dataKey="HolidayCheck" stroke="#e11d48" fillOpacity={1} fill="url(#colorHolidaycheck)" strokeWidth={2} name="HolidayCheck" stackId="1" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -1022,7 +1206,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={distributionData}
+                    data={juraDistributionData}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -1030,19 +1214,19 @@ export default function Dashboard() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {distributionData.map((entry, index) => (
+                    {juraDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl font-bold text-slate-900 leading-none">{allReviewsForStats?.length || 0}</span>
+                <span className="text-xl font-bold text-slate-900 leading-none">{juraTotalReviews}</span>
                 <span className="text-[9px] text-slate-400 font-semibold mt-1">Yorum</span>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 mt-2 text-[10px] pr-1">
-              {distributionData.map((entry, index) => (
+              {juraDistributionData.map((entry, index) => (
                 <div key={index} className="flex justify-between items-center py-1 border-b border-slate-50">
                   <span className="text-slate-600 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: entry.color }}></span>
@@ -1089,8 +1273,8 @@ export default function Dashboard() {
               <span>En Çok Tekrar Eden Sorunlar</span>
             </h3>
             <div className="space-y-3.5">
-              {issuesData.slice(0, 6).map((issue, idx) => {
-                const percent = allReviewsForStats?.length ? Math.min(100, Math.round((issue.negativeCount / allReviewsForStats.length) * 100)) : 0;
+              {issuesData.slice(0, 6).map((issue: any, idx: number) => {
+                const percent = (allReviewsForStats as any)?.length ? Math.min(100, Math.round((issue.negativeCount / (allReviewsForStats as any).length) * 100)) : 0;
                 return (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-medium">
@@ -1113,8 +1297,8 @@ export default function Dashboard() {
               <span>En Çok Övülen Konular</span>
             </h3>
             <div className="space-y-3.5">
-              {praisesData.slice(0, 6).map((praise, idx) => {
-                const percent = allReviewsForStats?.length ? Math.min(100, Math.round((praise.positiveCount / allReviewsForStats.length) * 100)) : 0;
+              {praisesData.slice(0, 6).map((praise: any, idx: number) => {
+                const percent = (allReviewsForStats as any)?.length ? Math.min(100, Math.round((praise.positiveCount / (allReviewsForStats as any).length) * 100)) : 0;
                 return (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-medium">
@@ -1127,59 +1311,6 @@ export default function Dashboard() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </div>
-
-        {/* Son Sorunlar ve Memnuniyetler */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-3">
-            <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-2">
-              <ShieldAlert size={14} className="shrink-0" />
-              <span>Son 5 Kritik Sorun (Olumsuz Geri Bildirimler)</span>
-            </h4>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {(allReviewsForStats || [])
-                .filter(r => (r.rating || 0) <= 3 && r.review_text)
-                .slice(0, 5)
-                .map((r, idx) => (
-                  <div key={idx} className="bg-rose-50/30 border border-rose-100/50 p-3 rounded-xl space-y-1">
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-bold text-slate-750">{r.guest_name || 'Misafir'}</span>
-                      <span className="px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 border border-rose-100 font-bold">{r.rating} / 5</span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-600 italic">"{r.review_text}"</p>
-                    <div className="text-[9px] text-slate-400 font-semibold">{normalizeReviewPlatform(r.platform)} • {r.review_date ? new Date(r.review_date).toLocaleDateString('tr-TR') : 'Tarih yok'}</div>
-                  </div>
-                ))}
-              {(allReviewsForStats || []).filter(r => (r.rating || 0) <= 3 && r.review_text).length === 0 && (
-                <div className="text-slate-400 italic text-[11px] py-4 text-center">Herhangi bir kritik sorun bulunamadı.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-3">
-            <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2">
-              <Sparkles size={14} className="shrink-0" />
-              <span>Son 5 Memnuniyet (Olumlu Geri Bildirimler)</span>
-            </h4>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {(allReviewsForStats || [])
-                .filter(r => (r.rating || 0) >= 4 && r.review_text)
-                .slice(0, 5)
-                .map((r, idx) => (
-                  <div key={idx} className="bg-emerald-50/30 border border-emerald-100/50 p-3 rounded-xl space-y-1">
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-bold text-slate-750">{r.guest_name || 'Misafir'}</span>
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold">{r.rating} / 5</span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-600 italic">"{r.review_text}"</p>
-                    <div className="text-[9px] text-slate-400 font-semibold">{normalizeReviewPlatform(r.platform)} • {r.review_date ? new Date(r.review_date).toLocaleDateString('tr-TR') : 'Tarih yok'}</div>
-                  </div>
-                ))}
-              {(allReviewsForStats || []).filter(r => (r.rating || 0) >= 4 && r.review_text).length === 0 && (
-                <div className="text-slate-400 italic text-[11px] py-4 text-center">Herhangi bir memnuniyet yorumu bulunamadı.</div>
-              )}
             </div>
           </div>
         </div>

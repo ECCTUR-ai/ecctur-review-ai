@@ -2085,6 +2085,8 @@ export default function Reviews() {
                     review={review}
                     isSelected={selectedReviewId === review.id}
                     onSelect={setSelectedReviewId}
+                    onGenerateAiReply={handleGenerateAiReply}
+                    onPublishReply={handlePublishGoogleReply}
                   />
                 ))}
               </div>
