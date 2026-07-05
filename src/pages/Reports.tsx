@@ -272,6 +272,17 @@ export default function Reports() {
     });
   }, [filteredReviews]);
 
+  const getDynamicAltInsight = () => {
+    const avg = stats.avgRating;
+    if (avg >= 4.5) {
+      return `Mevcut memnuniyet puanınız (${avg}) standartların üzerindedir. Tesis itibarını korumak için Google ve Booking.com platformlarındaki son 24 saatte gelen yorumlara aynı gün içinde yanıt verilmesi önerilir.`;
+    } else if (avg >= 4.0) {
+      return `Memnuniyet seviyeniz (${avg}) iyi durumdadır ancak oda konsepti ve hizmet hızı şikayetleri toplam puanı baskılamaktadır. Misafirlerin son yorumlarındaki ortak negatif kelimeleri analiz etmek için departman bazlı incelemeleri artırın.`;
+    } else {
+      return `Kritik Uyarı: Memnuniyet puanı (${avg}) hedeflenen seviyenin altındadır. Özellikle 1 ve 2 yıldızlı bekleyen yorumların hızlıca yanıtlanması ve misafir geri kazanım sürecinin başlatılması kritik önem taşımaktadır.`;
+    }
+  };
+
   // AI-Generated Executive Summary Block
   const executiveSummaryText = useMemo(() => {
     if (filteredReviews.length === 0) {
@@ -574,17 +585,63 @@ export default function Reports() {
         </div>
       ) : (
         <>
-          {/* 2. Executive Summary Block */}
-          <div className="bg-gradient-to-tr from-slate-900 to-indigo-950 p-6 rounded-3xl border border-slate-850 shadow-xl text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative space-y-2">
-              <div className="flex items-center gap-2 text-indigo-400">
-                <Sparkles size={16} />
-                <span className="text-xs font-bold uppercase tracking-wider">AI Yapay Zeka Yönetici Özeti</span>
+          {/* 2. Executive Summary Block - Redesigned as 4-Column Layout */}
+          <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm space-y-5">
+            <div className="flex items-center gap-2 text-indigo-650 pb-2 border-b border-slate-100">
+              <Sparkles size={16} />
+              <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">AI Yapay Zeka Yönetici Özeti</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+              {/* Genel Durum */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Genel Durum</span>
+                <p className="text-xs text-slate-650 leading-relaxed font-semibold">
+                  “{executiveSummaryText}”
+                </p>
               </div>
-              <p className="text-xs md:text-sm font-semibold leading-relaxed text-slate-100">
-                “{executiveSummaryText}”
-              </p>
+
+              {/* Dikkat Edilmesi Gerekenler */}
+              <div className="pt-4 md:pt-0 pl-0 md:pl-6 space-y-2">
+                <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Dikkat Edilmesi Gerekenler</span>
+                <ul className="space-y-2">
+                  {aiInsights.issues.slice(0, 3).map((issue, idx) => (
+                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-medium">
+                      • <strong className="text-slate-800 font-bold">{issue.title}:</strong> {issue.description}
+                    </li>
+                  ))}
+                  {aiInsights.issues.length === 0 && (
+                    <li className="text-xs text-slate-400 italic">Bildirilen kritik sorun alanı bulunmuyor.</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Güçlü Yönler */}
+              <div className="pt-4 md:pt-0 pl-0 md:pl-6 space-y-2">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Güçlü Yönler</span>
+                <ul className="space-y-2">
+                  {aiInsights.highlights.slice(0, 3).map((highlight, idx) => (
+                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-medium">
+                      • <strong className="text-slate-800 font-bold">{highlight.title}:</strong> {highlight.description}
+                    </li>
+                  ))}
+                  {aiInsights.highlights.length === 0 && (
+                    <li className="text-xs text-slate-400 italic">Genel misafir memnuniyeti stabil seyrediyor.</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* AI Önerileri */}
+              <div className="pt-4 md:pt-0 pl-0 md:pl-6 space-y-2">
+                <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-wider block">AI Önerileri</span>
+                <ul className="space-y-2">
+                  {aiInsights.recommendations.slice(0, 3).map((rec, idx) => (
+                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-medium">
+                      • <strong className="text-slate-800 font-bold">{rec.title}:</strong> {rec.description}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -922,6 +979,24 @@ export default function Reports() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* 9. Alt AI Insight Günlük Dinamik Banner */}
+          <div className="bg-slate-50 border border-slate-100 p-5 rounded-3xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-650 border border-slate-100 shrink-0">
+                <Sparkles size={16} />
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Günlük Dinamik Insight</span>
+                <p className="text-xs text-slate-655 leading-relaxed font-semibold">
+                  {getDynamicAltInsight()}
+                </p>
+              </div>
+            </div>
+            <span className="text-[9px] bg-slate-200/50 text-slate-500 rounded-lg px-2.5 py-1 font-bold whitespace-nowrap uppercase tracking-wider shrink-0">
+              Otel Sağlık Skoru: {Math.round(stats.avgRating * 20)}%
+            </span>
           </div>
         </>
       )}
