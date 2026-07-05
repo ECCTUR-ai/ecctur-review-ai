@@ -166,7 +166,7 @@ export default function Reviews() {
     try {
       const { data } = await supabase
         .from('hotels')
-        .select('id, name, google_maps_url, google_maps_link')
+        .select('id, name, google_maps_url, google_maps_link, google_place_id')
         .eq('id', currentHotelId)
         .maybeSingle();
       dbRow = data;
@@ -175,9 +175,10 @@ export default function Reviews() {
     }
 
     const finalUrlToSend = googleMapsUrlFromLink || googleMapsUrlFromUrl || dbRow?.google_maps_link || dbRow?.google_maps_url;
+    const googlePlaceId = selectedHotel?.googlePlaceId || dbRow?.google_place_id;
 
-    if (!finalUrlToSend) {
-      alert('Bu otel için Google Maps işletme linki tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
+    if (!finalUrlToSend && !googlePlaceId) {
+      alert('Bu otel için Google Maps işletme linki veya Place ID tanımlanmamış. Lütfen Admin > Otel Yönetimi sayfasından tanımlayın.');
       return;
     }
 
@@ -189,7 +190,7 @@ export default function Reviews() {
       const token = session?.access_token;
       if (!token) throw new Error('Oturum bulunamadı.');
 
-      const response = await fetch('/api/reviews', {
+      const response = await fetch('/api/reviews?action=import-hotel-review-aggregator', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

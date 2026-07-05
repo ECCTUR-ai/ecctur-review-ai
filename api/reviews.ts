@@ -962,7 +962,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  const action = req.query.action || 'import';
+  const action = req.query.action || req.body?.action || 'import';
 
   // Authorization check
   const authHeader = req.headers.authorization;
@@ -1965,8 +1965,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     const { hotelId, googleMapsUrl, mode = 'initial_import' } = req.body;
-    if (!hotelId || !googleMapsUrl) {
-      return res.status(400).json({ success: false, error: 'Missing hotelId or googleMapsUrl parameter' });
+    if (!hotelId) {
+      return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
     }
 
     try {
@@ -1982,7 +1982,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       const { data: hotelData, error: hotelError } = await supabaseAdmin
         .from('hotels')
-        .select('organization_id, name')
+        .select('organization_id, name, google_maps_url, google_maps_link, google_place_id')
         .eq('id', hotelId)
         .maybeSingle();
 
@@ -1992,6 +1992,23 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       const orgId = hotelData.organization_id;
       const hotelName = hotelData.name;
+
+      const finalUrl = googleMapsUrl || hotelData.google_maps_url || hotelData.google_maps_link;
+      const finalPlaceId = hotelData.google_place_id;
+
+      if (!finalUrl && !finalPlaceId) {
+        return res.status(400).json({
+          success: false,
+          error: "No Google Maps URL or Place ID configured for this hotel."
+        });
+      }
+
+      let targetScrapeUrl = '';
+      if (finalUrl) {
+        targetScrapeUrl = finalUrl;
+      } else if (finalPlaceId) {
+        targetScrapeUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${finalPlaceId}`;
+      }
 
       const isAllowedHotel = 
         hotelName === 'Jura Hotels Ada Beach' || 
@@ -2025,7 +2042,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       console.log('[Aggregator] found hotel.name:', hotelName);
       console.log('[Aggregator] Running tri_angle/hotel-review-aggregator for', hotelName);
       
-      const scrapedReviews = await fetchAggregatorReviews(googleMapsUrl, limit);
+      const scrapedReviews = await fetchAggregatorReviews(targetScrapeUrl, limit);
       
       console.log('[Aggregator] Apify normalized item count:', scrapedReviews.length);
       console.log('[Aggregator] First 3 items to insert:', scrapedReviews.slice(0, 3));
