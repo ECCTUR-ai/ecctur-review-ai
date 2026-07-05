@@ -203,9 +203,20 @@ export default function Reviews() {
         })
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+      let result: any = null;
+
+      if (contentType.toLowerCase().includes('application/json')) {
+        try {
+          result = JSON.parse(responseText);
+        } catch (jsonErr: any) {
+          throw new Error(`JSON parse error on response: ${jsonErr.message}. Raw body: ${responseText}`);
+        }
+      }
+
       if (!response.ok) {
-        throw new Error(result.error || `HTTP error! status: ${response.status}`);
+        throw new Error(result?.error || result?.rawResponse || responseText || `HTTP error! status: ${response.status}`);
       }
 
       console.log('[Reviews Page Debug] aggregator raw response:', result);

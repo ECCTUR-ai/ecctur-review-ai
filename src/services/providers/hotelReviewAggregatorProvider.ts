@@ -98,6 +98,12 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
     scrapeReviewPictures: false
   };
 
+  console.log('[Apify Scraper Request]', {
+    url: endpoint,
+    method: 'POST',
+    body: payload
+  });
+
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -106,14 +112,41 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
     body: JSON.stringify(payload)
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Apify aggregator failed: ${text}`);
+  const contentType = res.headers.get("content-type") || '';
+  const text = await res.text();
+
+  console.log("APIFY RAW RESPONSE", {
+    status: res.status,
+    contentType: contentType,
+    body: text
+  });
+
+  if (!res.ok || !contentType.toLowerCase().includes("application/json")) {
+    const errPayload = {
+      success: false,
+      rawResponse: text,
+      status: res.status,
+      contentType: contentType
+    };
+    throw new Error(JSON.stringify(errPayload));
   }
 
-  const items = await res.json();
+  let items;
+  try {
+    items = JSON.parse(text);
+  } catch (jsonErr: any) {
+    const errPayload = {
+      success: false,
+      rawResponse: text,
+      status: res.status,
+      contentType: contentType,
+      parseError: jsonErr.message
+    };
+    throw new Error(JSON.stringify(errPayload));
+  }
+
   if (!Array.isArray(items)) {
-    throw new Error('Invalid response from Apify aggregator');
+    throw new Error('Invalid response from Apify aggregator: Expected an array.');
   }
 
   return items.map((item, idx) => {

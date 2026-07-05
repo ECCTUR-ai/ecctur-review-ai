@@ -2193,6 +2193,19 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(200).json(responsePayload);
     } catch (err: any) {
       console.error('[API import-hotel-review-aggregator] Failure:', err);
+      let parsedError = null;
+      try {
+        parsedError = JSON.parse(err.message);
+      } catch (_) {}
+
+      if (parsedError) {
+        return res.status(500).json({
+          success: false,
+          error: "Apify Aggregator Service returned a non-JSON or error response.",
+          ...parsedError
+        });
+      }
+
       return res.status(500).json({ success: false, error: err.message || String(err) });
     }
   }
