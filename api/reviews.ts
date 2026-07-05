@@ -1846,6 +1846,13 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (const r of scrapedReviews) {
         try {
+          if (!r.reviewDate && effectiveMode === 'daily_sync') {
+            r.reviewDate = new Date().toISOString();
+            r.metadata = r.metadata || {};
+            r.metadata.display_date = "Yeni";
+            r.metadata.google_relative_date = "Yeni";
+          }
+
           // Rule 5: Strengthen duplicate control
           const isDuplicate = await checkIsDuplicate(
             hotelId,
@@ -2471,6 +2478,56 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     } catch (err: any) {
       console.error('[API publish-google-reply] Failure:', err);
       return res.status(500).json({ success: false, error: err.message || 'Yayınlama başarısız oldu' });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: backfill-google-dates
+  // -------------------------------------------------------------
+  if (action === 'backfill-google-dates') {
+    try {
+      const { data: reviewsToRepair, error: fetchErr } = await supabaseAdmin
+        .from('reviews')
+        .select('id, created_at, metadata, platform')
+        .in('platform', ['Google', 'Google Reviews'])
+        .is('review_date', null);
+
+      if (fetchErr) throw fetchErr;
+
+      let repairedCount = 0;
+      for (const review of (reviewsToRepair || [])) {
+        if (review.created_at) {
+          const currentMetadata = review.metadata || {};
+          const updatedMetadata = {
+            ...currentMetadata,
+            display_date: 'Yaklaşık tarih',
+            google_relative_date: 'Yaklaşık tarih'
+          };
+
+          const { error: updateErr } = await supabaseAdmin
+            .from('reviews')
+            .update({
+              review_date: review.created_at,
+              metadata: updatedMetadata
+            })
+            .eq('id', review.id);
+
+          if (!updateErr) {
+            repairedCount++;
+          } else {
+            console.error(`[Backfill] Failed to update review ${review.id}:`, updateErr);
+          }
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        repairedCount,
+        totalChecked: reviewsToRepair?.length || 0
+      });
+    } catch (err: any) {
+      console.error('[API backfill-google-dates] Failure:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Backfill failed' });
     }
   }
 

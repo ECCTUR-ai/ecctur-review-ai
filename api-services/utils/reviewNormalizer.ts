@@ -196,8 +196,12 @@ export function normalizeGoogleReview(item: any, googleUrl: string, idx: number 
     item.timeDescription ||
     item.relativeTime ||
     item.relativeTimeDescription ||
+    item.reviewDateText ||
+    item.relativeDate ||
     (item.date && (String(item.date).includes('önce') || String(item.date).includes('ago')) ? item.date : '') ||
     (item.publishedAt && (String(item.publishedAt).includes('önce') || String(item.publishedAt).includes('ago')) ? item.publishedAt : '') ||
+    (item.reviewDate && (String(item.reviewDate).includes('önce') || String(item.reviewDate).includes('ago')) ? item.reviewDate : '') ||
+    (item.review_date && (String(item.review_date).includes('önce') || String(item.review_date).includes('ago')) ? item.review_date : '') ||
     '';
 
   let reviewDate: string | null = null;
@@ -207,7 +211,9 @@ export function normalizeGoogleReview(item: any, googleUrl: string, idx: number 
     item.publishedAt,
     item.publishedDate,
     item.reviewTime,
-    item.date
+    item.date,
+    item.reviewDate,
+    item.review_date
   ];
   
   for (const possibleDate of possibleAbsoluteDates) {
@@ -220,6 +226,16 @@ export function normalizeGoogleReview(item: any, googleUrl: string, idx: number 
   // Fallback: parse relative date to approximate absolute date
   if (!reviewDate && googleRelativeDate) {
     reviewDate = parseGoogleRelativeDate(googleRelativeDate);
+  }
+
+  // Temporary diagnostic logging
+  if (guestName.toLowerCase().includes('cemal') || guestName.toLowerCase().includes('peker')) {
+    console.log('===================================================');
+    console.log('[DIAGNOSTIC] Raw Google review payload for Cemal Peker:');
+    console.log(JSON.stringify(item, null, 2));
+    console.log('===================================================');
+    console.log('[DIAGNOSTIC] Extracted googleRelativeDate:', googleRelativeDate);
+    console.log('[DIAGNOSTIC] Extracted reviewDate:', reviewDate);
   }
 
   const ownerResponseText = item.reply?.text || item.reply?.comment || null;
@@ -236,7 +252,7 @@ export function normalizeGoogleReview(item: any, googleUrl: string, idx: number 
 
   const externalId = item.reviewId || item.id || `google-mock-${guestName}-${rating}-${reviewDate || 'nodate'}-${idx}`;
 
-  return {
+  const normalized = {
     platform: 'Google',
     guestName,
     rating,
@@ -252,6 +268,18 @@ export function normalizeGoogleReview(item: any, googleUrl: string, idx: number 
     metadata,
     externalId
   };
+
+  if (guestName.toLowerCase().includes('cemal') || guestName.toLowerCase().includes('peker')) {
+    console.log('[DIAGNOSTIC] Normalized Google review for Cemal Peker:', {
+      guest_name: normalized.guestName,
+      review_text: normalized.reviewText,
+      rating: normalized.rating,
+      review_date: normalized.reviewDate,
+      metadata: normalized.metadata
+    });
+  }
+
+  return normalized;
 }
 
 export function normalizeHotelsComReview(item: any, hotelscomUrl: string, idx: number = 0): UnifiedNormalizedReview {
