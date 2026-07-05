@@ -530,9 +530,7 @@ export default function Dashboard() {
   const connectionError = metricsError || reviewsError || trendsError || platformError || ratingsError || (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder') ? 'Supabase credentials are not defined. Please define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' : null);
 
   const currentHotel = hotels?.find(h => h.id === currentHotelId);
-  const isJuraAdaBeach = 
-    currentHotel?.name === 'Jura Hotels Ada Beach' || 
-    currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
+  const isJuraAdaBeach = true;
 
   if (isJuraAdaBeach) {
     const lastSyncTimeVal = dbSyncStates.length > 0

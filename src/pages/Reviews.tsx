@@ -1195,8 +1195,6 @@ export default function Reviews() {
         return;
       }
 
-      let results: string[] = [];
-
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -1262,416 +1260,290 @@ export default function Reviews() {
         } catch (e) {}
         const hotelscomMode = hotelscomExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
-        const isJuraAdaBeach = 
-          currentHotel?.name === 'Jura Hotels Ada Beach' || 
-          currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
+        const finalResults: any = {
+          Google: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
+          "Booking.com": { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
+          TripAdvisor: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
+          "Hotels.com": { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
+          HolidayCheck: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 }
+        };
 
-        if (isJuraAdaBeach) {
-          const finalResults: any = {
-            Google: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '' },
-            "Booking.com": { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '' },
-            TripAdvisor: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '' },
-            "Hotels.com": { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '' },
-            HolidayCheck: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '' }
-          };
-
-          // A) Aggregator (Google & Booking.com)
-          try {
-            const finalUrlToSend = googleMapsUrl;
-            const googlePlaceId = currentHotel?.googlePlaceId || dbRow?.google_place_id;
-
-            if (finalUrlToSend || googlePlaceId) {
-              const aggResponse = await fetch('/api/reviews?action=import-hotel-review-aggregator', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                  action: 'import-hotel-review-aggregator',
-                  hotelId: currentHotelId,
-                  googleMapsUrl: finalUrlToSend,
-                  syncMode: modeOverride || 'incremental_sync'
-                })
-              });
-              const aggText = await aggResponse.text();
-              if (aggResponse.ok && aggResponse.headers.get('content-type')?.includes('application/json')) {
-                const aggResult = JSON.parse(aggText);
-                const summary = aggResult.platformSummary || {};
-                const gDetails = aggResult.googleSyncDetails || {};
-                const bDetails = aggResult.bookingSyncDetails || {};
-
-                finalResults.Google.imported = summary.Google?.imported ?? 0;
-                finalResults.Google.duplicates = summary.Google?.duplicates ?? 0;
-                finalResults.Google.skipped = summary.Google?.skipped ?? 0;
-                finalResults.Google.syncMode = gDetails.syncMode;
-                finalResults.Google.syncStartDate = gDetails.syncStartDate;
-                finalResults.Google.lastReviewDate = gDetails.lastReviewDate;
-                finalResults.Google.nextRecommendedSyncAt = gDetails.nextRecommendedSyncAt;
-                finalResults.Google.estimatedCostSavingMessage = aggResult.estimatedCostSavingMessage || '';
-
-                finalResults["Booking.com"].imported = summary["Booking.com"]?.imported ?? 0;
-                finalResults["Booking.com"].duplicates = summary["Booking.com"]?.duplicates ?? 0;
-                finalResults["Booking.com"].skipped = summary["Booking.com"]?.skipped ?? 0;
-                finalResults["Booking.com"].syncMode = bDetails.syncMode;
-                finalResults["Booking.com"].syncStartDate = bDetails.syncStartDate;
-                finalResults["Booking.com"].lastReviewDate = bDetails.lastReviewDate;
-                finalResults["Booking.com"].nextRecommendedSyncAt = bDetails.nextRecommendedSyncAt;
-                finalResults["Booking.com"].estimatedCostSavingMessage = aggResult.estimatedCostSavingMessage || '';
-
-                if (aggResult.errors && aggResult.errors.length > 0) {
-                  finalResults.Google.errors.push(...aggResult.errors);
-                  finalResults["Booking.com"].errors.push(...aggResult.errors);
-                }
-              } else {
-                finalResults.Google.errors.push({ message: aggText || `Aggregator returned error status ${aggResponse.status}` });
-                finalResults["Booking.com"].errors.push({ message: aggText || `Aggregator returned error status ${aggResponse.status}` });
-              }
-            } else {
-              finalResults.Google.errors.push({ message: "No Google Maps URL or Place ID configured." });
-              finalResults["Booking.com"].errors.push({ message: "No Google Maps URL or Place ID configured." });
-            }
-          } catch (e: any) {
-            finalResults.Google.errors.push({ message: e.message || String(e) });
-            finalResults["Booking.com"].errors.push({ message: e.message || String(e) });
-          }
-
-          // B) TripAdvisor (Legacy)
-          if (tripadvisorUrl) {
+        const cleanErrorMessage = (text: string, defaultMsg: string): string => {
+          if (!text) return defaultMsg;
+          const clean = text.trim();
+          if (clean.startsWith('{') || clean.startsWith('[')) {
             try {
-              const response = await fetch('/api/reviews?action=import-tripadvisor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode: taMode, syncMode: modeOverride || 'incremental_sync' })
-              });
-              const text = await response.text();
-              if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
-                const res = JSON.parse(text);
-                finalResults.TripAdvisor.imported = res.imported ?? 0;
-                finalResults.TripAdvisor.duplicates = res.duplicates ?? 0;
-                finalResults.TripAdvisor.skipped = res.skipped ?? 0;
-                finalResults.TripAdvisor.syncMode = res.syncMode;
-                finalResults.TripAdvisor.syncStartDate = res.syncStartDate;
-                finalResults.TripAdvisor.lastReviewDate = res.lastReviewDate;
-                finalResults.TripAdvisor.nextRecommendedSyncAt = res.nextRecommendedSyncAt;
-                finalResults.TripAdvisor.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
-                if (res.errors) finalResults.TripAdvisor.errors.push(...res.errors);
-              } else {
-                finalResults.TripAdvisor.errors.push({ message: text || `TripAdvisor sync returned status ${response.status}` });
-              }
-            } catch (e: any) {
-              finalResults.TripAdvisor.errors.push({ message: e.message || String(e) });
-            }
+              const parsed = JSON.parse(clean);
+              return parsed.error || parsed.message || defaultMsg;
+            } catch (_) {}
           }
-
-          // C) Hotels.com (Legacy)
-          if (hotelscomUrl) {
-            try {
-              const response = await fetch('/api/reviews?action=import-hotelscom', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                  hotelId: currentHotelId,
-                  hotelName: currentHotel?.name || dbRow?.name || '',
-                  hotelscomUrl,
-                  mode: hotelscomMode,
-                  syncMode: modeOverride || 'incremental_sync'
-                })
-              });
-              const text = await response.text();
-              if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
-                const res = JSON.parse(text);
-                finalResults["Hotels.com"].imported = res.imported ?? 0;
-                finalResults["Hotels.com"].duplicates = res.duplicates ?? 0;
-                finalResults["Hotels.com"].skipped = res.skipped ?? 0;
-                finalResults["Hotels.com"].syncMode = res.syncMode;
-                finalResults["Hotels.com"].syncStartDate = res.syncStartDate;
-                finalResults["Hotels.com"].lastReviewDate = res.lastReviewDate;
-                finalResults["Hotels.com"].nextRecommendedSyncAt = res.nextRecommendedSyncAt;
-                finalResults["Hotels.com"].estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
-                if (res.errors) finalResults["Hotels.com"].errors.push(...res.errors);
-              } else {
-                finalResults["Hotels.com"].errors.push({ message: text || `Hotels.com sync returned status ${response.status}` });
-              }
-            } catch (e: any) {
-              finalResults["Hotels.com"].errors.push({ message: e.message || String(e) });
-            }
+          if (clean.includes('FUNCTION_INVOCATION_FAILED')) {
+            return 'Vercel Serverless Function: FUNCTION_INVOCATION_FAILED (İşlem süresi limitini aştığı için timeout oldu. Platform bazlı aralıklar ile tekrar deneyebilirsiniz.)';
           }
-
-          // D) HolidayCheck (Legacy)
-          if (holidaycheckUrl) {
-            try {
-              const response = await fetch('/api/reviews?action=import-holidaycheck', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode: hcMode, syncMode: modeOverride || 'incremental_sync' })
-              });
-              const text = await response.text();
-              if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
-                const res = JSON.parse(text);
-                finalResults.HolidayCheck.imported = res.imported ?? 0;
-                finalResults.HolidayCheck.duplicates = res.duplicates ?? 0;
-                finalResults.HolidayCheck.skipped = res.skipped ?? 0;
-                finalResults.HolidayCheck.syncMode = res.syncMode;
-                finalResults.HolidayCheck.syncStartDate = res.syncStartDate;
-                finalResults.HolidayCheck.lastReviewDate = res.lastReviewDate;
-                finalResults.HolidayCheck.nextRecommendedSyncAt = res.nextRecommendedSyncAt;
-                finalResults.HolidayCheck.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
-                if (res.errors) finalResults.HolidayCheck.errors.push(...res.errors);
-              } else {
-                finalResults.HolidayCheck.errors.push({ message: text || `HolidayCheck sync returned status ${response.status}` });
-              }
-            } catch (e: any) {
-              finalResults.HolidayCheck.errors.push({ message: e.message || String(e) });
-            }
+          if (clean.includes('504 Gateway Timeout')) {
+            return '504 Gateway Timeout (Sunucu zaman aşımına uğradı.)';
           }
+          if (clean.includes('502 Bad Gateway')) {
+            return '502 Bad Gateway (Sunucu geçidi hatası.)';
+          }
+          if (clean.includes('<html') || clean.includes('<!DOCTYPE html')) {
+            const bodyMatch = clean.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            const searchArea = bodyMatch ? bodyMatch[1] : clean;
+            const h1Match = searchArea.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+            const pMatch = searchArea.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+            let msg = '';
+            if (h1Match) msg += h1Match[1].replace(/<[^>]*>/g, '').trim() + ': ';
+            if (pMatch) msg += pMatch[1].replace(/<[^>]*>/g, '').trim();
+            if (msg.trim()) return msg.trim().substring(0, 200);
+            return `Sunucu Hatası (Kod: ${defaultMsg})`;
+          }
+          return clean.substring(0, 300);
+        };
 
-          const syncTime = new Date().toISOString();
-          const healthStatus = {
-            lastSyncTime: syncTime,
-            Google: {
-              imported: finalResults.Google.imported,
-              duplicates: finalResults.Google.duplicates,
-              skipped: finalResults.Google.skipped,
-              status: finalResults.Google.errors.length > 0 ? "error" : "active",
-              errors: finalResults.Google.errors,
-              syncMode: finalResults.Google.syncMode || 'incremental_sync',
-              syncStartDate: finalResults.Google.syncStartDate || 'Tüm geçmiş',
-              lastReviewDate: finalResults.Google.lastReviewDate,
-              nextRecommendedSyncAt: finalResults.Google.nextRecommendedSyncAt,
-              estimatedCostSavingMessage: finalResults.Google.estimatedCostSavingMessage
-            },
-            "Booking.com": {
-              imported: finalResults["Booking.com"].imported,
-              duplicates: finalResults["Booking.com"].duplicates,
-              skipped: finalResults["Booking.com"].skipped,
-              status: finalResults["Booking.com"].errors.length > 0 ? "error" : "active",
-              errors: finalResults["Booking.com"].errors,
-              syncMode: finalResults["Booking.com"].syncMode || 'incremental_sync',
-              syncStartDate: finalResults["Booking.com"].syncStartDate || 'Tüm geçmiş',
-              lastReviewDate: finalResults["Booking.com"].lastReviewDate,
-              nextRecommendedSyncAt: finalResults["Booking.com"].nextRecommendedSyncAt,
-              estimatedCostSavingMessage: finalResults["Booking.com"].estimatedCostSavingMessage
-            },
-            "TripAdvisor": {
-              imported: finalResults.TripAdvisor.imported,
-              duplicates: finalResults.TripAdvisor.duplicates,
-              skipped: finalResults.TripAdvisor.skipped,
-              status: finalResults.TripAdvisor.errors.length > 0 ? "error" : "active",
-              errors: finalResults.TripAdvisor.errors,
-              syncMode: finalResults.TripAdvisor.syncMode || 'incremental_sync',
-              syncStartDate: finalResults.TripAdvisor.syncStartDate || 'Tüm geçmiş',
-              lastReviewDate: finalResults.TripAdvisor.lastReviewDate,
-              nextRecommendedSyncAt: finalResults.TripAdvisor.nextRecommendedSyncAt,
-              estimatedCostSavingMessage: finalResults.TripAdvisor.estimatedCostSavingMessage
-            },
-            "Hotels.com": {
-              imported: finalResults["Hotels.com"].imported,
-              duplicates: finalResults["Hotels.com"].duplicates,
-              skipped: finalResults["Hotels.com"].skipped,
-              status: finalResults["Hotels.com"].errors.length > 0 ? "error" : "active",
-              errors: finalResults["Hotels.com"].errors,
-              syncMode: finalResults["Hotels.com"].syncMode || 'incremental_sync',
-              syncStartDate: finalResults["Hotels.com"].syncStartDate || 'Tüm geçmiş',
-              lastReviewDate: finalResults["Hotels.com"].lastReviewDate,
-              nextRecommendedSyncAt: finalResults["Hotels.com"].nextRecommendedSyncAt,
-              estimatedCostSavingMessage: finalResults["Hotels.com"].estimatedCostSavingMessage
-            },
-            "HolidayCheck": {
-              imported: finalResults.HolidayCheck.imported,
-              duplicates: finalResults.HolidayCheck.duplicates,
-              skipped: finalResults.HolidayCheck.skipped,
-              status: finalResults.HolidayCheck.errors.length > 0 ? "error" : "active",
-              errors: finalResults.HolidayCheck.errors,
-              syncMode: finalResults.HolidayCheck.syncMode || 'incremental_sync',
-              syncStartDate: finalResults.HolidayCheck.syncStartDate || 'Tüm geçmiş',
-              lastReviewDate: finalResults.HolidayCheck.lastReviewDate,
-              nextRecommendedSyncAt: finalResults.HolidayCheck.nextRecommendedSyncAt,
-              estimatedCostSavingMessage: finalResults.HolidayCheck.estimatedCostSavingMessage
-            }
-          };
-          localStorage.setItem(`sync_health_${currentHotelId}`, JSON.stringify(healthStatus));
+        // A) Aggregator (Google & Booking.com)
+        const aggStart = Date.now();
+        try {
+          const finalUrlToSend = googleMapsUrl;
+          const googlePlaceId = currentHotel?.googlePlaceId || dbRow?.google_place_id;
 
-          setUnifiedSyncResult({
-            success: true,
-            hotelName: currentHotel?.name || dbRow?.name || 'Jura Hotels Ada Beach',
-            results: finalResults
-          });
-          refetch();
-          setIsSyncingAll(false);
-          return;
-        }
-
-        // 1. Google
-        if (googleMapsUrl) {
-          try {
-            const response = await fetch('/api/reviews?action=import-google-maps', {
+          if (finalUrlToSend || googlePlaceId) {
+            const aggResponse = await fetch('/api/reviews?action=import-hotel-review-aggregator', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ hotelId: currentHotelId, googleMapsUrl, mode: googleMode })
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({
+                action: 'import-hotel-review-aggregator',
+                hotelId: currentHotelId,
+                googleMapsUrl: finalUrlToSend,
+                syncMode: modeOverride || 'incremental_sync'
+              })
             });
+            const aggText = await aggResponse.text();
+            const elapsed = Date.now() - aggStart;
+            finalResults.Google.elapsedMs = elapsed;
+            finalResults["Booking.com"].elapsedMs = elapsed;
 
-            let res: any;
-            const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) {
-              res = await response.json();
-            } else {
-              const textError = await response.text();
-              if (response.status === 504 || response.status === 502 || isTimeoutError(null, textError)) {
-                throw new Error('TIMEOUT_ERROR');
-              }
-              throw new Error('Server error');
-            }
+            if (aggResponse.ok && aggResponse.headers.get('content-type')?.includes('application/json')) {
+              const aggResult = JSON.parse(aggText);
+              const summary = aggResult.platformSummary || {};
+              const gDetails = aggResult.googleSyncDetails || {};
+              const bDetails = aggResult.bookingSyncDetails || {};
 
-            if (response.ok) {
-              results.push(`Google: ${res.insertedCount} yeni yorum`);
-            } else {
-              if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
-                results.push(`Google: Hata (Zaman aşımı)`);
-              } else {
-                results.push(`Google: Hata (${res.error || 'İçe aktarılamadı'})`);
+              finalResults.Google.imported = summary.Google?.imported ?? 0;
+              finalResults.Google.duplicates = summary.Google?.duplicates ?? 0;
+              finalResults.Google.skipped = summary.Google?.skipped ?? 0;
+              finalResults.Google.syncMode = gDetails.syncMode;
+              finalResults.Google.syncStartDate = gDetails.syncStartDate;
+              finalResults.Google.lastReviewDate = gDetails.lastReviewDate;
+              finalResults.Google.nextRecommendedSyncAt = gDetails.nextRecommendedSyncAt;
+              finalResults.Google.estimatedCostSavingMessage = aggResult.estimatedCostSavingMessage || '';
+
+              finalResults["Booking.com"].imported = summary["Booking.com"]?.imported ?? 0;
+              finalResults["Booking.com"].duplicates = summary["Booking.com"]?.duplicates ?? 0;
+              finalResults["Booking.com"].skipped = summary["Booking.com"]?.skipped ?? 0;
+              finalResults["Booking.com"].syncMode = bDetails.syncMode;
+              finalResults["Booking.com"].syncStartDate = bDetails.syncStartDate;
+              finalResults["Booking.com"].lastReviewDate = bDetails.lastReviewDate;
+              finalResults["Booking.com"].nextRecommendedSyncAt = bDetails.nextRecommendedSyncAt;
+              finalResults["Booking.com"].estimatedCostSavingMessage = aggResult.estimatedCostSavingMessage || '';
+
+              if (aggResult.errors && aggResult.errors.length > 0) {
+                finalResults.Google.errors.push(...aggResult.errors);
+                finalResults["Booking.com"].errors.push(...aggResult.errors);
               }
-            }
-          } catch (e: any) {
-            if (e.message === 'TIMEOUT_ERROR' || isTimeoutError(e)) {
-              results.push(`Google: Hata (Zaman aşımı)`);
             } else {
-              results.push(`Google: Hata (${e.message})`);
+              const cleanMsg = cleanErrorMessage(aggText, `Aggregator error status ${aggResponse.status}`);
+              finalResults.Google.errors.push({ message: cleanMsg });
+              finalResults["Booking.com"].errors.push({ message: cleanMsg });
             }
+          } else {
+            finalResults.Google.errors.push({ message: "No Google Maps URL or Place ID configured." });
+            finalResults["Booking.com"].errors.push({ message: "No Google Maps URL or Place ID configured." });
           }
+        } catch (e: any) {
+          const cleanMsg = cleanErrorMessage(e.message || String(e), 'Aggregator network exception');
+          finalResults.Google.errors.push({ message: cleanMsg });
+          finalResults["Booking.com"].errors.push({ message: cleanMsg });
         }
 
-        // 2. TripAdvisor
+        // B) TripAdvisor (Legacy)
         if (tripadvisorUrl) {
+          const taStart = Date.now();
           try {
             const response = await fetch('/api/reviews?action=import-tripadvisor', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode: taMode })
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode: taMode, syncMode: modeOverride || 'incremental_sync' })
             });
+            const text = await response.text();
+            finalResults.TripAdvisor.elapsedMs = Date.now() - taStart;
 
-            let res: any;
-            const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) {
-              res = await response.json();
+            if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+              const res = JSON.parse(text);
+              finalResults.TripAdvisor.imported = res.imported ?? 0;
+              finalResults.TripAdvisor.duplicates = res.duplicates ?? 0;
+              finalResults.TripAdvisor.skipped = res.skipped ?? 0;
+              finalResults.TripAdvisor.syncMode = res.syncMode;
+              finalResults.TripAdvisor.syncStartDate = res.syncStartDate;
+              finalResults.TripAdvisor.lastReviewDate = res.lastReviewDate;
+              finalResults.TripAdvisor.nextRecommendedSyncAt = res.nextRecommendedSyncAt;
+              finalResults.TripAdvisor.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
+              if (res.errors) finalResults.TripAdvisor.errors.push(...res.errors);
             } else {
-              const textError = await response.text();
-              if (response.status === 504 || response.status === 502 || isTimeoutError(null, textError)) {
-                throw new Error('TIMEOUT_ERROR');
-              }
-              throw new Error('Server error');
-            }
-
-            if (response.ok) {
-              results.push(`Tripadvisor: ${res.insertedCount} yeni yorum`);
-            } else {
-              if (response.status === 504 || response.status === 502 || isTimeoutError(null, JSON.stringify(res))) {
-                results.push(`Tripadvisor: Hata (Zaman aşımı)`);
-              } else {
-                results.push(`Tripadvisor: Hata (${res.error || 'İçe aktarılamadı'})`);
-              }
+              finalResults.TripAdvisor.errors.push({ message: cleanErrorMessage(text, `TripAdvisor error status ${response.status}`) });
             }
           } catch (e: any) {
-            if (e.message === 'TIMEOUT_ERROR' || isTimeoutError(e)) {
-              results.push(`Tripadvisor: Hata (Zaman aşımı)`);
-            } else {
-              results.push(`Tripadvisor: Hata (${e.message})`);
-            }
+            finalResults.TripAdvisor.errors.push({ message: cleanErrorMessage(e.message || String(e), 'TripAdvisor network exception') });
           }
         }
 
-        // 3. Booking.com
-        if (bookingUrl) {
-          try {
-            const response = await fetch('/api/reviews?action=import-booking', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ hotelId: currentHotelId, range: importRange, mode: bookingMode })
-            });
-            const res = await response.json();
-            if (response.ok) {
-              const count = res.insertedCount ?? res.importedCount ?? 0;
-              const updated = res.updatedCount ?? 0;
-              results.push(`Booking.com: ${count} yeni, ${updated} güncellendi`);
-            } else {
-              results.push(`Booking.com: Hata (${res.error || 'İçe aktarılamadı'})`);
-            }
-          } catch (e: any) {
-            results.push(`Booking.com: Hata (${e.message})`);
-          }
-        }
-
-        // 4. HolidayCheck
-        if (holidaycheckUrl) {
-          try {
-            const response = await fetch('/api/reviews?action=import-holidaycheck', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode: hcMode })
-            });
-            const res = await response.json();
-            if (response.ok) {
-              const count = res.insertedCount ?? 0;
-              results.push(`HolidayCheck: ${count} yeni yorum`);
-            } else {
-              results.push(`HolidayCheck: Hata (${res.error || 'İçe aktarılamadı'})`);
-            }
-          } catch (e: any) {
-            results.push(`HolidayCheck: Hata (${e.message})`);
-          }
-        }
-
-        // 5. Hotels.com
+        // C) Hotels.com (Legacy)
         if (hotelscomUrl) {
+          const hcomStart = Date.now();
           try {
             const response = await fetch('/api/reviews?action=import-hotelscom', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({
                 hotelId: currentHotelId,
                 hotelName: currentHotel?.name || dbRow?.name || '',
                 hotelscomUrl,
-                mode: hotelscomMode
+                mode: hotelscomMode,
+                syncMode: modeOverride || 'incremental_sync'
               })
             });
-            const res = await response.json();
-            if (response.ok) {
-              const count = res.insertedCount ?? 0;
-              results.push(`Hotels.com: ${count} yeni yorum`);
+            const text = await response.text();
+            finalResults["Hotels.com"].elapsedMs = Date.now() - hcomStart;
+
+            if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+              const res = JSON.parse(text);
+              finalResults["Hotels.com"].imported = res.imported ?? 0;
+              finalResults["Hotels.com"].duplicates = res.duplicates ?? 0;
+              finalResults["Hotels.com"].skipped = res.skipped ?? 0;
+              finalResults["Hotels.com"].syncMode = res.syncMode;
+              finalResults["Hotels.com"].syncStartDate = res.syncStartDate;
+              finalResults["Hotels.com"].lastReviewDate = res.lastReviewDate;
+              finalResults["Hotels.com"].nextRecommendedSyncAt = res.nextRecommendedSyncAt;
+              finalResults["Hotels.com"].estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
+              if (res.errors) finalResults["Hotels.com"].errors.push(...res.errors);
             } else {
-              results.push(`Hotels.com: Hata (${res.error || 'İçe aktarılamadı'})`);
+              finalResults["Hotels.com"].errors.push({ message: cleanErrorMessage(text, `Hotels.com error status ${response.status}`) });
             }
           } catch (e: any) {
-            results.push(`Hotels.com: Hata (${e.message})`);
+            finalResults["Hotels.com"].errors.push({ message: cleanErrorMessage(e.message || String(e), 'Hotels.com network exception') });
           }
         }
 
-        const hasTimeout = results.some(r => r.includes('Zaman aşımı'));
-        if (hasTimeout) {
-          alert("Senkronizasyon zaman aşımına uğradı. Lütfen birazdan tekrar deneyin veya daha küçük aralıkla çalıştırın.");
-        } else {
-          setToastMessage(`Senkronizasyon tamamlandı:\n${results.join('\n')}`);
+        // D) HolidayCheck (Legacy)
+        if (holidaycheckUrl) {
+          const hcStart = Date.now();
+          try {
+            const response = await fetch('/api/reviews?action=import-holidaycheck', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode: hcMode, syncMode: modeOverride || 'incremental_sync' })
+            });
+            const text = await response.text();
+            finalResults.HolidayCheck.elapsedMs = Date.now() - hcStart;
+
+            if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+              const res = JSON.parse(text);
+              finalResults.HolidayCheck.imported = res.imported ?? 0;
+              finalResults.HolidayCheck.duplicates = res.duplicates ?? 0;
+              finalResults.HolidayCheck.skipped = res.skipped ?? 0;
+              finalResults.HolidayCheck.syncMode = res.syncMode;
+              finalResults.HolidayCheck.syncStartDate = res.syncStartDate;
+              finalResults.HolidayCheck.lastReviewDate = res.lastReviewDate;
+              finalResults.HolidayCheck.nextRecommendedSyncAt = res.nextRecommendedSyncAt;
+              finalResults.HolidayCheck.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
+              if (res.errors) finalResults.HolidayCheck.errors.push(...res.errors);
+            } else {
+              finalResults.HolidayCheck.errors.push({ message: cleanErrorMessage(text, `HolidayCheck error status ${response.status}`) });
+            }
+          } catch (e: any) {
+            finalResults.HolidayCheck.errors.push({ message: cleanErrorMessage(e.message || String(e), 'HolidayCheck network exception') });
+          }
         }
+
+        const syncTime = new Date().toISOString();
+        const healthStatus = {
+          lastSyncTime: syncTime,
+          Google: {
+            imported: finalResults.Google.imported,
+            duplicates: finalResults.Google.duplicates,
+            skipped: finalResults.Google.skipped,
+            status: finalResults.Google.errors.length > 0 ? "error" : "active",
+            errors: finalResults.Google.errors,
+            syncMode: finalResults.Google.syncMode || 'incremental_sync',
+            syncStartDate: finalResults.Google.syncStartDate || 'Tüm geçmiş',
+            lastReviewDate: finalResults.Google.lastReviewDate,
+            nextRecommendedSyncAt: finalResults.Google.nextRecommendedSyncAt,
+            estimatedCostSavingMessage: finalResults.Google.estimatedCostSavingMessage,
+            elapsedMs: finalResults.Google.elapsedMs
+          },
+          "Booking.com": {
+            imported: finalResults["Booking.com"].imported,
+            duplicates: finalResults["Booking.com"].duplicates,
+            skipped: finalResults["Booking.com"].skipped,
+            status: finalResults["Booking.com"].errors.length > 0 ? "error" : "active",
+            errors: finalResults["Booking.com"].errors,
+            syncMode: finalResults["Booking.com"].syncMode || 'incremental_sync',
+            syncStartDate: finalResults["Booking.com"].syncStartDate || 'Tüm geçmiş',
+            lastReviewDate: finalResults["Booking.com"].lastReviewDate,
+            nextRecommendedSyncAt: finalResults["Booking.com"].nextRecommendedSyncAt,
+            estimatedCostSavingMessage: finalResults["Booking.com"].estimatedCostSavingMessage,
+            elapsedMs: finalResults["Booking.com"].elapsedMs
+          },
+          "TripAdvisor": {
+            imported: finalResults.TripAdvisor.imported,
+            duplicates: finalResults.TripAdvisor.duplicates,
+            skipped: finalResults.TripAdvisor.skipped,
+            status: finalResults.TripAdvisor.errors.length > 0 ? "error" : "active",
+            errors: finalResults.TripAdvisor.errors,
+            syncMode: finalResults.TripAdvisor.syncMode || 'incremental_sync',
+            syncStartDate: finalResults.TripAdvisor.syncStartDate || 'Tüm geçmiş',
+            lastReviewDate: finalResults.TripAdvisor.lastReviewDate,
+            nextRecommendedSyncAt: finalResults.TripAdvisor.nextRecommendedSyncAt,
+            estimatedCostSavingMessage: finalResults.TripAdvisor.estimatedCostSavingMessage,
+            elapsedMs: finalResults.TripAdvisor.elapsedMs
+          },
+          "Hotels.com": {
+            imported: finalResults["Hotels.com"].imported,
+            duplicates: finalResults["Hotels.com"].duplicates,
+            skipped: finalResults["Hotels.com"].skipped,
+            status: finalResults["Hotels.com"].errors.length > 0 ? "error" : "active",
+            errors: finalResults["Hotels.com"].errors,
+            syncMode: finalResults["Hotels.com"].syncMode || 'incremental_sync',
+            syncStartDate: finalResults["Hotels.com"].syncStartDate || 'Tüm geçmiş',
+            lastReviewDate: finalResults["Hotels.com"].lastReviewDate,
+            nextRecommendedSyncAt: finalResults["Hotels.com"].nextRecommendedSyncAt,
+            estimatedCostSavingMessage: finalResults["Hotels.com"].estimatedCostSavingMessage,
+            elapsedMs: finalResults["Hotels.com"].elapsedMs
+          },
+          "HolidayCheck": {
+            imported: finalResults.HolidayCheck.imported,
+            duplicates: finalResults.HolidayCheck.duplicates,
+            skipped: finalResults.HolidayCheck.skipped,
+            status: finalResults.HolidayCheck.errors.length > 0 ? "error" : "active",
+            errors: finalResults.HolidayCheck.errors,
+            syncMode: finalResults.HolidayCheck.syncMode || 'incremental_sync',
+            syncStartDate: finalResults.HolidayCheck.syncStartDate || 'Tüm geçmiş',
+            lastReviewDate: finalResults.HolidayCheck.lastReviewDate,
+            nextRecommendedSyncAt: finalResults.HolidayCheck.nextRecommendedSyncAt,
+            estimatedCostSavingMessage: finalResults.HolidayCheck.estimatedCostSavingMessage,
+            elapsedMs: finalResults.HolidayCheck.elapsedMs
+          }
+        };
+        localStorage.setItem(`sync_health_${currentHotelId}`, JSON.stringify(healthStatus));
+
+        setUnifiedSyncResult({
+          success: true,
+          hotelName: currentHotel?.name || dbRow?.name || 'Seçili Otel',
+          results: finalResults
+        });
         refetch();
       } catch (err: any) {
         console.error(err);
-        if (isTimeoutError(err)) {
-          alert("Senkronizasyon zaman aşımına uğradı. Lütfen birazdan tekrar deneyin veya daha küçük aralıkla çalıştırın.");
-        } else {
-          alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
-        }
+        alert(`Hata: ${err.message || 'Senkronizasyon sırasında bir sorun oluştu.'}`);
       } finally {
         setIsSyncingAll(false);
       }
@@ -1904,9 +1776,6 @@ export default function Reviews() {
             const hasBooking = !!(currentHotel?.bookingUrl);
             const hasHolidaycheck = !!(currentHotel?.holidaycheckUrl);
             const hasHotelscom = !!(currentHotel?.hotelscomUrl);
-            const isJuraAdaBeach = 
-              currentHotel?.name === 'Jura Hotels Ada Beach' || 
-              currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
             
             return (
               <>
@@ -1968,16 +1837,14 @@ export default function Reviews() {
                   <span>Hotels.com Tekil Çek</span>
                 </button>
 
-                {isJuraAdaBeach && (
-                  <button
-                    onClick={handleImportAggregatorReviews}
-                    disabled={isImportingAggregator}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
-                  >
-                    <RefreshCw size={12} className={isImportingAggregator ? 'animate-spin' : ''} />
-                    <span>Aggregator Beta Tekil Çek</span>
-                  </button>
-                )}
+                <button
+                  onClick={handleImportAggregatorReviews}
+                  disabled={isImportingAggregator}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingAggregator ? 'animate-spin' : ''} />
+                  <span>Google & Booking Aggregator Tekil Çek</span>
+                </button>
               </>
             );
           })()}
@@ -2583,9 +2450,13 @@ export default function Reviews() {
                                 <span className="text-slate-400 text-[8.5px] italic">Tasarruf Yok (Tam)</span>
                               )}
                               {hasErrors ? (
-                                <span className="text-rose-600 font-bold text-[8.5px]">Hata Var</span>
+                                <span className="text-rose-600 font-bold text-[8.5px]">
+                                  Hata Var {stats.elapsedMs ? `(${Math.round(stats.elapsedMs / 100) / 10}s)` : ''}
+                                </span>
                               ) : (
-                                <span className="text-emerald-600 font-bold text-[8.5px]">Başarılı</span>
+                                <span className="text-emerald-600 font-bold text-[8.5px]">
+                                  Başarılı {stats.elapsedMs ? `(${Math.round(stats.elapsedMs / 100) / 10}s)` : ''}
+                                </span>
                               )}
                             </div>
                           </td>

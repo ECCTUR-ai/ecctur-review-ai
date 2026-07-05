@@ -364,6 +364,15 @@ function detectLanguage(text: string): 'tr' | 'en' | 'de' | 'ru' {
   return 'en';
 }
 
+function logPlatformError(platform: string, action: string, req: any, status: number, responseText: string, elapsedMs: number, error: any) {
+  console.error(`[Platform Sync Error] Platform: ${platform} | Action: ${action}`);
+  console.error(`- Request Body: ${JSON.stringify(req.body || {})}`);
+  console.error(`- Response Status: ${status}`);
+  console.error(`- Response Text: ${responseText}`);
+  console.error(`- Elapsed Time: ${elapsedMs}ms`);
+  console.error(`- Stack Trace:`, error?.stack || error);
+}
+
 async function translateText(text: string, targetLang: string): Promise<string> {
   const sourceLang = detectLanguage(text);
   if (sourceLang === targetLang) {
@@ -1983,6 +1992,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      const startTime = Date.now();
       // Self-healing: Correct any legacy platform names to 'Google'
       try {
         await supabaseAdmin
@@ -2021,17 +2031,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         targetScrapeUrl = finalUrl;
       } else if (finalPlaceId) {
         targetScrapeUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${finalPlaceId}`;
-      }
-
-      const isAllowedHotel = 
-        hotelName === 'Jura Hotels Ada Beach' || 
-        hotelName === 'Jura Hotels Ada Beach Kuşadası';
-
-      if (!isAllowedHotel) {
-        return res.status(403).json({
-          success: false,
-          error: "Hotel Review Aggregator is only enabled for Jura Hotels Ada Beach during beta."
-        });
       }
 
       // 1. Fetch existing sync states for Google and Booking
@@ -2412,11 +2411,15 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       return res.status(200).json(responsePayload);
     } catch (err: any) {
+      const elapsed = Date.now() - startTime;
       console.error('[API import-hotel-review-aggregator] Failure:', err);
       let parsedError = null;
       try {
         parsedError = JSON.parse(err.message);
       } catch (_) {}
+
+      const responseText = parsedError ? JSON.stringify(parsedError) : (err.message || String(err));
+      logPlatformError('Aggregator (Google & Booking.com)', 'import-hotel-review-aggregator', req, 500, responseText, elapsed, err);
 
       if (parsedError) {
         return res.status(500).json({
@@ -2446,6 +2449,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      const startTime = Date.now();
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
       if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
@@ -2601,6 +2605,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         totalAfterImport: totalAfterImport || 0
       });
     } catch (err: any) {
+      const elapsed = Date.now() - startTime;
+      console.error('[API import-tripadvisor] Failure:', err);
+      logPlatformError('TripAdvisor', 'import-tripadvisor', req, 500, err.message || String(err), elapsed, err);
       return res.status(500).json({ success: false, error: err.message || String(err) });
     }
   }
@@ -2619,6 +2626,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      const startTime = Date.now();
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
       if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
@@ -2777,7 +2785,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         totalAfterImport: totalAfterImport || 0
       });
     } catch (err: any) {
+      const elapsed = Date.now() - startTime;
       console.error('[HolidayCheck Import] error:', err);
+      logPlatformError('HolidayCheck', 'import-holidaycheck', req, 500, err.message || String(err), elapsed, err);
       return res.status(500).json({ success: false, error: err.message || String(err) });
     }
   }
@@ -2796,6 +2806,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      const startTime = Date.now();
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
       if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
@@ -2960,7 +2971,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         totalAfterImport: totalAfterImport || 0
       });
     } catch (err: any) {
+      const elapsed = Date.now() - startTime;
       console.error('[Hotels.com Import] error:', err);
+      logPlatformError('Hotels.com', 'import-hotelscom', req, 500, err.message || String(err), elapsed, err);
       return res.status(500).json({ success: false, error: err.message || String(err) });
     }
   }
