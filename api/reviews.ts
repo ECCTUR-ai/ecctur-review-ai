@@ -2223,6 +2223,31 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         }
       };
 
+      console.log('\n=== Aggregator Platform Detection Debug Table ===');
+      console.log(
+        String('Original Provider').padEnd(20) + ' | ' +
+        String('Detected Platform').padEnd(20) + ' | ' +
+        String('Review ID').padEnd(25) + ' | ' +
+        String('Review URL').padEnd(50) + ' | ' +
+        String('Place URL')
+      );
+      console.log('-'.repeat(140));
+      for (const r of scrapedReviews) {
+        const origProv = r.metadata?.originalProvider || 'N/A';
+        const detPlat = r.platform || 'N/A';
+        const rId = r.externalId || 'N/A';
+        const rUrl = r.metadata?.reviewUrl || 'N/A';
+        const pUrl = r.metadata?.placeUrl || 'N/A';
+        console.log(
+          String(origProv).padEnd(20) + ' | ' +
+          String(detPlat).padEnd(20) + ' | ' +
+          String(rId).padEnd(25) + ' | ' +
+          String(rUrl).substring(0, 50).padEnd(50) + ' | ' +
+          String(pUrl).substring(0, 50)
+        );
+      }
+      console.log('=================================================\n');
+
       console.log('[Aggregator] insert success count:', importedCount);
       console.log('[Aggregator] duplicate count:', duplicateCount);
       console.log('[Aggregator] insert errors:', detailedErrors);

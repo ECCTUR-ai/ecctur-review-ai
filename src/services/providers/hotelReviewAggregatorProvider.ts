@@ -153,22 +153,45 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
     const guestName = item.authorName || 'Anonymous Guest';
     const rating = Number(item.reviewRating || 5);
     const reviewText = item.reviewText !== undefined && item.reviewText !== null ? String(item.reviewText) : '';
-    let platform = item.provider || 'Google';
-    const lowerP = platform.toLowerCase().trim();
-    if (lowerP.includes('google')) {
-      platform = 'Google';
-    } else if (lowerP.includes('booking')) {
-      platform = 'Booking';
-    } else if (lowerP.includes('tripadvisor') || lowerP.includes('trip advisor')) {
-      platform = 'TripAdvisor';
-    } else if (lowerP.includes('expedia')) {
-      platform = 'Expedia';
-    } else if (lowerP.includes('hotels.com') || lowerP.includes('hotelscom') || lowerP.includes('hotels com')) {
-      platform = 'Hotels.com';
-    } else if (lowerP.includes('airbnb')) {
-      platform = 'Airbnb';
-    } else if (lowerP.includes('yelp')) {
-      platform = 'Yelp';
+    const originalProvider = item.provider || 'Google';
+    const reviewUrl = item.reviewUrl || '';
+    const placeUrl = item.placeUrl || '';
+
+    const checkUrlPlatform = (u: string) => {
+      const urlLower = u.toLowerCase();
+      if (urlLower.includes('tripadvisor.com')) return 'TripAdvisor';
+      if (urlLower.includes('booking.com')) return 'Booking';
+      if (urlLower.includes('hotels.com')) return 'Hotels.com';
+      if (urlLower.includes('expedia.')) return 'Expedia';
+      if (urlLower.includes('airbnb.')) return 'Airbnb';
+      if (urlLower.includes('yelp.')) return 'Yelp';
+      if (urlLower.includes('google.') || urlLower.includes('maps.google.')) return 'Google';
+      return null;
+    };
+
+    let platform = checkUrlPlatform(reviewUrl);
+    if (!platform) {
+      platform = checkUrlPlatform(placeUrl);
+    }
+    if (!platform) {
+      const lowerP = originalProvider.toLowerCase().trim();
+      if (lowerP.includes('google')) {
+        platform = 'Google';
+      } else if (lowerP.includes('booking')) {
+        platform = 'Booking';
+      } else if (lowerP.includes('tripadvisor') || lowerP.includes('trip advisor')) {
+        platform = 'TripAdvisor';
+      } else if (lowerP.includes('expedia')) {
+        platform = 'Expedia';
+      } else if (lowerP.includes('hotels.com') || lowerP.includes('hotelscom') || lowerP.includes('hotels com')) {
+        platform = 'Hotels.com';
+      } else if (lowerP.includes('airbnb')) {
+        platform = 'Airbnb';
+      } else if (lowerP.includes('yelp')) {
+        platform = 'Yelp';
+      } else {
+        platform = 'Google';
+      }
     }
     
     let reviewDate: string | null = null;
@@ -209,11 +232,14 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
       ownerResponseDate,
       hasOwnerResponse,
       source: "hotel-review-aggregator",
-      originalProvider: platform,
+      originalProvider,
+      detectedPlatform: platform,
       originalData: item,
+      placeUrl: placeUrl || null,
+      reviewUrl: reviewUrl || null,
       
       // Extra fields
-      reviewUrl: item.reviewUrl || null,
+      reviewUrlField: item.reviewUrl || null,
       reviewId: item.reviewId || null,
       language: item.language || null,
       reviewerImage: item.reviewerImage || null,
