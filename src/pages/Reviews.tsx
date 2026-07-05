@@ -1352,8 +1352,16 @@ export default function Reviews() {
               }
             } else {
               const cleanMsg = cleanErrorMessage(aggText, `Aggregator error status ${aggResponse.status}`);
-              finalResults.Google.errors.push({ message: cleanMsg });
-              finalResults["Booking.com"].errors.push({ message: cleanMsg });
+              let rawObj: any = null;
+              try { if (aggText.trim().startsWith('{')) rawObj = JSON.parse(aggText); } catch (_) {}
+              const errPayload = {
+                message: cleanMsg,
+                action: rawObj?.action || 'import-hotel-review-aggregator',
+                stack: rawObj?.stack,
+                elapsedMs: rawObj?.elapsedMs
+              };
+              finalResults.Google.errors.push(errPayload);
+              finalResults["Booking.com"].errors.push(errPayload);
             }
           } else {
             finalResults.Google.errors.push({ message: "No Google Maps URL or Place ID configured." });
@@ -1361,8 +1369,16 @@ export default function Reviews() {
           }
         } catch (e: any) {
           const cleanMsg = cleanErrorMessage(e.message || String(e), 'Aggregator network exception');
-          finalResults.Google.errors.push({ message: cleanMsg });
-          finalResults["Booking.com"].errors.push({ message: cleanMsg });
+          let rawObj: any = null;
+          try { if (typeof e.message === 'string' && e.message.trim().startsWith('{')) rawObj = JSON.parse(e.message); } catch (_) {}
+          const errPayload = {
+            message: cleanMsg,
+            action: rawObj?.action || 'import-hotel-review-aggregator',
+            stack: rawObj?.stack || e.stack,
+            elapsedMs: rawObj?.elapsedMs
+          };
+          finalResults.Google.errors.push(errPayload);
+          finalResults["Booking.com"].errors.push(errPayload);
         }
 
         // B) TripAdvisor (Legacy)
@@ -1389,10 +1405,24 @@ export default function Reviews() {
               finalResults.TripAdvisor.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
               if (res.errors) finalResults.TripAdvisor.errors.push(...res.errors);
             } else {
-              finalResults.TripAdvisor.errors.push({ message: cleanErrorMessage(text, `TripAdvisor error status ${response.status}`) });
+              let rawObj: any = null;
+              try { if (text.trim().startsWith('{')) rawObj = JSON.parse(text); } catch (_) {}
+              finalResults.TripAdvisor.errors.push({
+                message: cleanErrorMessage(text, `TripAdvisor error status ${response.status}`),
+                action: rawObj?.action || 'import-tripadvisor',
+                stack: rawObj?.stack,
+                elapsedMs: rawObj?.elapsedMs
+              });
             }
           } catch (e: any) {
-            finalResults.TripAdvisor.errors.push({ message: cleanErrorMessage(e.message || String(e), 'TripAdvisor network exception') });
+            let rawObj: any = null;
+            try { if (typeof e.message === 'string' && e.message.trim().startsWith('{')) rawObj = JSON.parse(e.message); } catch (_) {}
+            finalResults.TripAdvisor.errors.push({
+              message: cleanErrorMessage(e.message || String(e), 'TripAdvisor network exception'),
+              action: rawObj?.action || 'import-tripadvisor',
+              stack: rawObj?.stack || e.stack,
+              elapsedMs: rawObj?.elapsedMs
+            });
           }
         }
 
@@ -1426,10 +1456,24 @@ export default function Reviews() {
               finalResults["Hotels.com"].estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
               if (res.errors) finalResults["Hotels.com"].errors.push(...res.errors);
             } else {
-              finalResults["Hotels.com"].errors.push({ message: cleanErrorMessage(text, `Hotels.com error status ${response.status}`) });
+              let rawObj: any = null;
+              try { if (text.trim().startsWith('{')) rawObj = JSON.parse(text); } catch (_) {}
+              finalResults["Hotels.com"].errors.push({
+                message: cleanErrorMessage(text, `Hotels.com error status ${response.status}`),
+                action: rawObj?.action || 'import-hotelscom',
+                stack: rawObj?.stack,
+                elapsedMs: rawObj?.elapsedMs
+              });
             }
           } catch (e: any) {
-            finalResults["Hotels.com"].errors.push({ message: cleanErrorMessage(e.message || String(e), 'Hotels.com network exception') });
+            let rawObj: any = null;
+            try { if (typeof e.message === 'string' && e.message.trim().startsWith('{')) rawObj = JSON.parse(e.message); } catch (_) {}
+            finalResults["Hotels.com"].errors.push({
+              message: cleanErrorMessage(e.message || String(e), 'Hotels.com network exception'),
+              action: rawObj?.action || 'import-hotelscom',
+              stack: rawObj?.stack || e.stack,
+              elapsedMs: rawObj?.elapsedMs
+            });
           }
         }
 
@@ -1457,10 +1501,24 @@ export default function Reviews() {
               finalResults.HolidayCheck.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
               if (res.errors) finalResults.HolidayCheck.errors.push(...res.errors);
             } else {
-              finalResults.HolidayCheck.errors.push({ message: cleanErrorMessage(text, `HolidayCheck error status ${response.status}`) });
+              let rawObj: any = null;
+              try { if (text.trim().startsWith('{')) rawObj = JSON.parse(text); } catch (_) {}
+              finalResults.HolidayCheck.errors.push({
+                message: cleanErrorMessage(text, `HolidayCheck error status ${response.status}`),
+                action: rawObj?.action || 'import-holidaycheck',
+                stack: rawObj?.stack,
+                elapsedMs: rawObj?.elapsedMs
+              });
             }
           } catch (e: any) {
-            finalResults.HolidayCheck.errors.push({ message: cleanErrorMessage(e.message || String(e), 'HolidayCheck network exception') });
+            let rawObj: any = null;
+            try { if (typeof e.message === 'string' && e.message.trim().startsWith('{')) rawObj = JSON.parse(e.message); } catch (_) {}
+            finalResults.HolidayCheck.errors.push({
+              message: cleanErrorMessage(e.message || String(e), 'HolidayCheck network exception'),
+              action: rawObj?.action || 'import-holidaycheck',
+              stack: rawObj?.stack || e.stack,
+              elapsedMs: rawObj?.elapsedMs
+            });
           }
         }
 
@@ -2476,13 +2534,20 @@ export default function Reviews() {
               return (
                 <div className="space-y-2 border-t border-slate-200 pt-4">
                   <h4 className="font-bold text-rose-600 text-xs">Hata Detayları:</h4>
-                  <div className="max-h-36 overflow-y-auto space-y-2 bg-rose-50 p-3 rounded-xl border border-rose-100 font-mono text-[10px]">
+                  <div className="max-h-56 overflow-y-auto space-y-3 bg-rose-50 p-3 rounded-xl border border-rose-100 font-sans text-[10px]">
                     {allErrors.map(([platform, stats]: [any, any]) => (
-                      <div key={platform}>
-                        <div className="font-bold text-rose-800 mb-0.5">{platform}:</div>
+                      <div key={platform} className="space-y-1">
+                        <div className="font-bold text-rose-900 border-b border-rose-200/50 pb-0.5 text-xs">{platform}:</div>
                         {stats.errors.map((err: any, idx: number) => (
-                          <div key={idx} className="text-rose-700 ml-2">
-                            - {err.message || String(err)}
+                          <div key={idx} className="text-rose-700 ml-2 space-y-1 bg-white/60 p-2 rounded border border-rose-200/40">
+                            <div className="font-semibold text-rose-800">Hata: <span className="font-normal text-rose-750">{err.message || String(err)}</span></div>
+                            {err.action && <div><span className="font-bold text-slate-505">İşlem:</span> <span className="font-mono text-[9px] bg-slate-100 px-1 py-0.5 rounded text-slate-700">{err.action}</span></div>}
+                            {err.elapsedMs && <div><span className="font-bold text-slate-505">Süre:</span> <span className="font-semibold text-slate-700">{Math.round(err.elapsedMs / 100) / 10}s</span></div>}
+                            {err.stack && (
+                              <div className="mt-1 bg-slate-900 text-slate-200 p-2 rounded overflow-x-auto font-mono text-[9px] max-h-32 leading-normal select-all">
+                                {err.stack}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -470,11 +470,6 @@ async function translateText(text: string, targetLang: string): Promise<string> 
     return chunks;
   }
 
-  const sourceLang = detectLanguage(text);
-  if (sourceLang === targetLang) {
-    return text;
-  }
-
   // Fallback to MyMemory translation API with chunking support
   try {
     console.log(`[Translate API] Translating via MyMemory chunks from ${sourceLang} to ${targetLang}...`);
@@ -985,6 +980,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const action = req.query.action || req.body?.action || 'import';
+
+  if (action === 'health') {
+    return res.status(200).json({ success: true, runtime: "ok" });
+  }
 
   // Authorization check
   const authHeader = req.headers.authorization;
@@ -1991,8 +1990,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
     }
 
+    const startTime = Date.now();
     try {
-      const startTime = Date.now();
       // Self-healing: Correct any legacy platform names to 'Google'
       try {
         await supabaseAdmin
@@ -2123,7 +2122,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       for (const r of scrapedReviews) {
         try {
-          if (!r.reviewDate && effectiveMode === 'daily_sync') {
+          if (!r.reviewDate && (googleSyncMode === 'incremental_sync' || bookingSyncMode === 'incremental_sync')) {
             r.reviewDate = new Date().toISOString();
             r.metadata = r.metadata || {};
             r.metadata.display_date = "Yeni";
@@ -2424,12 +2423,21 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       if (parsedError) {
         return res.status(500).json({
           success: false,
-          error: "Apify Aggregator Service returned a non-JSON or error response.",
+          error: parsedError.message || "Apify Aggregator Service returned a non-JSON or error response.",
+          stack: err.stack || String(err),
+          action: 'import-hotel-review-aggregator',
+          elapsedMs: elapsed,
           ...parsedError
         });
       }
 
-      return res.status(500).json({ success: false, error: err.message || String(err) });
+      return res.status(500).json({
+        success: false,
+        error: err.message || String(err),
+        stack: err.stack || String(err),
+        action: 'import-hotel-review-aggregator',
+        elapsedMs: elapsed
+      });
     }
   }
 
@@ -2448,8 +2456,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(400).json({ success: false, error: 'Missing hotelId or tripadvisorUrl parameter' });
     }
 
+    const startTime = Date.now();
     try {
-      const startTime = Date.now();
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
       if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
@@ -2608,7 +2616,13 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const elapsed = Date.now() - startTime;
       console.error('[API import-tripadvisor] Failure:', err);
       logPlatformError('TripAdvisor', 'import-tripadvisor', req, 500, err.message || String(err), elapsed, err);
-      return res.status(500).json({ success: false, error: err.message || String(err) });
+      return res.status(500).json({
+        success: false,
+        error: err.message || String(err),
+        stack: err.stack || String(err),
+        action: 'import-tripadvisor',
+        elapsedMs: elapsed
+      });
     }
   }
 
@@ -2625,8 +2639,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
     }
 
+    const startTime = Date.now();
     try {
-      const startTime = Date.now();
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
       if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
@@ -2788,7 +2802,13 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const elapsed = Date.now() - startTime;
       console.error('[HolidayCheck Import] error:', err);
       logPlatformError('HolidayCheck', 'import-holidaycheck', req, 500, err.message || String(err), elapsed, err);
-      return res.status(500).json({ success: false, error: err.message || String(err) });
+      return res.status(500).json({
+        success: false,
+        error: err.message || String(err),
+        stack: err.stack || String(err),
+        action: 'import-holidaycheck',
+        elapsedMs: elapsed
+      });
     }
   }
 
@@ -2805,8 +2825,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
     }
 
+    const startTime = Date.now();
     try {
-      const startTime = Date.now();
       const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
       let userRole = userRolesData?.[0]?.roles?.name;
       if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
@@ -2974,7 +2994,13 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const elapsed = Date.now() - startTime;
       console.error('[Hotels.com Import] error:', err);
       logPlatformError('Hotels.com', 'import-hotelscom', req, 500, err.message || String(err), elapsed, err);
-      return res.status(500).json({ success: false, error: err.message || String(err) });
+      return res.status(500).json({
+        success: false,
+        error: err.message || String(err),
+        stack: err.stack || String(err),
+        action: 'import-hotelscom',
+        elapsedMs: elapsed
+      });
     }
   }
 
