@@ -70,9 +70,11 @@ export function ReviewFilters({
           className="w-full px-3.5 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100/50 border border-slate-200/60 text-xs focus:outline-none focus:border-indigo-600 text-slate-700 font-bold cursor-pointer transition-all appearance-none"
         >
           <option value="">📍 Tüm Durumlar</option>
-          <option value="draft">Taslak</option>
-          <option value="waiting_approval">Onay Bekleyen</option>
-          <option value="published">Yayınlandı</option>
+          <option value="pending">Yanıt Bekleyen</option>
+          <option value="draft">Taslak Hazır</option>
+          <option value="approved">Onaylandı</option>
+          <option value="manual_replied">Manuel Cevaplandı</option>
+          <option value="archived">Arşivde</option>
         </select>
         <div className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-450 text-[10px] font-bold">
           ▼

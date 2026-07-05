@@ -1222,11 +1222,11 @@ export const reviewService = {
       const found = testReviews.find(r => r.id === id);
       if (found) {
         found.response = responseText;
-        found.status = 'published';
+        found.status = 'approved';
       }
       return found || testReviews[0];
     }
-    return await this.performReviewAction({ reviewId: id, actionType: 'published', responseText });
+    return await reviewRepository.submitResponse(id, responseText);
   },
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
@@ -1238,7 +1238,7 @@ export const reviewService = {
       }
       return found || testReviews[0];
     }
-    return await this.performReviewAction({ reviewId: id, actionType: 'edited', responseText });
+    return await reviewRepository.saveResponseDraft(id, responseText);
   },
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
@@ -1262,15 +1262,9 @@ export const reviewService = {
       return found || testReviews[0];
     }
 
-    let actionType: 'approved' | 'published' | 'sent_to_whatsapp' | 'regenerated' | 'edited' = 'edited';
+    const updatedReview = await reviewRepository.updateReviewStatus(id, status);
+
     const sLower = String(status).toLowerCase();
-    if (sLower === 'approved') actionType = 'approved';
-    else if (sLower === 'published') actionType = 'published';
-    else if (sLower === 'pending_approval' || sLower === 'waiting_approval') actionType = 'sent_to_whatsapp';
-    else if (sLower === 'draft') actionType = 'edited';
-
-    const updatedReview = await this.performReviewAction({ reviewId: id, actionType });
-
     if (sLower === 'waiting_approval' || sLower === 'pending_approval') {
       try {
         const { notificationService } = await import('./notificationService');
