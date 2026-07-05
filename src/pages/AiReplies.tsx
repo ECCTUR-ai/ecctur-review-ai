@@ -399,29 +399,12 @@ export default function AiReplies() {
       }
 
       q = q
-        .order('effective_date', { ascending: isAsc, nullsFirst: false })
+        .order('review_date', { ascending: isAsc, nullsFirst: false })
+        .order('created_at', { ascending: isAsc })
         .range(startOffset, startOffset + LIMIT - 1);
 
-      let { data, count, error } = await q;
-
-      if (error && (error.message?.includes('effective_date') || error.code === '42703')) {
-        console.warn('[AiReplies] effective_date column missing, falling back to review_date & created_at');
-        let fallbackQ = getQuery();
-        if (allowedReviewIds) {
-          fallbackQ = fallbackQ.in('id', allowedReviewIds);
-        }
-        fallbackQ = fallbackQ
-          .order('review_date', { ascending: isAsc, nullsFirst: false })
-          .order('created_at', { ascending: isAsc })
-          .range(startOffset, startOffset + LIMIT - 1);
-        
-        const fallbackRes = await fallbackQ;
-        if (fallbackRes.error) throw fallbackRes.error;
-        data = fallbackRes.data;
-        count = fallbackRes.count;
-      } else if (error) {
-        throw error;
-      }
+      const { data, count, error } = await q;
+      if (error) throw error;
 
       const mappedReviews = (data || []).map(mapReview);
 

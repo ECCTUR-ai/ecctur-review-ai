@@ -346,23 +346,25 @@ export default function Reviews() {
     reviews = reviews.filter(r => matchesDepartment(r, departmentParam));
   }
 
-  // Sort reviews: priority review_date, fallback created_at, dateless at the bottom
+  // Sort reviews: priority review_date, fallback created_at, dateless (Tarih yok) at the bottom
   reviews = [...reviews].sort((a, b) => {
-    const dateA = a.review_date || a.created_at || '';
-    const dateB = b.review_date || b.created_at || '';
+    const hasDateA = !!a.review_date;
+    const hasDateB = !!b.review_date;
 
-    if (!dateA && !dateB) return 0;
-    if (!dateA) return 1;
-    if (!dateB) return -1;
-
-    const timeA = new Date(dateA).getTime();
-    const timeB = new Date(dateB).getTime();
-
-    if (sortBy === 'oldest') {
-      return timeA - timeB;
-    } else {
-      return timeB - timeA;
+    // Rule 4: Tarihi (review_date) olmayan kayıtlar listenin en altında kalsın.
+    if (!hasDateA && !hasDateB) {
+      // Both have no review_date, sort by created_at fallback
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return sortBy === 'oldest' ? timeA - timeB : timeB - timeA;
     }
+    if (!hasDateA) return 1; // a has no review_date, goes to bottom
+    if (!hasDateB) return -1; // b has no review_date, goes to bottom
+
+    // Both have review_date, sort by review_date
+    const timeA = new Date(a.review_date!).getTime();
+    const timeB = new Date(b.review_date!).getTime();
+    return sortBy === 'oldest' ? timeA - timeB : timeB - timeA;
   });
 
   const totalReviews = reviews.length;
