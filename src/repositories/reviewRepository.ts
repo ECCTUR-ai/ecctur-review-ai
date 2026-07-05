@@ -58,6 +58,9 @@ export function mapReview(item: any): Review {
     google_reply_status: item.google_reply_status || null,
     google_reply_published_at: item.google_reply_published_at || null,
     google_reply_error: item.google_reply_error || null,
+    department_analysis: item.department_analysis || null,
+    quality_analysis: item.quality_analysis || null,
+    priority_analysis: item.priority_analysis || null,
     aiAnalysis: item.ai_analysis || item.review_analysis ? {
       sentiment: (item.sentiment || item.ai_analysis?.sentiment || item.review_analysis?.sentiment || 'neutral').toLowerCase() as Sentiment,
       emotion: item.ai_analysis?.emotion || item.review_analysis?.emotion || '',

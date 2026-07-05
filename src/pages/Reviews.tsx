@@ -60,6 +60,48 @@ const formatImportPopupMessage = (platform: string, res: any) => {
   return `${platform} Reviews Senkronizasyonu\n\nMod:\n${modeText}\n\nToplam Kontrol Edilen: ${fetchedCount}\nYeni Eklenen: ${insertedCount}\nDuplicate Atlanan: ${duplicateCount}\nHata Sayısı: ${failedCount}`;
 };
 
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  yemek: ['yemek', 'restoran', 'kahvaltı', 'buffet', 'açık büfe', 'food', 'breakfast', 'dinner'],
+  oda: ['oda', 'room', 'yatak', 'banyo', 'minibar', 'klima'],
+  personel: ['personel', 'staff', 'çalışan', 'hizmet', 'service'],
+  otopark: ['otopark', 'parking', 'park'],
+  havuz: ['havuz', 'pool', 'aqua'],
+  plaj: ['plaj', 'beach', 'deniz', 'şezlong', 'kum'],
+  temizlik: ['temizlik', 'clean', 'hijyen', 'housekeeping'],
+  konum: ['konum', 'location', 'ulaşım'],
+  manzara: ['manzara', 'view', 'sea view'],
+  fiyat: ['fiyat', 'price', 'performance', 'value']
+};
+
+function matchesCategory(review: any, categoryKey: string): boolean {
+  const keywords = CATEGORY_KEYWORDS[categoryKey.toLowerCase()];
+  if (!keywords) return false;
+
+  const commentText = (review.comment || '').toLowerCase();
+
+  const stringifyForSearch = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val.toLowerCase();
+    if (typeof val === 'object') {
+      try {
+        return JSON.stringify(val).toLowerCase();
+      } catch (e) {
+        return '';
+      }
+    }
+    return String(val).toLowerCase();
+  };
+
+  const deptAnalysis = stringifyForSearch(review.department_analysis);
+  const qualAnalysis = stringifyForSearch(review.quality_analysis);
+  const prioAnalysis = stringifyForSearch(review.priority_analysis);
+  const metadata = stringifyForSearch(review.metadata);
+
+  const combinedText = `${commentText} ${deptAnalysis} ${qualAnalysis} ${prioAnalysis} ${metadata}`;
+
+  return keywords.some(kw => combinedText.includes(kw.toLowerCase()));
+}
+
 export default function Reviews() {
   const { t } = useTranslation();
   const { hotelIds, roleKey } = useAuth();
@@ -70,6 +112,8 @@ export default function Reviews() {
   const departmentParam = searchParams.get('department');
   const fromParam = searchParams.get('from');
   const toParam = searchParams.get('to');
+  const sentimentParam = searchParams.get('sentiment');
+  const categoryParam = searchParams.get('category');
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
   // Query Filters state persisted globally
@@ -488,6 +532,16 @@ export default function Reviews() {
   if (departmentParam) {
     baseReviewsForCounts = baseReviewsForCounts.filter(r => matchesDepartment(r, departmentParam));
   }
+  if (sentimentParam) {
+    baseReviewsForCounts = baseReviewsForCounts.filter((r: any) => {
+      if (sentimentParam === 'positive') return r.rating >= 4;
+      if (sentimentParam === 'negative') return r.rating <= 3;
+      return true;
+    });
+  }
+  if (categoryParam) {
+    baseReviewsForCounts = baseReviewsForCounts.filter((r: any) => matchesCategory(r, categoryParam));
+  }
 
   const googleCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'google').length;
   const tripadvisorCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'tripadvisor').length;
@@ -523,6 +577,16 @@ export default function Reviews() {
   // Filter reviews by department query parameter if present using utility matchesDepartment
   if (departmentParam) {
     reviews = reviews.filter(r => matchesDepartment(r, departmentParam));
+  }
+  if (sentimentParam) {
+    reviews = reviews.filter((r: any) => {
+      if (sentimentParam === 'positive') return r.rating >= 4;
+      if (sentimentParam === 'negative') return r.rating <= 3;
+      return true;
+    });
+  }
+  if (categoryParam) {
+    reviews = reviews.filter((r: any) => matchesCategory(r, categoryParam));
   }
 
   // Sort reviews: priority review_date, fallback created_at, dateless (Tarih yok) at the bottom
@@ -2074,6 +2138,42 @@ export default function Reviews() {
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-0.5 rounded transition-all text-[10px]"
                   >
                     Temizle
+                  </button>
+                </div>
+              )}
+
+              {(sentimentParam || categoryParam) && (
+                <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs px-4 py-2.5 rounded-xl flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                    <span className="font-semibold">
+                      Filtre: {sentimentParam === 'negative' ? 'Olumsuz' : sentimentParam === 'positive' ? 'Olumlu' : ''}
+                      {sentimentParam && categoryParam && ' + '}
+                      {categoryParam && (
+                        categoryParam === 'yemek' ? 'Yemek & Restoran' :
+                        categoryParam === 'oda' ? 'Oda Konforu' :
+                        categoryParam === 'personel' ? 'Personel & Hizmet' :
+                        categoryParam === 'otopark' ? 'Otopark Alanı' :
+                        categoryParam === 'havuz' ? 'Havuz & Aqua' :
+                        categoryParam === 'plaj' ? 'Plaj & Kum' :
+                        categoryParam === 'temizlik' ? 'Temizlik Kalitesi' :
+                        categoryParam === 'konum' ? 'Konum & Ulaşım' :
+                        categoryParam === 'manzara' ? 'Manzara' :
+                        categoryParam === 'fiyat' ? 'Fiyat / Performans' : categoryParam
+                      )}
+                      {` (${reviews.length} yorum listeleniyor)`}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.delete('sentiment');
+                      newParams.delete('category');
+                      setSearchParams(newParams);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-lg transition-all text-[10px] cursor-pointer"
+                  >
+                    Filtreyi Temizle
                   </button>
                 </div>
               )}

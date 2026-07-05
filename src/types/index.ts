@@ -40,6 +40,9 @@ export interface Review {
   google_reply_status?: 'published' | 'mock_published' | 'error' | null;
   google_reply_published_at?: string | null;
   google_reply_error?: string | null;
+  department_analysis?: any;
+  quality_analysis?: any;
+  priority_analysis?: any;
 }
 
 export interface Department {

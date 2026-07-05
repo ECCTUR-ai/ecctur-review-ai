@@ -691,7 +691,7 @@ export default function Dashboard() {
       });
       const count = matching.length;
       const negativeCount = matching.filter((r: any) => r.rating <= 3).length;
-      return { label: issue.label, count, negativeCount };
+      return { key: issue.key, label: issue.label, count, negativeCount };
     }).sort((a: any, b: any) => b.negativeCount - a.negativeCount);
 
     const praisesData = matchPraises.map((praise: any) => {
@@ -701,7 +701,7 @@ export default function Dashboard() {
       });
       const count = matching.length;
       const positiveCount = matching.filter((r: any) => r.rating >= 4).length;
-      return { label: praise.label, count, positiveCount };
+      return { key: praise.key, label: praise.label, count, positiveCount };
     }).sort((a: any, b: any) => b.positiveCount - a.positiveCount);
 
     const getDynamicInsight = (platformName: string) => {
@@ -1276,13 +1276,24 @@ export default function Dashboard() {
               {issuesData.slice(0, 6).map((issue: any, idx: number) => {
                 const percent = (allReviewsForStats as any)?.length ? Math.min(100, Math.round((issue.negativeCount / (allReviewsForStats as any).length) * 100)) : 0;
                 return (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-medium">
-                      <span className="text-slate-700">{issue.label}</span>
-                      <span className="text-rose-600 font-bold">{issue.negativeCount} Olumsuz Geri Bildirim</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-rose-500 h-full rounded-full" style={{ width: `${percent || 5}%` }}></div>
+                  <div 
+                    key={idx} 
+                    onClick={() => window.location.href = `/reviews?sentiment=negative&category=${issue.key}`}
+                    className="p-2.5 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/70 transition-all duration-200 cursor-pointer group/row relative"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-slate-700 font-semibold group-hover/row:text-indigo-650 transition-colors flex items-center gap-1.5">
+                          {issue.label}
+                          <span className="text-[10px] text-slate-400 opacity-0 group-hover/row:opacity-100 transition-opacity font-bold uppercase tracking-wider pl-1">
+                            Yorumları Gör →
+                          </span>
+                        </span>
+                        <span className="text-rose-600 font-bold">{issue.negativeCount} Olumsuz Geri Bildirim</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-rose-500 h-full rounded-full transition-all" style={{ width: `${percent || 5}%` }}></div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1300,13 +1311,24 @@ export default function Dashboard() {
               {praisesData.slice(0, 6).map((praise: any, idx: number) => {
                 const percent = (allReviewsForStats as any)?.length ? Math.min(100, Math.round((praise.positiveCount / (allReviewsForStats as any).length) * 100)) : 0;
                 return (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-medium">
-                      <span className="text-slate-700">{praise.label}</span>
-                      <span className="text-emerald-600 font-bold">{praise.positiveCount} Olumlu Geri Bildirim</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${percent || 5}%` }}></div>
+                  <div 
+                    key={idx} 
+                    onClick={() => window.location.href = `/reviews?sentiment=positive&category=${praise.key}`}
+                    className="p-2.5 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/70 transition-all duration-200 cursor-pointer group/row relative"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-slate-700 font-semibold group-hover/row:text-indigo-650 transition-colors flex items-center gap-1.5">
+                          {praise.label}
+                          <span className="text-[10px] text-slate-400 opacity-0 group-hover/row:opacity-100 transition-opacity font-bold uppercase tracking-wider pl-1">
+                            Yorumları Gör →
+                          </span>
+                        </span>
+                        <span className="text-emerald-600 font-bold">{praise.positiveCount} Olumlu Geri Bildirim</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${percent || 5}%` }}></div>
+                      </div>
                     </div>
                   </div>
                 );
