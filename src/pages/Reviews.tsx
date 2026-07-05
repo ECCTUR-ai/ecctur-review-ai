@@ -1910,18 +1910,18 @@ export default function Reviews() {
       )}
 
       {/* Platform Summary Counters */}
-      <div className="flex flex-wrap gap-2 mb-4 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-9 gap-3 mb-6">
         {(() => {
           const platformTabs = [
-            { key: '', label: 'Tümü', count: allCount, activeClass: 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-slate-100 text-slate-600', dotColor: '' },
-            { key: 'Google', label: 'Google Reviews', count: googleCount, activeClass: 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-blue-50 text-blue-600', dotColor: 'bg-blue-500' },
-            { key: 'Booking', label: 'Booking.com', count: bookingCount, activeClass: 'bg-sky-600 border-sky-600 text-white shadow-sm shadow-sky-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-sky-50 text-sky-600', dotColor: 'bg-sky-500' },
-            { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-emerald-50 text-emerald-600', dotColor: 'bg-emerald-500' },
-            { key: 'Hotels.com', label: 'Hotels.com', count: hotelscomCount, activeClass: 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-indigo-50 text-indigo-600', dotColor: 'bg-indigo-500' },
-            { key: 'Expedia', label: 'Expedia', count: expediaCount, activeClass: 'bg-amber-600 border-amber-600 text-white shadow-sm shadow-amber-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-amber-50 text-amber-600', dotColor: 'bg-amber-500' },
-            { key: 'Airbnb', label: 'Airbnb', count: airbnbCount, activeClass: 'bg-rose-600 border-rose-600 text-white shadow-sm shadow-rose-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-rose-50 text-rose-600', dotColor: 'bg-rose-500' },
-            { key: 'Yelp', label: 'Yelp', count: yelpCount, activeClass: 'bg-red-600 border-red-600 text-white shadow-sm shadow-red-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-red-50 text-red-600', dotColor: 'bg-red-500' },
-            { key: 'HolidayCheck', label: 'HolidayCheck', count: holidaycheckCount, activeClass: 'bg-pink-600 border-pink-600 text-white shadow-sm shadow-pink-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-pink-50 text-pink-600', dotColor: 'bg-pink-500' }
+            { key: '', label: 'Tümü', count: allCount, icon: <span className="text-[14px]">🌐</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'Google', label: 'Google', count: googleCount, icon: <span className="text-[14px]">🔵</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'Booking', label: 'Booking', count: bookingCount, icon: <span className="text-[14px]">🔷</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, icon: <span className="text-[14px]">🟢</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'Hotels.com', label: 'Hotels', count: hotelscomCount, icon: <span className="text-[14px]">🟣</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'HolidayCheck', label: 'HolidayCheck', count: holidaycheckCount, icon: <span className="text-[14px]">💗</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'Expedia', label: 'Expedia', count: expediaCount, icon: <span className="text-[14px]">🟡</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'Airbnb', label: 'Airbnb', count: airbnbCount, icon: <span className="text-[14px]">🔴</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+            { key: 'Yelp', label: 'Yelp', count: yelpCount, icon: <span className="text-[14px]">🟥</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' }
           ];
 
           return platformTabs.map((tab) => {
@@ -1930,17 +1930,19 @@ export default function Reviews() {
               <button
                 key={tab.label}
                 onClick={() => setSource(tab.key as any)}
-                className={`px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
+                className={`p-3 rounded-2xl bg-white border transition-all duration-200 cursor-pointer flex flex-col justify-between items-start gap-2 shadow-sm text-left hover:border-slate-350 hover:scale-[1.02] ${
                   isActive
-                    ? tab.activeClass
-                    : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+                    ? `${tab.activeBorder} scale-[1.02] border-indigo-600`
+                    : 'border-slate-100 text-slate-655'
                 }`}
               >
-                {tab.dotColor && <span className={`w-1.5 h-1.5 rounded-full ${tab.dotColor} shrink-0`} />}
-                <span>{tab.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${isActive ? tab.countBgActive : tab.countBgInactive}`}>
-                  {tab.count}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="shrink-0">{tab.icon}</span>
+                  <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">{tab.label}</span>
+                </div>
+                <div className="text-xs font-black text-slate-600">
+                  {tab.count} <span className="text-[9px] font-semibold text-slate-400 uppercase">Yorum</span>
+                </div>
               </button>
             );
           });
@@ -2077,16 +2079,16 @@ export default function Reviews() {
 
               {/* Pagination controls */}
               {totalReviews > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-slate-100 text-[11px] text-slate-500 font-semibold bg-white p-4 rounded-3xl shadow-sm">
                   <div>
-                    Toplam <span className="font-semibold text-slate-700">{totalReviews}</span> yorumdan{' '}
-                    <span className="font-semibold text-slate-700">{totalReviews === 0 ? 0 : startIndex + 1}</span>-
-                    <span className="font-semibold text-slate-700">{endIndex}</span> arası gösteriliyor
+                    Toplam <span className="font-bold text-slate-800">{totalReviews}</span> yorumdan{' '}
+                    <span className="font-bold text-slate-800">{totalReviews === 0 ? 0 : startIndex + 1}</span>-
+                    <span className="font-bold text-slate-800">{endIndex}</span> arası gösteriliyor
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-6">
                     {/* Page size selection */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       <span>Gösterim:</span>
                       <select
                         value={pageSize}
@@ -2094,7 +2096,7 @@ export default function Reviews() {
                           setPageSize(Number(e.target.value));
                           setCurrentPage(1);
                         }}
-                        className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 text-xs font-semibold cursor-pointer"
+                        className="px-3 h-8 rounded-xl bg-slate-50 hover:bg-slate-100/50 border border-slate-200 text-slate-700 focus:outline-none focus:border-indigo-600 text-[11px] font-bold cursor-pointer transition-all"
                       >
                         <option value={10}>10</option>
                         <option value={25}>25</option>
@@ -2103,11 +2105,11 @@ export default function Reviews() {
                     </div>
 
                     {/* Page numbers navigation */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold cursor-pointer disabled:cursor-not-allowed text-[11px]"
+                        className="px-3 h-8 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-bold cursor-pointer disabled:cursor-not-allowed text-[11px]"
                       >
                         Önceki
                       </button>
@@ -2116,9 +2118,9 @@ export default function Reviews() {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer text-[11px] ${
+                          className={`w-8 h-8 rounded-xl font-black transition-all cursor-pointer text-[11px] ${
                             currentPage === pageNum
-                              ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
                               : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
@@ -2129,7 +2131,7 @@ export default function Reviews() {
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages || totalPages === 0}
-                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold cursor-pointer disabled:cursor-not-allowed text-[11px]"
+                        className="px-3 h-8 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-bold cursor-pointer disabled:cursor-not-allowed text-[11px]"
                       >
                         Sonraki
                       </button>

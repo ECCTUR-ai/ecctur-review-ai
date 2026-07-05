@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Review } from '@/types';
 import { reviewService } from '@/services/reviewService';
 import { StarRating } from './StarRating';
-import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
 import { 
   Calendar, 
@@ -15,15 +15,14 @@ import {
   Sun,
   Sparkles,
   Eye,
-  ChevronDown,
-  ChevronUp,
   Languages,
   ArrowRight,
   Loader2,
   Check,
   RefreshCw
 } from 'lucide-react';
-import { getPlatformLabel, getPlatformColorClass } from '@/utils/platform';
+import { getPlatformLabel } from '@/utils/platform';
+import { matchesCategory } from '@/utils/categoryMappings';
 
 interface ReviewCardProps {
   review: Review;
@@ -40,8 +39,9 @@ export const ReviewCard = React.memo(function ReviewCard({
   onGenerateAiReply,
   onPublishReply
 }: ReviewCardProps) {
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [translationLang, setTranslationLang] = useState<'tr' | 'en' | 'ru' | null>(null);
+  const [translationLang, setTranslationLang] = useState<'tr' | 'en' | 'ru' | 'de' | 'fr' | 'it' | 'es' | null>(null);
   const [translationText, setTranslationText] = useState<string | null>(null);
   
   // AI Response states
@@ -50,6 +50,7 @@ export const ReviewCard = React.memo(function ReviewCard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const getPlatformIcon = () => {
     switch (review.source as any) {
@@ -69,18 +70,6 @@ export const ReviewCard = React.memo(function ReviewCard({
       default:
         return <MessageCircle size={13} className="text-slate-500" />;
     }
-  };
-
-  const getPlatformBadge = () => {
-    const rawPlat = review.source || (review as any).platform || '';
-    const name = getPlatformLabel(rawPlat);
-    const colorClass = getPlatformColorClass(rawPlat);
-    
-    return (
-      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border transition-colors ${colorClass}`}>
-        {name}
-      </span>
-    );
   };
 
   const getRelativeTime = (dateStr: string) => {
@@ -132,8 +121,6 @@ export const ReviewCard = React.memo(function ReviewCard({
     return 'Tarih yok';
   };
 
-  const [isTranslating, setIsTranslating] = useState(false);
-
   const detectLang = () => {
     const metaLang = review.metadata?.language || review.metadata?.detected_language || review.metadata?.source_language;
     if (metaLang) {
@@ -142,6 +129,9 @@ export const ReviewCard = React.memo(function ReviewCard({
       if (parsed === 'EN' || parsed === 'ENGLISH' || parsed === 'ENG') return 'EN';
       if (parsed === 'RU' || parsed === 'RUSSIAN' || parsed === 'RUS') return 'RU';
       if (parsed === 'DE' || parsed === 'GERMAN' || parsed === 'GER' || parsed === 'DEU') return 'DE';
+      if (parsed === 'FR' || parsed === 'FRENCH') return 'FR';
+      if (parsed === 'IT' || parsed === 'ITALIAN') return 'IT';
+      if (parsed === 'ES' || parsed === 'SPANISH') return 'ES';
     }
 
     const text = (review.comment || '').toLowerCase();
@@ -151,7 +141,32 @@ export const ReviewCard = React.memo(function ReviewCard({
     return 'TR';
   };
 
-  const handleTranslate = async (lang: 'tr' | 'en' | 'ru') => {
+  const getCountryFlag = () => {
+    const metaCountry = review.metadata?.country || review.metadata?.country_code;
+    if (metaCountry) {
+      const cUpper = String(metaCountry).toUpperCase();
+      if (['TR', 'TURKEY', 'TÜRKIYE'].some(x => cUpper.includes(x))) return '🇹🇷';
+      if (['RU', 'RUSSIA', 'RUSYA'].some(x => cUpper.includes(x))) return '🇷🇺';
+      if (['DE', 'GERMANY', 'ALMANYA'].some(x => cUpper.includes(x))) return '🇩🇪';
+      if (['GB', 'UK', 'ENGLAND', 'İNGİLTERE', 'US', 'USA'].some(x => cUpper.includes(x))) return '🇬🇧';
+      if (['FR', 'FRANCE', 'FRANSA'].some(x => cUpper.includes(x))) return '🇫🇷';
+      if (['IT', 'ITALY', 'İTALYA'].some(x => cUpper.includes(x))) return '🇮🇹';
+      if (['ES', 'SPAIN', 'İSPANYA'].some(x => cUpper.includes(x))) return '🇪🇸';
+    }
+    
+    // Inferred from language
+    const lang = detectLang();
+    if (lang === 'TR') return '🇹🇷';
+    if (lang === 'RU') return '🇷🇺';
+    if (lang === 'DE') return '🇩🇪';
+    if (lang === 'EN') return '🇬🇧';
+    if (lang === 'FR') return '🇫🇷';
+    if (lang === 'IT') return '🇮🇹';
+    if (lang === 'ES') return '🇪🇸';
+    return '🌐';
+  };
+
+  const handleTranslate = async (lang: 'tr' | 'en' | 'ru' | 'de' | 'fr' | 'it' | 'es') => {
     if (translationLang === lang) {
       setTranslationLang(null);
       setTranslationText(null);
@@ -175,7 +190,7 @@ export const ReviewCard = React.memo(function ReviewCard({
     setTranslationLang(lang);
     setIsTranslating(true);
     try {
-      const translated = await reviewService.translateReview(comment, lang);
+      const translated = await reviewService.translateReview(comment, lang as any);
       
       let finalText = translated || '';
       const isBooking = (review.source || '').toLowerCase().includes('booking');
@@ -227,66 +242,205 @@ export const ReviewCard = React.memo(function ReviewCard({
     }
   };
 
-  const normalizeReviewPlatform = (p: string) => {
-    const raw = (p || '').toLowerCase();
-    if (raw.includes('google')) return 'Google';
-    if (raw.includes('booking')) return 'Booking.com';
-    if (raw.includes('tripadvisor')) return 'TripAdvisor';
-    if (raw.includes('hotels.com')) return 'Hotels.com';
-    if (raw.includes('holidaycheck')) return 'HolidayCheck';
-    return p;
+  // Dynamic category tags discovery
+  const detectedCategories = useMemo(() => {
+    const categories = [
+      { key: 'yemek', label: 'Yemek & Restoran' },
+      { key: 'oda', label: 'Oda Konforu' },
+      { key: 'personel', label: 'Personel & Hizmet' },
+      { key: 'otopark', label: 'Otopark' },
+      { key: 'havuz', label: 'Havuz' },
+      { key: 'plaj', label: 'Plaj' },
+      { key: 'temizlik', label: 'Temizlik' },
+      { key: 'klima', label: 'Klima / Teknik' },
+      { key: 'konum', label: 'Konum' },
+      { key: 'manzara', label: 'Manzara' }
+    ];
+    return categories.filter(cat => matchesCategory(review, cat.key));
+  }, [review]);
+
+  const getSentimentBadge = () => {
+    const s = review.sentiment || 'neutral';
+    if (s === 'positive') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200/50 uppercase tracking-wider">
+          Pozitif
+        </span>
+      );
+    }
+    if (s === 'negative') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-600 border border-rose-200/50 uppercase tracking-wider">
+          Negatif
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200/50 uppercase tracking-wider">
+        Nötr
+      </span>
+    );
+  };
+
+  const getPlatformLabelLocal = (plat: string) => {
+    const norm = (plat || '').toLowerCase();
+    if (norm.includes('google')) return 'Google';
+    if (norm.includes('booking')) return 'Booking.com';
+    if (norm.includes('tripadvisor')) return 'TripAdvisor';
+    if (norm.includes('hotels')) return 'Hotels.com';
+    if (norm.includes('holidaycheck')) return 'HolidayCheck';
+    return getPlatformLabel(plat);
   };
 
   return (
     <div
-      className={`p-6 rounded-2xl border transition-all duration-350 flex flex-col gap-4 group relative bg-white border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-500/[0.02] ${
+      className={`p-6 rounded-3xl border transition-all duration-200 flex flex-col md:grid md:grid-cols-12 gap-6 bg-white shadow-sm border-slate-100 hover:border-indigo-150 hover:shadow-md ${
         isSelected ? 'border-indigo-200 ring-2 ring-indigo-50/50 bg-indigo-50/[0.01]' : ''
       }`}
     >
-      {/* Top row: Avatar, Platform, Details, Actions */}
-      <div className="flex justify-between items-start gap-4 flex-wrap sm:flex-nowrap">
-        {/* Left Side: Guest Info & Meta */}
-        <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-slate-100 to-indigo-50/50 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0 border border-slate-200/50 text-xs shadow-sm">
+      {/* SOL KOLON (Left Column - Spans 3 cols) */}
+      <div className="md:col-span-3 flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-slate-100/80 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0 border border-slate-200/50 text-[11px] shadow-sm">
             {review.guestName ? review.guestName.split(' ').map(p => p[0]).join('').slice(0, 2) : 'G'}
           </div>
-          <div className="space-y-1">
-            <h4 className="text-sm font-bold text-slate-800 line-clamp-1 flex items-center gap-1.5">
-              {review.guestName}
-              <span className="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100/30">
-                {detectLang()}
-              </span>
+          <div className="space-y-0.5">
+            <h4 className="text-xs font-bold text-slate-800 line-clamp-1 flex items-center gap-1.5">
+              {review.guestName || 'Misafir'}
+              <span className="text-[10px]" title="Konuk Ülkesi">{getCountryFlag()}</span>
             </h4>
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                <Calendar size={12} className="text-slate-400" />
-                <span>{getReviewDateToShow()}</span>
+            <span className="text-[10px] text-indigo-550 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100/30">
+              {detectLang()}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5 text-[11px] text-slate-500 font-semibold border-t border-slate-50 pt-2.5">
+          <div className="flex items-center gap-1.5">
+            {getPlatformIcon()}
+            <span className="text-slate-700">{getPlatformLabelLocal(review.source || (review as any).platform)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Calendar size={12} className="text-slate-400" />
+            <span>{getReviewDateToShow()}</span>
+          </div>
+          {review.hotel && (
+            <div className="flex items-center gap-1.5">
+              <Building size={12} className="text-slate-400 shrink-0" />
+              <span className="truncate">{review.hotel}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ORTA KOLON (Middle Column - Spans 6 cols) */}
+      <div className="md:col-span-6 flex flex-col gap-3">
+        {/* Rating Badge Row */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-lg text-amber-700 text-xs font-extrabold shadow-sm shrink-0">
+            <span>{review.rating.toFixed(1)}</span>
+            <StarRating rating={review.rating} />
+          </div>
+          {getSentimentBadge()}
+          <PriorityBadge priority={review.priority} />
+        </div>
+
+        {/* Translation google-translate themed bar */}
+        <div className="flex flex-wrap items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/50 w-fit">
+          <span className="px-2 py-1 text-[9px] font-black text-slate-450 uppercase border-r border-slate-200/70 mr-1 flex items-center gap-0.5">
+            <Languages size={10} />
+            Translate
+          </span>
+          {(['tr', 'en', 'ru', 'de', 'fr', 'it', 'es'] as const).map(langCode => (
+            <button
+              key={langCode}
+              onClick={() => handleTranslate(langCode)}
+              className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
+                translationLang === langCode ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-750'
+              }`}
+            >
+              {langCode.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* Translation panel (accordion styled) */}
+        {(translationText || isTranslating) && (
+          <div className="bg-slate-50/80 border border-slate-200/60 rounded-xl overflow-hidden animate-slide-in shadow-inner">
+            <div className="flex justify-between items-center bg-slate-100/80 px-3 py-1.5 border-b border-slate-200/50 text-[9.5px]">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-slate-700">Çeviri ({translationLang?.toUpperCase()})</span>
               </div>
-              {review.hotel && (
-                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  <Building size={11} className="text-slate-400 shrink-0" />
-                  <span className="line-clamp-1">{review.hotel}</span>
+              <button
+                onClick={() => {
+                  setTranslationLang(null);
+                  setTranslationText(null);
+                }}
+                className="text-[9px] font-bold text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+              >
+                Orijinali Göster
+              </button>
+            </div>
+            <div className="p-3 text-[11.5px] text-slate-700 leading-relaxed italic">
+              {isTranslating ? (
+                <div className="flex items-center gap-2 text-slate-400 font-semibold py-1">
+                  <Loader2 size={12} className="animate-spin text-indigo-600" />
+                  <span>Çeviriliyor...</span>
                 </div>
+              ) : (
+                <p className="font-medium text-slate-800">
+                  "{translationText}"
+                </p>
               )}
             </div>
           </div>
+        )}
+
+        {/* Comment text */}
+        <div className="space-y-1.5">
+          <p className={`text-xs text-slate-650 leading-relaxed italic font-medium transition-all duration-300 ${
+            isExpanded ? '' : 'line-clamp-4'
+          }`}>
+            "{review.comment?.trim() ? review.comment : 'Yorum metni bulunmuyor'}"
+          </p>
+
+          {review.comment && review.comment.length > 150 && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-[10px] text-indigo-600 hover:text-indigo-750 font-bold transition-all cursor-pointer flex items-center gap-1 focus:outline-none"
+            >
+              {isExpanded ? (
+                <span>▲ Daha Az Göster</span>
+              ) : (
+                <span>▼ Devamını Gör</span>
+              )}
+            </button>
+          )}
         </div>
 
-        {/* Center: Rating stars & Badge Group */}
-        <div className="flex flex-col items-start sm:items-center gap-2">
-          <StarRating rating={review.rating} />
-          <div className="flex flex-wrap items-center gap-1.5">
-            {getPlatformBadge()}
-            <PriorityBadge priority={review.priority} />
-            <StatusBadge status={review.status} />
+        {/* Dynamic Category Tags */}
+        {detectedCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 border-t border-slate-50 pt-2.5 mt-1">
+            {detectedCategories.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => navigate(`/reviews?category=${cat.key}`)}
+                className="px-2.5 py-0.5 rounded-full bg-slate-50 hover:bg-indigo-50 border border-slate-200/60 hover:border-indigo-200 text-[9px] font-bold text-slate-550 hover:text-indigo-650 transition-all cursor-pointer uppercase tracking-wider"
+              >
+                #{cat.label}
+              </button>
+            ))}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Right Side: Action Buttons */}
-        <div className="flex items-center gap-2 ml-auto shrink-0">
+      {/* SAĞ KOLON (Right Column - Spans 3 cols) */}
+      <div className="md:col-span-3 flex flex-col justify-between items-end gap-4">
+        {/* Buttons row */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => onSelect(review.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-650 hover:text-slate-800 font-bold text-xs rounded-xl border border-slate-250/50 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer shadow-sm"
             title="İncele"
           >
             <Eye size={12} />
@@ -300,204 +454,139 @@ export const ReviewCard = React.memo(function ReviewCard({
                 handleAiReplyGenerate();
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs rounded-xl border transition-all cursor-pointer shadow-sm ${
-              showAiDrawer
-                ? 'bg-indigo-650 border-indigo-600 text-white hover:bg-indigo-500'
-                : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100/70'
-            }`}
+            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm shadow-indigo-500/10"
           >
             <Sparkles size={12} />
             <span>AI Yanıt</span>
           </button>
 
-          {/* Translation mini menu */}
-          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-xl p-0.5 shadow-inner">
-            <button
-              onClick={() => handleTranslate('tr')}
-              className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === 'tr' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              TR
-            </button>
-            <button
-              onClick={() => handleTranslate('en')}
-              className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === 'en' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              EN
-            </button>
-            <button
-              onClick={() => handleTranslate('ru')}
-              className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === 'ru' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              RU
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Review Comments Body with dynamic expansion */}
-      <div className="space-y-2">
-        <p className={`text-xs text-slate-650 leading-relaxed italic transition-all duration-300 ${
-          isExpanded ? '' : 'line-clamp-4'
-        }`}>
-          "{review.comment?.trim() ? review.comment : 'Yorum metni bulunmuyor'}"
-        </p>
-
-        {review.comment && review.comment.length > 150 && (
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-[10px] text-indigo-650 hover:text-indigo-755 font-bold transition-all cursor-pointer flex items-center gap-1 focus:outline-none"
+            onClick={() => onSelect(review.id)}
+            className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-850 rounded-xl border border-slate-200 transition-all cursor-pointer shadow-sm flex items-center justify-center shrink-0 w-8 h-8 font-extrabold"
+            title="Seçenekler"
           >
-            {isExpanded ? (
-              <span>▲ Daha Az Göster</span>
-            ) : (
-              <span>▼ Devamını Gör</span>
-            )}
+            •••
           </button>
-        )}
+        </div>
+
+        {/* Status card at the bottom */}
+        <div className="text-right border-t border-slate-50 pt-2.5 w-full">
+          {(review.status as string) === 'published' || (review.status as string) === 'cevaplandi' ? (
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex items-center justify-end gap-1.5">
+                <Check size={11} /> Yanıtlandı
+              </span>
+              {(review.respondedAt || review.owner_response_date) && (
+                <span className="text-[9px] text-slate-400 font-medium block">
+                  {new Date(review.respondedAt || review.owner_response_date || '').toLocaleDateString('tr-TR')}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider block">
+              ⏳ Yanıt Bekleniyor
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Translation Accordion Panel (Google Translate styled) */}
-      {(translationText || isTranslating) && (
-        <div className="bg-slate-50/70 border border-slate-200/60 rounded-xl overflow-hidden animate-slide-in shadow-inner">
-          <div className="flex justify-between items-center bg-slate-100/80 px-3.5 py-2 border-b border-slate-200/50 text-[10px]">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-blue-600 tracking-tight">G</span>
-              <span className="font-extrabold text-slate-700">Translate</span>
-              <span className="text-slate-350">|</span>
-              <span className="text-[9px] font-bold text-slate-500">
-                {isTranslating ? (
-                  `Çevriliyor (${translationLang?.toUpperCase()})...`
-                ) : detectLang().toLowerCase() === translationLang?.toLowerCase() ? (
-                  `Orijinal Metin (${translationLang?.toUpperCase()})`
-                ) : (
-                  `Birebir Çeviri (${translationLang?.toUpperCase()})`
-                )}
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                setTranslationLang(null);
-                setTranslationText(null);
-              }}
-              className="text-[9px] font-bold text-slate-550 hover:text-slate-800 hover:underline cursor-pointer"
-            >
-              Kapat
-            </button>
-          </div>
-          <div className="p-3.5 text-xs text-slate-700 leading-relaxed italic">
-            {isTranslating ? (
-              <div className="flex items-center gap-2 text-slate-400 font-semibold py-1">
-                <Loader2 size={12} className="animate-spin text-blue-500" />
-                <span>Çeviriliyor...</span>
-              </div>
-            ) : (
-              <p className="font-medium text-slate-850">
-                "{translationText}"
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* AI Reply Collapsible Drawer inside the Card */}
+      {/* AI Reply Right Slide-Over Drawer Overlay */}
       {showAiDrawer && (
-        <div className="bg-indigo-50/[0.15] border border-indigo-100/50 p-4 rounded-xl space-y-3.5 animate-slide-in">
-          <div className="flex justify-between items-center text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
-            <span className="flex items-center gap-1">
-              <Sparkles size={11} />
-              Yapay Zeka Yanıt Asistanı
-            </span>
-            <button 
-              onClick={() => setShowAiDrawer(false)}
-              className="text-slate-500 hover:text-slate-700 font-bold cursor-pointer"
-            >
-              Kapat
-            </button>
-          </div>
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-900/30 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowAiDrawer(false)} 
+          />
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            {/* Panel */}
+            <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between p-6 border-l border-slate-200 animate-slide-in-right">
+              <div className="space-y-6 flex-1 overflow-y-auto">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                  <h3 className="text-xs font-black text-slate-800 flex items-center gap-2 m-0 uppercase tracking-wider">
+                    <Sparkles className="text-purple-600" size={14} />
+                    <span>Yapay Zeka Yanıt Asistanı</span>
+                  </h3>
+                  <button 
+                    onClick={() => setShowAiDrawer(false)}
+                    className="text-slate-400 hover:text-slate-655 font-bold cursor-pointer text-xs focus:outline-none"
+                  >
+                    Kapat
+                  </button>
+                </div>
 
-          <div className="relative">
-            <textarea
-              value={aiReplyText}
-              onChange={(e) => setAiReplyText(e.target.value)}
-              disabled={isGenerating || isPublishing}
-              className="w-full min-h-[90px] p-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 leading-relaxed"
-              placeholder="Yapay zeka yanıtı burada görüntülenecek, düzenleyebilirsiniz..."
-            />
-            {isGenerating && (
-              <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl">
-                <div className="flex items-center gap-2 text-indigo-600 text-xs font-bold">
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Yanıt Oluşturuluyor...</span>
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-[11px] text-slate-600 space-y-1.5">
+                    <span className="font-extrabold text-slate-700 block">Misafir Yorumu:</span>
+                    <p className="italic leading-relaxed">"{review.comment}"</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Yapay Zeka Taslak Cevabı</label>
+                    <textarea
+                      value={aiReplyText}
+                      onChange={(e) => setAiReplyText(e.target.value)}
+                      disabled={isGenerating || isPublishing}
+                      className="w-full min-h-[160px] p-3 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-650 leading-relaxed shadow-inner"
+                      placeholder="AI cevabı hazırlanıyor..."
+                    />
+                    {isGenerating && (
+                      <div className="flex items-center gap-2 text-indigo-650 text-xs font-bold py-1">
+                        <Loader2 size={14} className="animate-spin text-purple-600" />
+                        <span>Yeni yanıt oluşturuluyor...</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
 
-          <div className="flex justify-between items-center gap-3">
-            <button
-              onClick={handleAiReplyGenerate}
-              disabled={isGenerating || isPublishing}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <RefreshCw size={11} className={isGenerating ? 'animate-spin' : ''} />
-              <span>Yeniden Üret</span>
-            </button>
+              <div className="border-t border-slate-100 pt-4 mt-4 shrink-0">
+                <div className="flex justify-between items-center gap-3">
+                  <button
+                    onClick={handleAiReplyGenerate}
+                    disabled={isGenerating || isPublishing}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RefreshCw size={12} className={isGenerating ? 'animate-spin' : ''} />
+                    <span>Yeniden Üret</span>
+                  </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowAiDrawer(false)}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleAiReplyPublish}
-                disabled={isGenerating || isPublishing || !aiReplyText.trim()}
-                className={`px-4 py-1.5 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-white ${
-                  publishSuccess
-                    ? 'bg-emerald-600 hover:bg-emerald-500'
-                    : 'bg-indigo-600 hover:bg-indigo-500'
-                }`}
-              >
-                {isPublishing ? (
-                  <>
-                    <Loader2 size={12} className="animate-spin" />
-                    <span>Yayınlanıyor...</span>
-                  </>
-                ) : publishSuccess ? (
-                  <>
-                    <Check size={12} />
-                    <span>Yayınlandı!</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Cevabı Yayınla</span>
-                    <ArrowRight size={12} />
-                  </>
-                )}
-              </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAiDrawer(false)}
+                      className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-600 font-semibold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
+                    >
+                      İptal
+                    </button>
+                    <button
+                      onClick={handleAiReplyPublish}
+                      disabled={isGenerating || isPublishing || !aiReplyText.trim()}
+                      className={`px-4 py-2 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-white ${
+                        publishSuccess ? 'bg-emerald-600' : 'bg-purple-600 hover:bg-purple-500'
+                      }`}
+                    >
+                      {isPublishing ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          <span>Yayınlanıyor...</span>
+                        </>
+                      ) : publishSuccess ? (
+                        <>
+                          <Check size={12} />
+                          <span>Yayınlandı!</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Cevabı Yayınla</span>
+                          <ArrowRight size={12} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Department tags & Sentiment */}
-      {review.departments && review.departments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
-          {review.departments.map((dept, i) => (
-            <span
-              key={i}
-              className="px-2.5 py-0.5 rounded-full bg-slate-50 hover:bg-indigo-50/30 border border-slate-200/50 hover:border-indigo-100 text-[9px] font-extrabold text-slate-500 hover:text-indigo-600 tracking-wide uppercase transition-all"
-            >
-              {dept}
-            </span>
-          ))}
         </div>
       )}
     </div>

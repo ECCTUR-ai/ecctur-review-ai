@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search } from 'lucide-react';
-import { ReviewSource, ReviewStatus, ReviewPriority } from '@/types';
+import { ReviewStatus, ReviewPriority } from '@/types';
 
 interface ReviewFiltersProps {
   search: string;
@@ -20,8 +20,6 @@ interface ReviewFiltersProps {
 export function ReviewFilters({
   search,
   setSearch,
-  source,
-  setSource,
   rating,
   setRating,
   status,
@@ -31,93 +29,88 @@ export function ReviewFilters({
   sortBy,
   setSortBy,
 }: ReviewFiltersProps) {
-  const gridColsClass = sortBy !== undefined ? 'md:grid-cols-6' : 'md:grid-cols-5';
   return (
-    <div className={`p-4 rounded-2xl bg-white border border-slate-200 shadow-sm grid grid-cols-1 ${gridColsClass} gap-4 items-center`}>
-      {/* Search */}
+    <div className="p-3.5 rounded-3xl bg-white border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3.5 items-center">
+      {/* 🔍 Arama */}
       <div className="relative">
-        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Misafir adına göre ara..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 placeholder:text-slate-400"
+          className="w-full pl-10 pr-4 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200/60 text-xs focus:outline-none focus:border-indigo-600 text-slate-700 placeholder:text-slate-450 transition-all font-semibold"
         />
       </div>
 
-      {/* Platform */}
-      <div>
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
-        >
-          <option value="">Tüm Platformlar</option>
-          <option value="Google">Google Reviews</option>
-          <option value="TripAdvisor">TripAdvisor</option>
-          <option value="Booking">Booking.com</option>
-          <option value="Hotels.com">Hotels.com</option>
-          <option value="HolidayCheck">HolidayCheck</option>
-        </select>
-      </div>
-
-      {/* Rating */}
-      <div>
+      {/* ⭐ Puan */}
+      <div className="relative">
         <select
           value={rating}
           onChange={(e) => setRating(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+          className="w-full px-3.5 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100/50 border border-slate-200/60 text-xs focus:outline-none focus:border-indigo-600 text-slate-700 font-bold cursor-pointer transition-all appearance-none"
         >
-          <option value="">Tüm Puanlar</option>
+          <option value="">⭐ Tüm Puanlar</option>
           <option value="5">5 Yıldız</option>
           <option value="4">4 Yıldız</option>
           <option value="3">3 Yıldız</option>
           <option value="2">2 Yıldız</option>
           <option value="1">1 Yıldız</option>
         </select>
+        <div className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-450 text-[10px] font-bold">
+          ▼
+        </div>
       </div>
 
-      {/* Status */}
-      <div>
+      {/* 📍 Durum */}
+      <div className="relative">
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+          className="w-full px-3.5 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100/50 border border-slate-200/60 text-xs focus:outline-none focus:border-indigo-600 text-slate-700 font-bold cursor-pointer transition-all appearance-none"
         >
-          <option value="">Tüm Durumlar</option>
-          <option value="draft">Draft</option>
-          <option value="waiting_approval">Waiting Approval</option>
-          <option value="published">Published</option>
+          <option value="">📍 Tüm Durumlar</option>
+          <option value="draft">Taslak</option>
+          <option value="waiting_approval">Onay Bekleyen</option>
+          <option value="published">Yayınlandı</option>
         </select>
+        <div className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-450 text-[10px] font-bold">
+          ▼
+        </div>
       </div>
 
-      {/* Priority */}
-      <div>
+      {/* 🚩 Öncelik */}
+      <div className="relative">
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+          className="w-full px-3.5 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100/50 border border-slate-200/60 text-xs focus:outline-none focus:border-indigo-600 text-slate-700 font-bold cursor-pointer transition-all appearance-none"
         >
-          <option value="">Tüm Öncelikler</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
+          <option value="">🚩 Tüm Öncelikler</option>
+          <option value="low">Düşük</option>
+          <option value="medium">Orta</option>
+          <option value="high">Yüksek</option>
+          <option value="critical">Kritik</option>
         </select>
+        <div className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-450 text-[10px] font-bold">
+          ▼
+        </div>
       </div>
 
-      {/* Sıralama */}
+      {/* ↓ Sıralama */}
       {sortBy !== undefined && setSortBy !== undefined && (
-        <div>
+        <div className="relative">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest')}
-            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 font-medium"
+            className="w-full px-3.5 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100/50 border border-slate-200/60 text-xs focus:outline-none focus:border-indigo-600 text-slate-700 font-bold cursor-pointer transition-all appearance-none"
           >
-            <option value="newest">En Yeni</option>
-            <option value="oldest">En Eski</option>
+            <option value="newest">↓ En Yeni</option>
+            <option value="oldest">↑ En Eski</option>
           </select>
+          <div className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-450 text-[10px] font-bold">
+            ▼
+          </div>
         </div>
       )}
     </div>
