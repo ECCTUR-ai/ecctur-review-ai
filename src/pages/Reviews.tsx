@@ -168,6 +168,37 @@ export default function Reviews() {
     sortBy
   }), [queriedHotelId, search, source, rating, status, priority, backendLimit, sortBy]);
 
+  // One-time repair backfill trigger
+  useEffect(() => {
+    const triggerBackfill = async () => {
+      const hasBackfilled = localStorage.getItem('backfill_google_dates_done');
+      if (hasBackfilled) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        console.log('[Backfill] Triggering one-time Google reviews date repair...');
+        const response = await fetch('/api/reviews?action=backfill-google-dates', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        const result = await response.json();
+        console.log('[Backfill] Result:', result);
+        if (result.success) {
+          localStorage.setItem('backfill_google_dates_done', 'true');
+          // Refetch reviews list to show the repaired dates immediately
+          refetchMain();
+        }
+      } catch (err) {
+        console.error('[Backfill] Trigger failed:', err);
+      }
+    };
+
+    triggerBackfill();
+  }, [refetchMain]);
+
   // Fetch count base list with only hotelId to calculate platform tab counts
   const {
     data: countData,
