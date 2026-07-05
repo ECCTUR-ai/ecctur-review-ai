@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { normalizeReviewPlatform } from '@/utils/platform';
+import { matchesCategory } from '@/utils/categoryMappings';
 import {
   TrendingUp,
   Star,
@@ -685,20 +686,14 @@ export default function Dashboard() {
     ];
 
     const issuesData = matchIssues.map((issue: any) => {
-      const matching = (filteredReviewsForStats || []).filter((r: any) => {
-        const text = (r.review_text || '').toLowerCase();
-        return issue.keywords.some((k: any) => text.includes(k));
-      });
+      const matching = (filteredReviewsForStats || []).filter((r: any) => matchesCategory(r, issue.key));
       const count = matching.length;
       const negativeCount = matching.filter((r: any) => r.rating <= 3).length;
       return { key: issue.key, label: issue.label, count, negativeCount };
     }).sort((a: any, b: any) => b.negativeCount - a.negativeCount);
 
     const praisesData = matchPraises.map((praise: any) => {
-      const matching = (filteredReviewsForStats || []).filter((r: any) => {
-        const text = (r.review_text || '').toLowerCase();
-        return praise.keywords.some((k: any) => text.includes(k));
-      });
+      const matching = (filteredReviewsForStats || []).filter((r: any) => matchesCategory(r, praise.key));
       const count = matching.length;
       const positiveCount = matching.filter((r: any) => r.rating >= 4).length;
       return { key: praise.key, label: praise.label, count, positiveCount };

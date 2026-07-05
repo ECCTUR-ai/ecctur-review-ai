@@ -7,6 +7,7 @@ import { Review, Sentiment, ReviewPriority, ReviewSource } from '@/types';
 import { useAuth } from '@/components/AuthGuard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { normalizeReviewPlatform } from '@/utils/platform';
+import { matchesCategory, CATEGORY_KEYWORDS } from '@/utils/categoryMappings';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -48,45 +49,7 @@ import {
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#64748b'];
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  yemek: ['yemek', 'restoran', 'kahvaltı', 'buffet', 'açık büfe', 'food', 'breakfast', 'dinner'],
-  oda: ['oda', 'room', 'yatak', 'banyo', 'minibar', 'klima'],
-  personel: ['personel', 'staff', 'çalışan', 'hizmet', 'service'],
-  otopark: ['otopark', 'parking', 'park'],
-  havuz: ['havuz', 'pool', 'aqua'],
-  plaj: ['plaj', 'beach', 'deniz', 'şezlong', 'kum'],
-  temizlik: ['temizlik', 'clean', 'hijyen', 'housekeeping'],
-  klima: ['klima', 'teknik', 'arıza', 'ısıtma', 'soğutma', 'elektrik', 'su', 'tamir']
-};
 
-function matchesCategory(review: any, categoryKey: string): boolean {
-  const keywords = CATEGORY_KEYWORDS[categoryKey.toLowerCase()];
-  if (!keywords) return false;
-
-  const commentText = (review.comment || '').toLowerCase();
-
-  const stringifyForSearch = (val: any): string => {
-    if (!val) return '';
-    if (typeof val === 'string') return val.toLowerCase();
-    if (typeof val === 'object') {
-      try {
-        return JSON.stringify(val).toLowerCase();
-      } catch (e) {
-        return '';
-      }
-    }
-    return String(val).toLowerCase();
-  };
-
-  const deptAnalysis = stringifyForSearch(review.department_analysis);
-  const qualAnalysis = stringifyForSearch(review.quality_analysis);
-  const prioAnalysis = stringifyForSearch(review.priority_analysis);
-  const metadata = stringifyForSearch(review.metadata);
-
-  const combinedText = `${commentText} ${deptAnalysis} ${qualAnalysis} ${prioAnalysis} ${metadata}`;
-
-  return keywords.some(kw => combinedText.includes(kw.toLowerCase()));
-}
 
 export default function Reports() {
   const navigate = useNavigate();

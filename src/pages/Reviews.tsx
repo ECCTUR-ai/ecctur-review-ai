@@ -12,6 +12,7 @@ import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/typ
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { normalizeReviewPlatform } from '@/utils/platform';
+import { matchesCategory } from '@/utils/categoryMappings';
 import { 
   RefreshCw, 
   Download, 
@@ -59,48 +60,6 @@ const formatImportPopupMessage = (platform: string, res: any) => {
 
   return `${platform} Reviews Senkronizasyonu\n\nMod:\n${modeText}\n\nToplam Kontrol Edilen: ${fetchedCount}\nYeni Eklenen: ${insertedCount}\nDuplicate Atlanan: ${duplicateCount}\nHata Sayısı: ${failedCount}`;
 };
-
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  yemek: ['yemek', 'restoran', 'kahvaltı', 'buffet', 'açık büfe', 'food', 'breakfast', 'dinner'],
-  oda: ['oda', 'room', 'yatak', 'banyo', 'minibar', 'klima'],
-  personel: ['personel', 'staff', 'çalışan', 'hizmet', 'service'],
-  otopark: ['otopark', 'parking', 'park'],
-  havuz: ['havuz', 'pool', 'aqua'],
-  plaj: ['plaj', 'beach', 'deniz', 'şezlong', 'kum'],
-  temizlik: ['temizlik', 'clean', 'hijyen', 'housekeeping'],
-  konum: ['konum', 'location', 'ulaşım'],
-  manzara: ['manzara', 'view', 'sea view'],
-  fiyat: ['fiyat', 'price', 'performance', 'value']
-};
-
-function matchesCategory(review: any, categoryKey: string): boolean {
-  const keywords = CATEGORY_KEYWORDS[categoryKey.toLowerCase()];
-  if (!keywords) return false;
-
-  const commentText = (review.comment || '').toLowerCase();
-
-  const stringifyForSearch = (val: any): string => {
-    if (!val) return '';
-    if (typeof val === 'string') return val.toLowerCase();
-    if (typeof val === 'object') {
-      try {
-        return JSON.stringify(val).toLowerCase();
-      } catch (e) {
-        return '';
-      }
-    }
-    return String(val).toLowerCase();
-  };
-
-  const deptAnalysis = stringifyForSearch(review.department_analysis);
-  const qualAnalysis = stringifyForSearch(review.quality_analysis);
-  const prioAnalysis = stringifyForSearch(review.priority_analysis);
-  const metadata = stringifyForSearch(review.metadata);
-
-  const combinedText = `${commentText} ${deptAnalysis} ${qualAnalysis} ${prioAnalysis} ${metadata}`;
-
-  return keywords.some(kw => combinedText.includes(kw.toLowerCase()));
-}
 
 export default function Reviews() {
   const { t } = useTranslation();
