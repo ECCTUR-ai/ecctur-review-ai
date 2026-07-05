@@ -93,7 +93,9 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
       { url }
     ],
     reviewProviders: ["google-maps"],
-    maxReviews: limit || 100
+    maxReviews: limit || 100,
+    scrapeOwnerResponses: true,
+    scrapeReviewPictures: false
   };
 
   const res = await fetch(endpoint, {
@@ -129,12 +131,45 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
       }
     }
 
+    // Owner response extraction
+    const ownerResponse = 
+      item.ownerResponse ||
+      item.businessResponse ||
+      item.responseText ||
+      item.owner_response ||
+      item.replyText ||
+      item.managementResponse ||
+      null;
+
+    const ownerResponseDate = 
+      item.ownerResponseDate ||
+      item.businessResponseDate ||
+      item.responseDate ||
+      item.replyDate ||
+      null;
+
+    const hasOwnerResponse = !!ownerResponse;
+
     const metadata = {
       address: item.placeAddress || null,
       hotel_name: item.placeName || null,
       google_relative_date: item.reviewDate || null,
       display_date: item.reviewDate || null,
-      original_item: item
+      ownerResponse,
+      ownerResponseDate,
+      hasOwnerResponse,
+      source: "hotel-review-aggregator",
+      originalProvider: platform,
+      originalData: item,
+      
+      // Extra fields
+      reviewUrl: item.reviewUrl || null,
+      reviewId: item.reviewId || null,
+      language: item.language || null,
+      reviewerImage: item.reviewerImage || null,
+      reviewerAvatar: item.reviewerAvatar || null,
+      photos: item.photos || null,
+      helpfulCount: item.helpfulCount || null
     };
 
     const externalId = item.reviewId || item.id || `aggregator-mock-${guestName}-${rating}-${reviewDate || 'nodate'}-${idx}`;
