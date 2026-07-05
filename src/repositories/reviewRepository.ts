@@ -76,6 +76,7 @@ export const reviewRepository = {
     rating?: number;
     limit?: number;
     offset?: number;
+    sortBy?: 'newest' | 'oldest';
   }): Promise<{ reviews: Review[]; total: number }> {
     if (!params || !params.hotelId) {
       console.warn('[reviewRepository] Warning: getReviews called without hotelId parameter. Enforcing tenant isolation.');
@@ -123,11 +124,65 @@ export const reviewRepository = {
     const limit = params.limit || 20;
     const offset = params.offset || 0;
     query = query.range(offset, offset + limit - 1);
-    query = query
-      .order('review_date', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false });
 
-    const response = await query;
+    const isAsc = params.sortBy === 'oldest';
+    let response;
+    try {
+      const sortedQuery = query.order('effective_date', { ascending: isAsc, nullsFirst: false });
+      response = await sortedQuery;
+      if (response.error) {
+        if (response.error.message?.includes('effective_date') || response.error.code === '42703') {
+          throw response.error;
+        }
+      }
+    } catch (err) {
+      console.warn('[reviewRepository] effective_date column missing, falling back to review_date & created_at');
+      let fallbackQuery = supabase
+        .from('reviews')
+        .select('*', { count: 'exact' })
+        .eq('hotel_id', params.hotelId);
+
+      if (params.source) {
+        const srcLower = params.source.toLowerCase();
+        if (srcLower === 'booking') {
+          fallbackQuery = fallbackQuery.or('platform.eq.booking,platform.eq.Booking');
+        } else if (srcLower === 'tripadvisor') {
+          fallbackQuery = fallbackQuery.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
+        } else if (srcLower === 'google') {
+          fallbackQuery = fallbackQuery.or('platform.eq.google,platform.eq.Google');
+        } else if (srcLower === 'holidaycheck') {
+          fallbackQuery = fallbackQuery.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
+        } else if (srcLower === 'hotels.com' || srcLower === 'hotelscom') {
+          fallbackQuery = fallbackQuery.or('platform.eq.hotels.com,platform.eq.hotelscom');
+        } else {
+          fallbackQuery = fallbackQuery.eq('platform', params.source);
+        }
+      }
+      if (params.sentiment) {
+        fallbackQuery = fallbackQuery.eq('sentiment', params.sentiment);
+      }
+      if (params.status) {
+        const statusVal = params.status.charAt(0).toUpperCase() + params.status.slice(1);
+        fallbackQuery = fallbackQuery.or(`status.eq.${params.status},status.eq.${statusVal}`);
+      }
+      if (params.priority) {
+        fallbackQuery = fallbackQuery.eq('priority', params.priority);
+      }
+      if (params.rating) {
+        fallbackQuery = fallbackQuery.eq('rating', params.rating);
+      }
+      if (params.search) {
+        fallbackQuery = fallbackQuery.ilike('review_text', `%${params.search}%`);
+      }
+
+      fallbackQuery = fallbackQuery.range(offset, offset + limit - 1);
+      fallbackQuery = fallbackQuery
+        .order('review_date', { ascending: isAsc, nullsFirst: false })
+        .order('created_at', { ascending: isAsc });
+
+      response = await fallbackQuery;
+    }
+
     if (response.error) throw response.error;
 
     const reviews = (response.data || []).map(mapReview);

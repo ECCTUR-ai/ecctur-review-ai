@@ -70,7 +70,8 @@ export default function AiReplies() {
     customEndDate: '',
     selectedPublisherId: 'all',
     activePanelReview: null as Review | null,
-    offset: 0
+    offset: 0,
+    sortBy: 'newest' as 'newest' | 'oldest'
   });
 
   const {
@@ -85,7 +86,8 @@ export default function AiReplies() {
     customEndDate,
     selectedPublisherId,
     activePanelReview,
-    offset
+    offset,
+    sortBy = 'newest'
   } = pageState;
 
   const setActiveTab = (val: 'active' | 'archived' | ((prev: 'active' | 'archived') => 'active' | 'archived')) => {
@@ -103,6 +105,7 @@ export default function AiReplies() {
   const setCustomStartDate = (val: string) => setPageState({ customStartDate: val, offset: 0 });
   const setCustomEndDate = (val: string) => setPageState({ customEndDate: val, offset: 0 });
   const setSelectedPublisherId = (val: string) => setPageState({ selectedPublisherId: val, offset: 0 });
+  const setSortBy = (val: 'newest' | 'oldest') => setPageState({ sortBy: val, offset: 0 });
   const setActivePanelReview = (val: Review | null | ((prev: Review | null) => Review | null)) => {
     setPageState(prev => ({
       activePanelReview: typeof val === 'function' ? val(prev.activePanelReview) : val
@@ -293,110 +296,132 @@ export default function AiReplies() {
     }
 
     try {
-      let query = supabase
-        .from('reviews')
-        .select('*', { count: 'exact' });
+      const getQuery = () => {
+        let q = supabase
+          .from('reviews')
+          .select('*', { count: 'exact' });
 
-      // Apply Hotel / Tenant Restriction Filter
-      if (selectedHotelId === 'all') {
-        if (roleKey !== 'super_admin' && hotelIds && hotelIds.length > 0) {
-          query = query.in('hotel_id', hotelIds);
-        } else if (organizationId) {
-          query = query.eq('organization_id', organizationId);
+        // Apply Hotel / Tenant Restriction Filter
+        if (selectedHotelId === 'all') {
+          if (roleKey !== 'super_admin' && hotelIds && hotelIds.length > 0) {
+            q = q.in('hotel_id', hotelIds);
+          } else if (organizationId) {
+            q = q.eq('organization_id', organizationId);
+          }
+        } else {
+          q = q.eq('hotel_id', selectedHotelId);
         }
-      } else {
-        query = query.eq('hotel_id', selectedHotelId);
-      }
 
-      // Apply Platform Filter
-      if (selectedPlatform !== 'all') {
-        if (selectedPlatform === 'Google') {
-          query = query.or('platform.eq.google,platform.eq.Google');
-        } else if (selectedPlatform === 'TripAdvisor') {
-          query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
-        } else if (selectedPlatform === 'Booking') {
-          query = query.or('platform.eq.booking,platform.eq.Booking,platform.eq.Booking.com');
-        } else if (selectedPlatform === 'HolidayCheck') {
-          query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
-        } else if (selectedPlatform === 'Hotels.com') {
-          query = query.or('platform.eq.hotels.com,platform.eq.hotelscom');
+        // Apply Platform Filter
+        if (selectedPlatform !== 'all') {
+          if (selectedPlatform === 'Google') {
+            q = q.or('platform.eq.google,platform.eq.Google');
+          } else if (selectedPlatform === 'TripAdvisor') {
+            q = q.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
+          } else if (selectedPlatform === 'Booking') {
+            q = q.or('platform.eq.booking,platform.eq.Booking,platform.eq.Booking.com');
+          } else if (selectedPlatform === 'HolidayCheck') {
+            q = q.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
+          } else if (selectedPlatform === 'Hotels.com') {
+            q = q.or('platform.eq.hotels.com,platform.eq.hotelscom');
+          }
         }
-      }
 
-      // Apply Rating Filter
-      if (selectedRating !== 'all') {
-        query = query.eq('rating', selectedRating);
-      }
+        // Apply Rating Filter
+        if (selectedRating !== 'all') {
+          q = q.eq('rating', selectedRating);
+        }
 
-      // Apply Tabs constraint
-      if (activeTab === 'active') {
-        // Active reviews are those NOT published
-        query = query.not('status', 'in', '("Published","published")');
+        // Apply Tabs constraint
+        if (activeTab === 'active') {
+          q = q.not('status', 'in', '("Published","published")');
+          if (selectedStatus !== 'all') {
+            if (selectedStatus === 'unanswered') {
+              q = q.is('ai_reply', null).is('response', null);
+            } else {
+              q = q.eq('status', selectedStatus);
+            }
+          }
+        } else {
+          q = q.in('status', ['Published', 'published']);
+        }
+
+        // Apply Date Filter
+        if (selectedDateRange !== 'all') {
+          const cutOff = new Date();
+          if (selectedDateRange === 'today') {
+            cutOff.setHours(0, 0, 0, 0);
+          } else if (selectedDateRange === '7d') {
+            cutOff.setDate(cutOff.getDate() - 7);
+          } else if (selectedDateRange === '30d') {
+            cutOff.setDate(cutOff.getDate() - 30);
+          }
+
+          if (selectedDateRange === 'custom' && customStartDate) {
+            q = q.gte('review_date', customStartDate);
+            if (customEndDate) {
+              q = q.lte('review_date', customEndDate);
+            }
+          } else if (selectedDateRange !== 'custom') {
+            q = q.gte('review_date', cutOff.toISOString());
+          }
+        }
+
+        // Apply search query filter
+        if (search.trim()) {
+          q = q.ilike('review_text', `%${search}%`);
+        }
+
+        return q;
+      };
+
+      let allowedReviewIds: string[] | null = null;
+      if (activeTab === 'archived' && selectedPublisherId !== 'all') {
+        const { data: logs, error: logsErr } = await supabase
+          .from('review_action_logs')
+          .select('review_id')
+          .eq('action_by_user_id', selectedPublisherId)
+          .eq('action_type', 'published');
         
-        // Status filter applies only to non-published status values in Active tab
-        if (selectedStatus !== 'all') {
-          if (selectedStatus === 'unanswered') {
-            query = query.is('ai_reply', null).is('response', null);
-          } else {
-            query = query.eq('status', selectedStatus);
-          }
-        }
-      } else {
-        // Archived reviews are those that ARE published
-        query = query.in('status', ['Published', 'published']);
-
-        // Apply publisher filter if active in archive tab
-        if (selectedPublisherId !== 'all') {
-          const { data: logs, error: logsErr } = await supabase
-            .from('review_action_logs')
-            .select('review_id')
-            .eq('action_by_user_id', selectedPublisherId)
-            .eq('action_type', 'published');
-          
-          if (!logsErr && logs && logs.length > 0) {
-            const reviewIds = logs.map(l => l.review_id);
-            query = query.in('id', reviewIds);
-          } else {
-            query = query.in('id', ['00000000-0000-0000-0000-000000000000']);
-          }
+        if (!logsErr && logs && logs.length > 0) {
+          allowedReviewIds = logs.map(l => l.review_id);
+        } else {
+          allowedReviewIds = ['00000000-0000-0000-0000-000000000000'];
         }
       }
 
-      // Apply Date Filter
-      if (selectedDateRange !== 'all') {
-        const cutOff = new Date();
-        if (selectedDateRange === 'today') {
-          cutOff.setHours(0, 0, 0, 0);
-        } else if (selectedDateRange === '7d') {
-          cutOff.setDate(cutOff.getDate() - 7);
-        } else if (selectedDateRange === '30d') {
-          cutOff.setDate(cutOff.getDate() - 30);
-        }
-
-        if (selectedDateRange === 'custom' && customStartDate) {
-          query = query.gte('review_date', customStartDate);
-          if (customEndDate) {
-            query = query.lte('review_date', customEndDate);
-          }
-        } else if (selectedDateRange !== 'custom') {
-          query = query.gte('review_date', cutOff.toISOString());
-        }
-      }
-
-      // Apply search query filter
-      if (search.trim()) {
-        query = query.ilike('review_text', `%${search}%`);
-      }
-
-      // Sort and Paginate
       const startOffset = isLoadMore ? offset : 0;
-      query = query
-        .order('review_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
+      const isAsc = sortBy === 'oldest';
+
+      let q = getQuery();
+      if (allowedReviewIds) {
+        q = q.in('id', allowedReviewIds);
+      }
+
+      q = q
+        .order('effective_date', { ascending: isAsc, nullsFirst: false })
         .range(startOffset, startOffset + LIMIT - 1);
 
-      const { data, count, error } = await query;
-      if (error) throw error;
+      let { data, count, error } = await q;
+
+      if (error && (error.message?.includes('effective_date') || error.code === '42703')) {
+        console.warn('[AiReplies] effective_date column missing, falling back to review_date & created_at');
+        let fallbackQ = getQuery();
+        if (allowedReviewIds) {
+          fallbackQ = fallbackQ.in('id', allowedReviewIds);
+        }
+        fallbackQ = fallbackQ
+          .order('review_date', { ascending: isAsc, nullsFirst: false })
+          .order('created_at', { ascending: isAsc })
+          .range(startOffset, startOffset + LIMIT - 1);
+        
+        const fallbackRes = await fallbackQ;
+        if (fallbackRes.error) throw fallbackRes.error;
+        data = fallbackRes.data;
+        count = fallbackRes.count;
+      } else if (error) {
+        throw error;
+      }
 
       const mappedReviews = (data || []).map(mapReview);
 
@@ -1009,7 +1034,7 @@ export default function AiReplies() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* Otel Seçimi */}
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Otel Seçimi</label>
@@ -1109,6 +1134,19 @@ export default function AiReplies() {
               <option value="30d">Son 30 Gün</option>
               <option value="all">Tüm Zamanlar</option>
               <option value="custom">Özel Tarih...</option>
+            </select>
+          </div>
+
+          {/* Sıralama */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Sıralama</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest')}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            >
+              <option value="newest">En Yeni</option>
+              <option value="oldest">En Eski</option>
             </select>
           </div>
         </div>

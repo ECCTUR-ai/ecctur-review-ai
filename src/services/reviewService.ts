@@ -83,6 +83,7 @@ export const reviewService = {
     rating?: number;
     limit?: number;
     offset?: number;
+    sortBy?: 'newest' | 'oldest';
   }): Promise<{ reviews: Review[]; total: number }> {
     return await reviewRepository.getReviews(params);
   },

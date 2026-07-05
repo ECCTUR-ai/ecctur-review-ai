@@ -13,6 +13,8 @@ interface ReviewFiltersProps {
   setStatus: (val: any) => void;
   priority: string;
   setPriority: (val: any) => void;
+  sortBy?: 'newest' | 'oldest';
+  setSortBy?: (val: 'newest' | 'oldest') => void;
 }
 
 export function ReviewFilters({
@@ -26,9 +28,12 @@ export function ReviewFilters({
   setStatus,
   priority,
   setPriority,
+  sortBy,
+  setSortBy,
 }: ReviewFiltersProps) {
+  const gridColsClass = sortBy !== undefined ? 'md:grid-cols-6' : 'md:grid-cols-5';
   return (
-    <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+    <div className={`p-4 rounded-2xl bg-white border border-slate-200 shadow-sm grid grid-cols-1 ${gridColsClass} gap-4 items-center`}>
       {/* Search */}
       <div className="relative">
         <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -101,6 +106,20 @@ export function ReviewFilters({
           <option value="critical">Critical</option>
         </select>
       </div>
+
+      {/* Sıralama */}
+      {sortBy !== undefined && setSortBy !== undefined && (
+        <div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest')}
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 font-medium"
+          >
+            <option value="newest">En Yeni</option>
+            <option value="oldest">En Eski</option>
+          </select>
+        </div>
+      )}
     </div>
   );
 }

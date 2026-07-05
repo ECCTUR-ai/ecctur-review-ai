@@ -82,10 +82,11 @@ export default function Reviews() {
     selectedReviewId: null as string | null,
     currentPage: 1,
     pageSize: 10,
-    backendLimit: 200
+    backendLimit: 200,
+    sortBy: 'newest' as 'newest' | 'oldest'
   });
 
-  const { search, source, rating, status, priority, selectedReviewId, currentPage, pageSize, backendLimit } = pageState;
+  const { search, source, rating, status, priority, selectedReviewId, currentPage, pageSize, backendLimit, sortBy = 'newest' } = pageState;
 
   const setSearch = (val: string) => setPageState({ search: val, currentPage: 1 });
   const setSource = (val: ReviewSource | '') => setPageState({ source: val, currentPage: 1 });
@@ -93,6 +94,7 @@ export default function Reviews() {
   const setStatus = (val: ReviewStatus | '') => setPageState({ status: val, currentPage: 1 });
   const setPriority = (val: ReviewPriority | '') => setPageState({ priority: val, currentPage: 1 });
   const setSelectedReviewId = (val: string | null) => setPageState({ selectedReviewId: val });
+  const setSortBy = (val: 'newest' | 'oldest') => setPageState({ sortBy: val, currentPage: 1 });
 
   // Sync / Export loading animation helper states
   const [isSyncing, setIsSyncing] = useState(false);
@@ -162,8 +164,9 @@ export default function Reviews() {
     rating: rating ? Number(rating) : undefined,
     status: status || undefined,
     priority: priority || undefined,
-    limit: backendLimit
-  }), [queriedHotelId, search, source, rating, status, priority, backendLimit]);
+    limit: backendLimit,
+    sortBy
+  }), [queriedHotelId, search, source, rating, status, priority, backendLimit, sortBy]);
 
   // Fetch count base list with only hotelId to calculate platform tab counts
   const {
@@ -342,6 +345,25 @@ export default function Reviews() {
   if (departmentParam) {
     reviews = reviews.filter(r => matchesDepartment(r, departmentParam));
   }
+
+  // Sort reviews: priority review_date, fallback created_at, dateless at the bottom
+  reviews = [...reviews].sort((a, b) => {
+    const dateA = a.review_date || a.created_at || '';
+    const dateB = b.review_date || b.created_at || '';
+
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+
+    const timeA = new Date(dateA).getTime();
+    const timeB = new Date(dateB).getTime();
+
+    if (sortBy === 'oldest') {
+      return timeA - timeB;
+    } else {
+      return timeB - timeA;
+    }
+  });
 
   const totalReviews = reviews.length;
   const totalPages = Math.ceil(totalReviews / pageSize);
@@ -1511,6 +1533,8 @@ export default function Reviews() {
           setStatus={setStatus}
           priority={priority}
           setPriority={setPriority}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
         />
         {(search || source || rating || status || priority) && (
           <div className="flex justify-end">
