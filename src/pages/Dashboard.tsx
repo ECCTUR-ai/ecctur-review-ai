@@ -19,7 +19,8 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldAlert,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import {
   LineChart,
@@ -81,10 +82,71 @@ export default function Dashboard() {
   };
 
   const activeHotelId = currentHotelId || '00000000-0000-0000-0000-000000000000';
+
+  const [lastSyncHealth, setLastSyncHealth] = React.useState<any | null>(null);
+  const [isExporting, setIsExporting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (activeHotelId) {
+      try {
+        const stored = localStorage.getItem(`sync_health_${activeHotelId}`);
+        if (stored) {
+          setLastSyncHealth(JSON.parse(stored));
+        } else {
+          setLastSyncHealth(null);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [activeHotelId]);
   
   // Strict tenant security check
   const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
   const queriedHotelId = isAuthorized ? activeHotelId : '00000000-0000-0000-0000-000000000000';
+
+  const handleExportReviews = async () => {
+    if (!queriedHotelId) return;
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('hotel_id', queriedHotelId)
+        .order('review_date', { ascending: false });
+      
+      if (error) throw error;
+      
+      const headers = ['Misafir Adı', 'Puan', 'Yorum', 'Platform', 'Tarih', 'Durum'];
+      const rows = (data || []).map(r => [
+        r.guest_name || 'Misafir',
+        r.rating || '',
+        (r.review_text || '').replace(/"/g, '""'),
+        r.platform || '',
+        r.review_date || '',
+        r.status || ''
+      ]);
+      
+      const csvContent = "\uFEFF" + [
+        headers.join(','),
+        ...rows.map(e => e.map(val => `"${val}"`).join(","))
+      ].join("\n");
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `reviews_export_${queriedHotelId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+      alert('Dışa aktarım sırasında bir hata oluştu.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // 1. Load backend metrics
   const {
@@ -536,25 +598,44 @@ export default function Dashboard() {
         )}
 
         {/* Title Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900 m-0">Birleşik Entegrasyon Dashboard'u</h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700 tracking-wide uppercase">
-                Aggregator Aktif
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">Jura Hotels Ada Beach için platform bazlı özetler ve iş analitiği</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+          <div className="space-y-2 flex-1">
+            <h1 className="text-xl font-bold text-slate-800 m-0">Birleşik Entegrasyon Dashboard'u</h1>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              İlk kurulumda tüm geçmiş yorumlar alınır. Sonraki senkronizasyonlarda yalnızca yeni yorumlar eklenir.
+            </p>
+            <p className="text-[10px] text-slate-400 font-semibold italic">
+              * Google ve Booking.com Aggregator ile; TripAdvisor, Hotels.com ve HolidayCheck kendi entegrasyonlarıyla senkronize edilir.
+            </p>
+            {lastSyncHealth ? (
+              <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
+                <span>Son Senkronizasyon:</span>
+                <span className="font-bold text-slate-700">
+                  {new Date(lastSyncHealth.lastSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncHealth.lastSyncTime).toLocaleDateString('tr-TR')}
+                </span>
+                <span className="text-slate-350">|</span>
+                <span>Durum:</span>
+                {Object.values(lastSyncHealth).some((v: any) => v && v.status === 'error') ? (
+                  <span className="text-rose-600 font-bold bg-rose-50 px-1 py-0.5 rounded text-[8px] border border-rose-100">Hatalı</span>
+                ) : (
+                  <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded text-[8px] border border-emerald-100">Başarılı</span>
+                )}
+              </div>
+            ) : (
+              <div className="text-[10px] text-slate-400 font-semibold mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
+                Son Senkronizasyon: Bekliyor (Henüz senkronize edilmedi)
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => {
                 refetchMetrics();
                 refetchReviews();
                 refetchAllReviews();
               }}
-              className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer"
+              className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer min-h-[36px]"
               title="Verileri Yenile"
             >
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
@@ -562,10 +643,19 @@ export default function Dashboard() {
 
             <button
               onClick={() => window.location.href = '/reviews?triggerSync=true'}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/20 min-h-[38px] cursor-pointer animate-pulse-slow"
             >
               <RefreshCw size={14} />
               <span>Tüm Platformları Senkronize Et</span>
+            </button>
+
+            <button
+              onClick={handleExportReviews}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
+            >
+              <Download size={14} className={isExporting ? 'animate-spin' : ''} />
+              <span>{isExporting ? 'Exporting...' : 'Veriyi Dışa Aktar'}</span>
             </button>
           </div>
         </div>
