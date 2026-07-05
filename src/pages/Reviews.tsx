@@ -152,6 +152,8 @@ export default function Reviews() {
   const [isImportingAggregator, setIsImportingAggregator] = useState(false);
   const [aggregatorResult, setAggregatorResult] = useState<any | null>(null);
   const [unifiedSyncResult, setUnifiedSyncResult] = useState<any | null>(null);
+  const [lastSyncHealth, setLastSyncHealth] = useState<any | null>(null);
+  const [showAdvancedImport, setShowAdvancedImport] = useState(false);
 
   const handleImportAggregatorReviews = async () => {
     if (!currentHotelId) {
@@ -291,6 +293,22 @@ export default function Reviews() {
       handleSyncAllPlatforms();
     }
   }, [searchParams, currentHotelId, isSyncingAll]);
+
+  // Load last sync health status from localStorage
+  useEffect(() => {
+    if (currentHotelId) {
+      try {
+        const stored = localStorage.getItem(`sync_health_${currentHotelId}`);
+        if (stored) {
+          setLastSyncHealth(JSON.parse(stored));
+        } else {
+          setLastSyncHealth(null);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [currentHotelId, unifiedSyncResult]);
 
   // One-time repair backfill trigger
   useEffect(() => {
@@ -1726,28 +1744,36 @@ export default function Reviews() {
     <div className="space-y-6">
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
-        <div className="space-y-1.5">
+        <div className="space-y-2 flex-1">
           <h1 className="text-xl font-bold text-slate-800 m-0">{t('reviews.title')}</h1>
-          <p className="text-xs text-slate-500">
-            {t('reviews.subtitle')}
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+            İlk kurulumda tüm geçmiş yorumlar alınır. Sonraki senkronizasyonlarda yalnızca yeni yorumlar eklenir.
           </p>
+          <p className="text-[10px] text-slate-400 font-semibold italic">
+            * Google ve Booking.com Aggregator ile; TripAdvisor, Hotels.com ve HolidayCheck kendi entegrasyonlarıyla senkronize edilir.
+          </p>
+          {lastSyncHealth ? (
+            <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
+              <span>Son Senkronizasyon:</span>
+              <span className="font-bold text-slate-700">
+                {new Date(lastSyncHealth.lastSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncHealth.lastSyncTime).toLocaleDateString('tr-TR')}
+              </span>
+              <span className="text-slate-300">|</span>
+              <span>Durum:</span>
+              {Object.values(lastSyncHealth).some((v: any) => v && v.status === 'error') ? (
+                <span className="text-rose-600 font-bold bg-rose-50 px-1 py-0.5 rounded text-[8px] border border-rose-100">Hatalı</span>
+              ) : (
+                <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded text-[8px] border border-emerald-100">Başarılı</span>
+              )}
+            </div>
+          ) : (
+            <div className="text-[10px] text-slate-400 font-semibold mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
+              Son Senkronizasyon: Bekliyor (Henüz senkronize edilmedi)
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <select
-              value={importRange}
-              onChange={(e) => setImportRange(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none text-slate-700 min-h-[36px]"
-            >
-              <option value="30">Son 30 gün</option>
-              <option value="90">Son 90 gün</option>
-              <option value="180">Son 180 gün</option>
-              <option value="365">Son 365 gün</option>
-              <option value="all">Tüm zamanlar</option>
-            </select>
-          </div>
-
           {(() => {
             const hasTripadvisor = !!(currentHotel?.tripadvisorUrl);
             const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
@@ -1755,83 +1781,26 @@ export default function Reviews() {
             const hasHolidaycheck = !!(currentHotel?.holidaycheckUrl);
             const hasHotelscom = !!(currentHotel?.hotelscomUrl);
             const hasAnyLink = hasGoogle || hasTripadvisor || hasBooking || hasHolidaycheck || hasHotelscom;
-            const isJuraAdaBeach = 
-              currentHotel?.name === 'Jura Hotels Ada Beach' || 
-              currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
 
             return (
               <>
                 <button
-                  onClick={handleImportGoogleMapsReviews}
-                  disabled={isImportingGoogleMaps || !hasGoogle}
-                  title={!hasGoogle ? "Bu otel için Google Maps linki tanımlanmamış." : "Google Maps yorumlarını çek"}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 min-h-[36px] cursor-pointer"
-                >
-                  <RefreshCw size={14} className={isImportingGoogleMaps ? 'animate-spin' : ''} />
-                  <span>{isImportingGoogleMaps ? 'Google Çekiliyor...' : 'Google Maps Yorumlarını Çek'}</span>
-                </button>
-
-                <button
-                  onClick={handleImportTripadvisorReviews}
-                  disabled={isImportingTripadvisor || !hasTripadvisor}
-                  title={!hasTripadvisor ? "Bu otel için TripAdvisor URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "TripAdvisor yorumlarını çek"}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-cyan-600 to-blue-500 hover:from-cyan-500 hover:to-blue-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 min-h-[36px] cursor-pointer"
-                >
-                  <RefreshCw size={14} className={isImportingTripadvisor ? 'animate-spin' : ''} />
-                  <span>{isImportingTripadvisor ? 'TripAdvisor Çekiliyor...' : 'Tripadvisor Yorumlarını Çek'}</span>
-                </button>
-
-                <button
-                  onClick={handleImportBookingReviews}
-                  disabled={isImportingBooking || !hasBooking}
-                  title={!hasBooking ? "Bu otel için Booking.com URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Booking.com yorumlarını çek"}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-orange-500/10 min-h-[36px] cursor-pointer"
-                >
-                  <RefreshCw size={14} className={isImportingBooking ? 'animate-spin' : ''} />
-                  <span>{isImportingBooking ? 'Booking Çekiliyor...' : 'Booking.com Yorumlarını Çek'}</span>
-                </button>
-
-                <button
-                  onClick={handleSyncHolidaycheckReviews}
-                  disabled={isImportingHolidaycheck}
-                  title={!hasHolidaycheck ? "Bu otel için HolidayCheck URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "HolidayCheck yorumlarını çek"}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-rose-500/10 min-h-[36px] cursor-pointer"
-                >
-                  <RefreshCw size={14} className={isImportingHolidaycheck ? 'animate-spin' : ''} />
-                  <span>{isImportingHolidaycheck ? 'HolidayCheck Çekiliyor...' : 'HolidayCheck Yorumlarını Çek'}</span>
-                </button>
-
-                <button
-                  onClick={handleSyncHotelscomReviews}
-                  disabled={isImportingHotelscom}
-                  title={!hasHotelscom ? "Bu otel için Hotels.com URL tanımlanmamış. Lütfen Admin panelinden tanımlayın." : "Hotels.com yorumlarını çek"}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-sky-600 to-indigo-500 hover:from-sky-500 hover:to-indigo-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 min-h-[36px] cursor-pointer"
-                >
-                  <RefreshCw size={14} className={isImportingHotelscom ? 'animate-spin' : ''} />
-                  <span>{isImportingHotelscom ? 'Hotels.com Çekiliyor...' : 'Hotels.com Yorumlarını Çek'}</span>
-                </button>
-
-                <button
                   onClick={handleSyncAllPlatforms}
                   disabled={isSyncingAll || !hasAnyLink}
                   title={!hasAnyLink ? "Bu otel için tanımlı hiçbir platform linki bulunamadı." : "Tüm platformları senkronize et"}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 min-h-[36px] cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/20 min-h-[38px] cursor-pointer animate-pulse-slow"
                 >
                   <RefreshCw size={14} className={isSyncingAll ? 'animate-spin' : ''} />
                   <span>{isSyncingAll ? 'Senkronize Ediliyor...' : 'Tüm Platformları Senkronize Et'}</span>
                 </button>
 
-                {isJuraAdaBeach && (
-                  <button
-                    onClick={handleImportAggregatorReviews}
-                    disabled={isImportingAggregator}
-                    title="Hotel Review Aggregator Beta import"
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-violet-600 to-fuchsia-500 hover:from-violet-500 hover:to-fuchsia-400 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-fuchsia-500/10 min-h-[36px] cursor-pointer"
-                  >
-                    <RefreshCw size={14} className={isImportingAggregator ? 'animate-spin' : ''} />
-                    <span>{isImportingAggregator ? 'Aggregator Çekiliyor...' : 'Import (Aggregator Beta)'}</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowAdvancedImport(!showAdvancedImport)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-800 font-bold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
+                >
+                  <span>Gelişmiş</span>
+                  <ChevronDown size={14} className={`transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`} />
+                </button>
 
                 <button
                   onClick={handleExportReviews}
@@ -1846,6 +1815,85 @@ export default function Reviews() {
           })()}
         </div>
       </div>
+
+      {/* Advanced Legacy Sync Controls Collapsible Panel */}
+      {showAdvancedImport && (
+        <div className="bg-slate-50/75 p-4 rounded-2xl border border-slate-200 flex flex-wrap gap-3 items-center animate-slide-in">
+          <div className="w-full text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+            Tekil Entegrasyonlar ve Test Kontrolleri (Gelişmiş)
+          </div>
+          {(() => {
+            const hasTripadvisor = !!(currentHotel?.tripadvisorUrl);
+            const hasGoogle = !!(currentHotel?.googleMapsLink || currentHotel?.googleMapsUrl);
+            const hasBooking = !!(currentHotel?.bookingUrl);
+            const hasHolidaycheck = !!(currentHotel?.holidaycheckUrl);
+            const hasHotelscom = !!(currentHotel?.hotelscomUrl);
+            const isJuraAdaBeach = 
+              currentHotel?.name === 'Jura Hotels Ada Beach' || 
+              currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
+            
+            return (
+              <>
+                <button
+                  onClick={handleImportGoogleMapsReviews}
+                  disabled={isImportingGoogleMaps || !hasGoogle}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingGoogleMaps ? 'animate-spin' : ''} />
+                  <span>Google Maps Tekil Çek</span>
+                </button>
+
+                <button
+                  onClick={handleImportTripadvisorReviews}
+                  disabled={isImportingTripadvisor || !hasTripadvisor}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingTripadvisor ? 'animate-spin' : ''} />
+                  <span>TripAdvisor Tekil Çek</span>
+                </button>
+
+                <button
+                  onClick={handleImportBookingReviews}
+                  disabled={isImportingBooking || !hasBooking}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingBooking ? 'animate-spin' : ''} />
+                  <span>Booking.com Tekil Çek</span>
+                </button>
+
+                <button
+                  onClick={handleSyncHolidaycheckReviews}
+                  disabled={isImportingHolidaycheck}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingHolidaycheck ? 'animate-spin' : ''} />
+                  <span>HolidayCheck Tekil Çek</span>
+                </button>
+
+                <button
+                  onClick={handleSyncHotelscomReviews}
+                  disabled={isImportingHotelscom}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingHotelscom ? 'animate-spin' : ''} />
+                  <span>Hotels.com Tekil Çek</span>
+                </button>
+
+                {isJuraAdaBeach && (
+                  <button
+                    onClick={handleImportAggregatorReviews}
+                    disabled={isImportingAggregator}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                  >
+                    <RefreshCw size={12} className={isImportingAggregator ? 'animate-spin' : ''} />
+                    <span>Aggregator Beta Tekil Çek</span>
+                  </button>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Platform Summary Counters */}
       <div className="flex flex-wrap gap-2 mb-4 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
