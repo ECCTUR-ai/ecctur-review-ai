@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Review } from '@/types';
+import { reviewService } from '@/services/reviewService';
 import { StarRating } from './StarRating';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
@@ -131,7 +132,18 @@ export const ReviewCard = React.memo(function ReviewCard({
     return 'Tarih yok';
   };
 
+  const [isTranslating, setIsTranslating] = useState(false);
+
   const detectLang = () => {
+    const metaLang = review.metadata?.language || review.metadata?.detected_language || review.metadata?.source_language;
+    if (metaLang) {
+      const parsed = String(metaLang).toUpperCase();
+      if (parsed === 'TR' || parsed === 'TURKISH' || parsed === 'TUR') return 'TR';
+      if (parsed === 'EN' || parsed === 'ENGLISH' || parsed === 'ENG') return 'EN';
+      if (parsed === 'RU' || parsed === 'RUSSIAN' || parsed === 'RUS') return 'RU';
+      if (parsed === 'DE' || parsed === 'GERMAN' || parsed === 'GER' || parsed === 'DEU') return 'DE';
+    }
+
     const text = (review.comment || '').toLowerCase();
     if (text.includes('the ') || text.includes(' and ') || text.includes(' room ') || text.includes(' was ')) return 'EN';
     if (text.includes('было') || text.includes('отель') || text.includes('очень')) return 'RU';
@@ -139,19 +151,51 @@ export const ReviewCard = React.memo(function ReviewCard({
     return 'TR';
   };
 
-  const handleTranslate = (lang: 'tr' | 'en' | 'ru') => {
-    setTranslationLang(lang);
+  const handleTranslate = async (lang: 'tr' | 'en' | 'ru') => {
+    if (translationLang === lang) {
+      setTranslationLang(null);
+      setTranslationText(null);
+      return;
+    }
+
     const comment = review.comment || '';
-    if (lang === 'tr') {
-      if (comment.toLowerCase().includes('clean') || comment.toLowerCase().includes('great')) {
-        setTranslationText("Konaklamamız kesinlikle harikaydı! Odalar oldukça ferah ve son derece temizdi. Personel bizi çok güler yüzlü karşıladı.");
-      } else {
-        setTranslationText("Tesis genel olarak temiz, hizmet kalitesi ve çalışanların ilgisi son derece memnun ediciydi. Tavsiye ederim.");
+    if (!comment.trim()) {
+      setTranslationLang(lang);
+      setTranslationText('Yorum metni bulunmuyor.');
+      return;
+    }
+
+    const sourceLang = detectLang().toLowerCase();
+    if (sourceLang === lang) {
+      setTranslationLang(lang);
+      setTranslationText(comment);
+      return;
+    }
+
+    setTranslationLang(lang);
+    setIsTranslating(true);
+    try {
+      const translated = await reviewService.translateReview(comment, lang);
+      
+      let finalText = translated || '';
+      const isBooking = (review.source || '').toLowerCase().includes('booking');
+      if (isBooking && lang === 'tr') {
+        finalText = finalText
+          .replace(/Liked:/gi, 'Beğenilen:')
+          .replace(/Disliked:/gi, 'Beğenilmeyen:');
       }
-    } else if (lang === 'en') {
-      setTranslationText("Our stay was absolutely wonderful! The rooms were spacious and exceptionally clean. The staff welcomed us warmly.");
-    } else if (lang === 'ru') {
-      setTranslationText("Наше пребывание было абсолютно чудесным! Номера были просторными и исключительно чистыми. Персонал встретил нас тепло.");
+
+      if (finalText.length < comment.length * 0.4 && comment.length > 50) {
+        console.warn(`[Translation warning] Possible summarization detected. Target: ${lang}, output length: ${finalText.length} vs original: ${comment.length}. Falling back to original.`);
+        setTranslationText(comment);
+      } else {
+        setTranslationText(finalText);
+      }
+    } catch (e) {
+      console.error('[Translation API Error]', e);
+      setTranslationText(comment);
+    } finally {
+      setIsTranslating(false);
     }
   };
 
@@ -325,12 +369,20 @@ export const ReviewCard = React.memo(function ReviewCard({
       </div>
 
       {/* Translation Accordion Panel */}
-      {translationText && (
+      {(translationText || isTranslating) && (
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-150 animate-slide-in space-y-2">
           <div className="flex justify-between items-center text-[9px]">
             <span className="font-bold text-slate-550 flex items-center gap-1">
               <Languages size={10} />
-              <span>Yapay Zeka Çevirisi ({translationLang?.toUpperCase()})</span>
+              <span>
+                {isTranslating ? (
+                  `Çevriliyor (${translationLang?.toUpperCase()})...`
+                ) : detectLang().toLowerCase() === translationLang?.toLowerCase() ? (
+                  `Orijinal Metin (${translationLang?.toUpperCase()})`
+                ) : (
+                  `Çeviri (${translationLang?.toUpperCase()})`
+                )}
+              </span>
             </span>
             <button
               onClick={() => {
@@ -342,8 +394,15 @@ export const ReviewCard = React.memo(function ReviewCard({
               Orijinali Göster
             </button>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed italic font-medium">
-            "{translationText}"
+          <p className="text-xs text-slate-650 leading-relaxed italic font-medium">
+            {isTranslating ? (
+              <span className="flex items-center gap-1.5 text-slate-400 font-medium">
+                <Loader2 size={12} className="animate-spin text-indigo-500" />
+                Çeviriliyor, lütfen bekleyin...
+              </span>
+            ) : (
+              `"${translationText}"`
+            )}
           </p>
         </div>
       )}

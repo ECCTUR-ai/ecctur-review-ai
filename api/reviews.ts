@@ -365,6 +365,12 @@ function detectLanguage(text: string): 'tr' | 'en' | 'de' | 'ru' {
 }
 
 async function translateText(text: string, targetLang: string): Promise<string> {
+  const sourceLang = detectLanguage(text);
+  if (sourceLang === targetLang) {
+    console.log(`[Translate API] Source language equals target language (${sourceLang} === ${targetLang}). Returning original text directly.`);
+    return text;
+  }
+
   const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
   const langNames: Record<string, string> = {
     tr: 'Turkish',
@@ -387,7 +393,7 @@ async function translateText(text: string, targetLang: string): Promise<string> 
           messages: [
             {
               role: 'system',
-              content: `You are a professional hotel feedback translator. Translate the given guest review comment into ${targetLangName}. Keep the tone and original meaning exactly same. Only return the translated text without any explanation, markdown, or intro.`
+              content: `Translate the following review faithfully and completely into ${targetLangName}. Do not summarize, do not rewrite, do not omit details. Preserve Liked/Disliked structure.`
             },
             {
               role: 'user',
@@ -400,8 +406,15 @@ async function translateText(text: string, targetLang: string): Promise<string> 
 
       if (response.ok) {
         const data = await response.json();
-        const translated = data.choices?.[0]?.message?.content?.trim();
-        if (translated) return translated;
+        let translated = data.choices?.[0]?.message?.content?.trim();
+        if (translated) {
+          if (targetLang === 'tr') {
+            translated = translated
+              .replace(/Liked:/gi, 'Beğenilen:')
+              .replace(/Disliked:/gi, 'Beğenilmeyen:');
+          }
+          return translated;
+        }
       } else {
         const errText = await response.text();
         console.warn('[Translate API] OpenAI translation failed, falling back to MyMemory:', errText);
