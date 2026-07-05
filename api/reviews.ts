@@ -2054,6 +2054,22 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       let unansweredCount = 0;
       const detailedErrors: any[] = [];
 
+      const platformSummary: Record<string, { normalized: number; imported: number; duplicates: number; skipped: number }> = {
+        "Google": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
+        "Booking.com": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
+        "TripAdvisor": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
+        "Expedia": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
+        "Hotels.com": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
+        "Airbnb": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
+        "Yelp": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 }
+      };
+
+      const getSummaryKey = (p: string) => {
+        if (p === 'Booking') return 'Booking.com';
+        if (platformSummary[p] !== undefined) return p;
+        return null;
+      };
+
       for (const r of scrapedReviews) {
         try {
           if (!r.reviewDate && effectiveMode === 'daily_sync') {
@@ -2073,17 +2089,29 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
           // Normalize platform name to standard forms
           let platformVal = r.platform || 'Google';
-          const pLower = platformVal.toLowerCase();
+          const pLower = platformVal.toLowerCase().trim();
           if (pLower.includes('google')) {
             platformVal = 'Google';
-          } else if (pLower.includes('tripadvisor') || pLower.includes('trip advisor')) {
-            platformVal = 'TripAdvisor';
           } else if (pLower.includes('booking')) {
             platformVal = 'Booking';
-          } else if (pLower.includes('holidaycheck')) {
-            platformVal = 'HolidayCheck';
+          } else if (pLower.includes('tripadvisor') || pLower.includes('trip advisor')) {
+            platformVal = 'TripAdvisor';
+          } else if (pLower.includes('expedia')) {
+            platformVal = 'Expedia';
           } else if (pLower.includes('hotels.com') || pLower.includes('hotelscom') || pLower.includes('hotels com')) {
             platformVal = 'Hotels.com';
+          } else if (pLower.includes('airbnb')) {
+            platformVal = 'Airbnb';
+          } else if (pLower.includes('yelp')) {
+            platformVal = 'Yelp';
+          } else {
+            console.warn(`[Aggregator] Unrecognized/unsupported provider: ${platformVal}`);
+            continue;
+          }
+
+          const sumKey = getSummaryKey(platformVal);
+          if (sumKey) {
+            platformSummary[sumKey].normalized++;
           }
 
           const isDuplicate = await checkIsDuplicate(
@@ -2098,6 +2126,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           
           if (isDuplicate) {
             duplicateCount++;
+            if (sumKey) {
+              platformSummary[sumKey].duplicates++;
+            }
             continue;
           }
 
@@ -2128,8 +2159,14 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             console.error('[Aggregator Import] Database insert error:', insertErr);
             failedCount++;
             detailedErrors.push({ externalId: r.externalId || null, message: insertErr.message });
+            if (sumKey) {
+              platformSummary[sumKey].skipped++;
+            }
           } else {
             importedCount++;
+            if (sumKey) {
+              platformSummary[sumKey].imported++;
+            }
 
             // Requirement 16: trigger existing AI reply pipeline (postToN8N)
             try {
@@ -2171,6 +2208,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         imported: importedCount,
         duplicates: duplicateCount,
         skipped: 0,
+        platformSummary,
         errors: detailedErrors,
         answeredReviews: answeredCount,
         unansweredReviews: unansweredCount,

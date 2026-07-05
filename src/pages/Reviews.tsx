@@ -465,7 +465,13 @@ export default function Reviews() {
   const bookingCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'booking').length;
   const holidaycheckCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'holidaycheck').length;
   const hotelscomCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'hotelscom').length;
-  const otherCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'other').length;
+  const expediaCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'expedia').length;
+  const airbnbCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'airbnb').length;
+  const yelpCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'yelp').length;
+  const otherCount = baseReviewsForCounts.filter(r => {
+    const normalized = normalizeReviewPlatform(r.source);
+    return normalized !== 'google' && normalized !== 'tripadvisor' && normalized !== 'booking' && normalized !== 'holidaycheck' && normalized !== 'hotelscom' && normalized !== 'expedia' && normalized !== 'airbnb' && normalized !== 'yelp';
+  }).length;
 
   const allCount = baseReviewsForCounts.length;
 
@@ -1652,9 +1658,12 @@ export default function Reviews() {
           const platformTabs = [
             { key: '', label: 'Tümü', count: allCount, activeClass: 'bg-slate-900 border-slate-900 text-white shadow-sm shadow-slate-900/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-slate-100 text-slate-600', dotColor: '' },
             { key: 'Google', label: 'Google Reviews', count: googleCount, activeClass: 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-blue-50 text-blue-600', dotColor: 'bg-blue-500' },
-            { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-emerald-50 text-emerald-600', dotColor: 'bg-emerald-500' },
             { key: 'Booking', label: 'Booking.com', count: bookingCount, activeClass: 'bg-sky-600 border-sky-600 text-white shadow-sm shadow-sky-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-sky-50 text-sky-600', dotColor: 'bg-sky-500' },
+            { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-emerald-50 text-emerald-600', dotColor: 'bg-emerald-500' },
             { key: 'Hotels.com', label: 'Hotels.com', count: hotelscomCount, activeClass: 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-indigo-50 text-indigo-600', dotColor: 'bg-indigo-500' },
+            { key: 'Expedia', label: 'Expedia', count: expediaCount, activeClass: 'bg-amber-600 border-amber-600 text-white shadow-sm shadow-amber-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-amber-50 text-amber-600', dotColor: 'bg-amber-500' },
+            { key: 'Airbnb', label: 'Airbnb', count: airbnbCount, activeClass: 'bg-rose-600 border-rose-600 text-white shadow-sm shadow-rose-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-rose-50 text-rose-600', dotColor: 'bg-rose-500' },
+            { key: 'Yelp', label: 'Yelp', count: yelpCount, activeClass: 'bg-red-600 border-red-600 text-white shadow-sm shadow-red-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-red-50 text-red-600', dotColor: 'bg-red-500' },
             { key: 'HolidayCheck', label: 'HolidayCheck', count: holidaycheckCount, activeClass: 'bg-pink-600 border-pink-600 text-white shadow-sm shadow-pink-500/10', countBgActive: 'bg-white/20 text-white', countBgInactive: 'bg-pink-50 text-pink-600', dotColor: 'bg-pink-500' }
           ];
 
@@ -2059,6 +2068,43 @@ export default function Reviews() {
                   <span className="text-indigo-600 font-bold text-right">%{Number(modalData.responseRate ?? 0).toFixed(1)}</span>
                 </div>
               </div>
+
+              {/* Platform Summary Table */}
+              {modalData.platformSummary && (
+                <div className="space-y-2 border-t border-slate-200 pt-4">
+                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5 mb-2">
+                    <span className="w-1.5 h-3 bg-violet-600 rounded-full"></span>
+                    <span>Platform Bazlı İçe Aktarım Özeti</span>
+                  </h4>
+                  <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-100 text-[10px]">
+                      <thead className="bg-slate-50 font-bold text-slate-500">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left">Platform</th>
+                          <th className="px-2 py-1.5 text-center">Normalize</th>
+                          <th className="px-2 py-1.5 text-center">Eklenen</th>
+                          <th className="px-2 py-1.5 text-center">Mükerrer</th>
+                          <th className="px-2 py-1.5 text-center">Atlanan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                        {Object.entries(modalData.platformSummary).map(([platform, stats]: [string, any]) => {
+                          const hasData = (stats.normalized || 0) > 0;
+                          return (
+                            <tr key={platform} className={hasData ? "bg-slate-50/50 font-bold" : "opacity-50"}>
+                              <td className="px-2 py-1 text-left font-bold text-slate-800">{platform}</td>
+                              <td className="px-2 py-1 text-center">{stats.normalized ?? 0}</td>
+                              <td className="px-2 py-1 text-center text-emerald-600">{stats.imported ?? 0}</td>
+                              <td className="px-2 py-1 text-center text-amber-600">{stats.duplicates ?? 0}</td>
+                              <td className="px-2 py-1 text-center text-slate-400">{stats.skipped ?? 0}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Errors List */}
               {modalData.errors && modalData.errors.length > 0 && (

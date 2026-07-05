@@ -39,6 +39,9 @@ export function mapReview(item: any): Review {
              (item.platform?.toLowerCase() === 'google' || item.platform?.toLowerCase() === 'google-maps' || item.platform?.toLowerCase() === 'google_maps' || item.platform?.toLowerCase() === 'google maps') ? 'Google' :
              item.platform?.toLowerCase() === 'holidaycheck' ? 'HolidayCheck' :
              item.platform?.toLowerCase() === 'hotels.com' ? 'Hotels.com' :
+             item.platform?.toLowerCase() === 'expedia' ? 'Expedia' :
+             item.platform?.toLowerCase() === 'airbnb' ? 'Airbnb' :
+             item.platform?.toLowerCase() === 'yelp' ? 'Yelp' :
              item.platform || item.source || 'Google') as ReviewSource,
     status: (item.status || 'draft').toLowerCase() as ReviewStatus,
     priority: (item.priority || 'low').toLowerCase() as ReviewPriority,

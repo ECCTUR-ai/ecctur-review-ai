@@ -1,4 +1,4 @@
-export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia' | 'HolidayCheck' | 'Hotels.com';
+export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia' | 'HolidayCheck' | 'Hotels.com' | 'Airbnb' | 'Yelp';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 export type ReviewPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ReviewStatus = 'draft' | 'waiting_approval' | 'pending_approval' | 'published';

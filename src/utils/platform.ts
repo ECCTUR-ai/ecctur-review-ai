@@ -1,4 +1,4 @@
-export type NormalizedPlatform = 'google' | 'tripadvisor' | 'booking' | 'hotelscom' | 'holidaycheck' | 'other';
+export type NormalizedPlatform = 'google' | 'tripadvisor' | 'booking' | 'hotelscom' | 'holidaycheck' | 'expedia' | 'airbnb' | 'yelp' | 'other';
 
 export function normalizeReviewPlatform(platform: string): NormalizedPlatform {
   if (!platform) return 'other';
@@ -18,6 +18,15 @@ export function normalizeReviewPlatform(platform: string): NormalizedPlatform {
   if (lower === 'holidaycheck' || lower === 'holiday check') {
     return 'holidaycheck';
   }
+  if (lower === 'expedia') {
+    return 'expedia';
+  }
+  if (lower === 'airbnb') {
+    return 'airbnb';
+  }
+  if (lower === 'yelp') {
+    return 'yelp';
+  }
   return 'other';
 }
 
@@ -34,6 +43,12 @@ export function getPlatformLabel(platformKey: string): string {
       return 'Hotels.com';
     case 'holidaycheck':
       return 'HolidayCheck';
+    case 'expedia':
+      return 'Expedia';
+    case 'airbnb':
+      return 'Airbnb';
+    case 'yelp':
+      return 'Yelp';
     default:
       return platformKey || 'Other';
   }
@@ -52,6 +67,12 @@ export function getPlatformColorClass(platformKey: string): string {
       return 'bg-indigo-50 text-indigo-600 border-indigo-100';
     case 'holidaycheck':
       return 'bg-rose-50 text-rose-600 border-rose-100';
+    case 'expedia':
+      return 'bg-amber-50 text-amber-600 border-amber-100';
+    case 'airbnb':
+      return 'bg-rose-50 text-rose-600 border-rose-100';
+    case 'yelp':
+      return 'bg-red-50 text-red-600 border-red-100';
     default:
       return 'bg-slate-50 text-slate-600 border-slate-100';
   }
