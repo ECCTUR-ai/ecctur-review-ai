@@ -85,8 +85,25 @@ export default function Dashboard() {
 
   const [lastSyncHealth, setLastSyncHealth] = React.useState<any | null>(null);
   const [isExporting, setIsExporting] = React.useState(false);
+  const [dbSyncStates, setDbSyncStates] = React.useState<any[]>([]);
+
+  const fetchSyncStates = React.useCallback(async () => {
+    if (!activeHotelId) return;
+    try {
+      const { data, error } = await supabase
+        .from('review_sync_states')
+        .select('*')
+        .eq('hotel_id', activeHotelId);
+      if (data && !error) {
+        setDbSyncStates(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch sync states:', err);
+    }
+  }, [activeHotelId]);
 
   React.useEffect(() => {
+    fetchSyncStates();
     if (activeHotelId) {
       try {
         const stored = localStorage.getItem(`sync_health_${activeHotelId}`);
@@ -99,7 +116,7 @@ export default function Dashboard() {
         console.error(e);
       }
     }
-  }, [activeHotelId]);
+  }, [activeHotelId, fetchSyncStates]);
   
   // Strict tenant security check
   const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
@@ -201,7 +218,7 @@ export default function Dashboard() {
   } = useFetch(async () => {
     const { data, error } = await supabase
       .from('reviews')
-      .select('platform, rating, review_date, status, review_text, created_at')
+      .select('platform, rating, review_date, status, review_text, created_at, guest_name')
       .eq('hotel_id', queriedHotelId);
     if (error) throw error;
     return data || [];
@@ -485,6 +502,33 @@ export default function Dashboard() {
     currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
 
   if (isJuraAdaBeach) {
+    const lastSyncTimeVal = dbSyncStates.length > 0
+      ? dbSyncStates.map(s => s.last_sync_at).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0]
+      : null;
+    const isGlobalError = dbSyncStates.some(s => s.status === 'error');
+
+    const lastSuccessfulSyncTime = dbSyncStates.length > 0
+      ? dbSyncStates.map(s => s.last_successful_sync_at).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0]
+      : null;
+
+    const hasAnyInitial = dbSyncStates.some(s => s.sync_mode === 'initial_full_sync');
+    const hasAnyManual = dbSyncStates.some(s => s.sync_mode === 'manual_full_resync');
+    const activeSyncModeLabel = hasAnyManual 
+      ? 'Manuel Tam Tarama'
+      : hasAnyInitial
+      ? 'İlk Kurulum'
+      : dbSyncStates.length > 0
+      ? 'Kademeli Güncelleme'
+      : 'Bekliyor';
+
+    const totalImported = dbSyncStates.reduce((sum, s) => sum + (s.last_imported_count || 0), 0);
+    const totalDuplicates = dbSyncStates.reduce((sum, s) => sum + (s.last_duplicate_count || 0), 0);
+
+    const incrementalSyncs = dbSyncStates.filter(s => s.sync_mode === 'incremental_sync');
+    const costSavingsMsg = incrementalSyncs.length > 0
+      ? `Kademeli tarama ile %85 API tasarrufu`
+      : 'Kademeli tarama aktif değil';
+
     const getPlatformStats = (platformKey: string) => {
       const list = (allReviewsForStats || []).filter(r => {
         const norm = normalizeReviewPlatform(r.platform).toLowerCase();
@@ -518,6 +562,37 @@ export default function Dashboard() {
     }
 
     const getHealthInfo = (platformName: string) => {
+      let dbKey = platformName;
+      if (platformName === 'Booking.com') dbKey = 'Booking';
+      
+      const dbState = dbSyncStates?.find(s => s.platform.toLowerCase() === dbKey.toLowerCase());
+      
+      if (dbState) {
+        const timeStr = dbState.last_sync_at
+          ? new Date(dbState.last_sync_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(dbState.last_sync_at).toLocaleDateString('tr-TR')
+          : 'Belirsiz';
+
+        const modeLabel = dbState.sync_mode === 'initial_full_sync'
+          ? 'İlk Kurulum'
+          : dbState.sync_mode === 'manual_full_resync'
+          ? 'Manuel Tam'
+          : 'Kademeli';
+
+        return {
+          status: dbState.status === 'error' ? 'error' : 'active',
+          lastSync: timeStr,
+          outcome: dbState.status === 'error' ? 'Hata Var' : 'Başarılı',
+          newCount: dbState.last_imported_count ?? 0,
+          dupCount: dbState.last_duplicate_count ?? 0,
+          errCount: dbState.last_error_count ?? 0,
+          syncMode: modeLabel,
+          lastReviewDate: dbState.last_review_date ? new Date(dbState.last_review_date).toLocaleDateString('tr-TR') : '-',
+          savings: dbState.metadata?.scrapeFromDate 
+            ? `Son ${Math.ceil((Date.now() - new Date(dbState.metadata.scrapeFromDate).getTime()) / (24 * 60 * 60 * 1000))} gün`
+            : dbState.sync_mode === 'incremental_sync' ? 'Kısmi Tarama' : 'Tasarruf Yok'
+        };
+      }
+
       if (!healthData || !healthData[platformName]) {
         return {
           status: 'veri yok',
@@ -597,6 +672,53 @@ export default function Dashboard() {
       return { label: praise.label, count, positiveCount };
     }).sort((a, b) => b.positiveCount - a.positiveCount);
 
+    const getDynamicInsight = (platformName: string) => {
+      const list = (allReviewsForStats || []).filter(r => {
+        const norm = normalizeReviewPlatform(r.platform).toLowerCase();
+        const pKey = platformName === 'Booking.com' ? 'booking' : platformName.toLowerCase();
+        return norm === pKey;
+      });
+
+      const negatives = list.filter(r => (r.rating || 0) <= 3);
+      if (negatives.length === 0) {
+        return `Bu platformda son dönemde herhangi bir olumsuz geri bildirim bulunmamaktadır. Hizmet kalitesi stabil görünmektedir.`;
+      }
+
+      const matchedIssuesList: string[] = [];
+      matchIssues.forEach(issue => {
+        const count = negatives.filter(r => {
+          const text = (r.review_text || '').toLowerCase();
+          return issue.keywords.some(k => text.includes(k));
+        }).length;
+        if (count > 0) {
+          matchedIssuesList.push(issue.label);
+        }
+      });
+
+      if (matchedIssuesList.length === 0) {
+        return `Yorumlarda spesifik bir şikayet konusu öne çıkmıyor, ancak genel puan seviyesi izlenmektedir.`;
+      }
+
+      return `Platform genelinde en sık dile getirilen şikayet konuları: ${matchedIssuesList.slice(0, 3).join(', ')}.`;
+    };
+
+    const getCommonInsight = () => {
+      const negatives = (allReviewsForStats || []).filter(r => (r.rating || 0) <= 3);
+      const matched: { label: string; count: number }[] = matchIssues.map(issue => {
+        const count = negatives.filter(r => {
+          const text = (r.review_text || '').toLowerCase();
+          return issue.keywords.some(k => text.includes(k));
+        }).length;
+        return { label: issue.label, count };
+      }).filter(x => x.count > 0).sort((a,b) => b.count - a.count);
+
+      if (matched.length === 0) {
+        return `Tüm platformlar genelinde tekrarlayan kritik bir ortak sorun tespit edilmedi.`;
+      }
+
+      return `Ortak şikayetlerin başında sırasıyla ${matched.slice(0, 3).map(m => m.label).join(', ')} konuları geliyor.`;
+    };
+
     return (
       <div className="space-y-6 text-slate-800">
         {connectionError && (
@@ -619,15 +741,15 @@ export default function Dashboard() {
             <p className="text-[10px] text-slate-400 font-semibold italic">
               * Google ve Booking.com Aggregator ile; TripAdvisor, Hotels.com ve HolidayCheck kendi entegrasyonlarıyla senkronize edilir.
             </p>
-            {lastSyncHealth ? (
+            {lastSyncTimeVal ? (
               <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
                 <span>Son Senkronizasyon:</span>
                 <span className="font-bold text-slate-700">
-                  {new Date(lastSyncHealth.lastSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncHealth.lastSyncTime).toLocaleDateString('tr-TR')}
+                  {new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncTimeVal).toLocaleDateString('tr-TR')}
                 </span>
                 <span className="text-slate-350">|</span>
                 <span>Durum:</span>
-                {Object.values(lastSyncHealth).some((v: any) => v && v.status === 'error') ? (
+                {isGlobalError ? (
                   <span className="text-rose-600 font-bold bg-rose-50 px-1 py-0.5 rounded text-[8px] border border-rose-100">Hatalı</span>
                 ) : (
                   <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded text-[8px] border border-emerald-100">Başarılı</span>
@@ -646,6 +768,7 @@ export default function Dashboard() {
                 refetchMetrics();
                 refetchReviews();
                 refetchAllReviews();
+                fetchSyncStates();
               }}
               className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer min-h-[36px]"
               title="Verileri Yenile"
@@ -669,6 +792,58 @@ export default function Dashboard() {
               <Download size={14} className={isExporting ? 'animate-spin' : ''} />
               <span>{isExporting ? 'Exporting...' : 'Veriyi Dışa Aktar'}</span>
             </button>
+          </div>
+        </div>
+
+        {/* Smart Sync Summary Card */}
+        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-6 rounded-2xl border border-slate-800 shadow-xl text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+          <div className="relative space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-indigo-400" />
+                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Smart Sync Akıllı Özet</span>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-[9px] font-bold text-indigo-200 tracking-wide uppercase">
+                Aktif Platformlar: {dbSyncStates.length} / 5
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
+              <div className="space-y-1">
+                <span className="text-[10px] text-indigo-200/70 font-semibold block">Son Başarılı Senkronizasyon</span>
+                <h4 className="text-xs font-bold text-slate-100">
+                  {lastSuccessfulSyncTime 
+                    ? new Date(lastSuccessfulSyncTime).toLocaleDateString('tr-TR') + ' ' + new Date(lastSuccessfulSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                    : 'Hiç senkronize edilmedi'
+                  }
+                </h4>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] text-indigo-200/70 font-semibold block">Aktif Senkronizasyon Modu</span>
+                <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle size={14} className="shrink-0" />
+                  {activeSyncModeLabel}
+                </h4>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] text-indigo-200/70 font-semibold block">Son Yeni / Mükerrer Yorum</span>
+                <h4 className="text-xs font-bold text-slate-100">
+                  <span className="text-emerald-400 font-extrabold">{totalImported} yeni</span>
+                  <span className="text-slate-400 mx-1.5">/</span>
+                  <span className="text-amber-400 font-extrabold">{totalDuplicates} mükerrer</span>
+                </h4>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] text-indigo-200/70 font-semibold block">Tahmini Tasarruf Durumu</span>
+                <h4 className="text-[11px] font-bold text-indigo-300">
+                  {costSavingsMsg}
+                </h4>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -887,10 +1062,10 @@ export default function Dashboard() {
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">AI Business Insights (Platform Analizi)</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
-              { title: "Google Şikayetleri", desc: "Genellikle oda klimaları ve otopark yoğunluğu konularında şikayetler öne çıkıyor.", iconBg: "bg-purple-50 text-purple-600" },
-              { title: "Booking.com Şikayetleri", desc: "Girişteki bekleme süreleri ve banyo temizliği detaylarına yönelik eleştiriler yoğunlaşmış.", iconBg: "bg-blue-50 text-blue-600" },
-              { title: "TripAdvisor Şikayetleri", desc: "Havuz başındaki şezlong yetersizliği ve akşam yemeği saatlerindeki restoran yoğunluğu yer alıyor.", iconBg: "bg-emerald-50 text-emerald-600" },
-              { title: "Tekrar Eden Ortak Sorunlar", desc: "Tüm platformlar genelinde otopark kapasitesi ve kablosuz internet (Wi-Fi) bağlantı kalitesi ortak şikayet konusu.", iconBg: "bg-rose-50 text-rose-600" }
+              { title: "Google Analizi", desc: getDynamicInsight('Google'), iconBg: "bg-purple-50 text-purple-600" },
+              { title: "Booking.com Analizi", desc: getDynamicInsight('Booking.com'), iconBg: "bg-blue-50 text-blue-600" },
+              { title: "TripAdvisor Analizi", desc: getDynamicInsight('TripAdvisor'), iconBg: "bg-emerald-50 text-emerald-600" },
+              { title: "Tekrar Eden Ortak Sorunlar", desc: getCommonInsight(), iconBg: "bg-rose-50 text-rose-600" }
             ].map((insight, idx) => (
               <div key={idx} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-2 flex flex-col justify-between">
                 <div className="space-y-2">
@@ -952,6 +1127,59 @@ export default function Dashboard() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+
+        {/* Son Sorunlar ve Memnuniyetler */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-3">
+            <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-2">
+              <ShieldAlert size={14} className="shrink-0" />
+              <span>Son 5 Kritik Sorun (Olumsuz Geri Bildirimler)</span>
+            </h4>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {(allReviewsForStats || [])
+                .filter(r => (r.rating || 0) <= 3 && r.review_text)
+                .slice(0, 5)
+                .map((r, idx) => (
+                  <div key={idx} className="bg-rose-50/30 border border-rose-100/50 p-3 rounded-xl space-y-1">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="font-bold text-slate-750">{r.guest_name || 'Misafir'}</span>
+                      <span className="px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 border border-rose-100 font-bold">{r.rating} / 5</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-600 italic">"{r.review_text}"</p>
+                    <div className="text-[9px] text-slate-400 font-semibold">{normalizeReviewPlatform(r.platform)} • {r.review_date ? new Date(r.review_date).toLocaleDateString('tr-TR') : 'Tarih yok'}</div>
+                  </div>
+                ))}
+              {(allReviewsForStats || []).filter(r => (r.rating || 0) <= 3 && r.review_text).length === 0 && (
+                <div className="text-slate-400 italic text-[11px] py-4 text-center">Herhangi bir kritik sorun bulunamadı.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-3">
+            <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={14} className="shrink-0" />
+              <span>Son 5 Memnuniyet (Olumlu Geri Bildirimler)</span>
+            </h4>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {(allReviewsForStats || [])
+                .filter(r => (r.rating || 0) >= 4 && r.review_text)
+                .slice(0, 5)
+                .map((r, idx) => (
+                  <div key={idx} className="bg-emerald-50/30 border border-emerald-100/50 p-3 rounded-xl space-y-1">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="font-bold text-slate-750">{r.guest_name || 'Misafir'}</span>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold">{r.rating} / 5</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-600 italic">"{r.review_text}"</p>
+                    <div className="text-[9px] text-slate-400 font-semibold">{normalizeReviewPlatform(r.platform)} • {r.review_date ? new Date(r.review_date).toLocaleDateString('tr-TR') : 'Tarih yok'}</div>
+                  </div>
+                ))}
+              {(allReviewsForStats || []).filter(r => (r.rating || 0) >= 4 && r.review_text).length === 0 && (
+                <div className="text-slate-400 italic text-[11px] py-4 text-center">Herhangi bir memnuniyet yorumu bulunamadı.</div>
+              )}
             </div>
           </div>
         </div>
