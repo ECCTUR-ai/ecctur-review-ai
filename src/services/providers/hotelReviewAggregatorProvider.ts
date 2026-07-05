@@ -120,7 +120,19 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
     const guestName = item.authorName || 'Anonymous Guest';
     const rating = Number(item.reviewRating || 5);
     const reviewText = item.reviewText !== undefined && item.reviewText !== null ? String(item.reviewText) : '';
-    const platform = item.provider || 'Google';
+    let platform = item.provider || 'Google';
+    const lowerP = platform.toLowerCase();
+    if (lowerP.includes('google')) {
+      platform = 'Google';
+    } else if (lowerP.includes('tripadvisor') || lowerP.includes('trip advisor')) {
+      platform = 'TripAdvisor';
+    } else if (lowerP.includes('booking')) {
+      platform = 'Booking';
+    } else if (lowerP.includes('holidaycheck')) {
+      platform = 'HolidayCheck';
+    } else if (lowerP.includes('hotels.com') || lowerP.includes('hotelscom') || lowerP.includes('hotels com')) {
+      platform = 'Hotels.com';
+    }
     
     let reviewDate: string | null = null;
     if (item.reviewDate) {

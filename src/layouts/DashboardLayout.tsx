@@ -83,6 +83,11 @@ export default function DashboardLayout() {
   useEffect(() => {
     if (!userId) return;
     const loadHotels = async () => {
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_URL.includes('placeholder')) {
+        console.warn('Supabase credentials missing or placeholder used.');
+        setIsApiOnline(false);
+        return;
+      }
       try {
         const userHotelsClearance = authHotelIds || [];
         const userOrgId = authOrgId || null;
@@ -103,6 +108,7 @@ export default function DashboardLayout() {
           : allHotels.filter(h => userHotelsClearance.includes(h.id));
         
         setHotels(filteredHotels);
+        setIsApiOnline(true);
         
         // Ensure currentHotelId is valid
         if (!currentHotelId || !filteredHotels.find(h => h.id === currentHotelId)) {
@@ -114,6 +120,7 @@ export default function DashboardLayout() {
         }
       } catch (err) {
         console.error('Error loading organization context:', err);
+        setIsApiOnline(false);
       }
     };
     loadHotels();
@@ -474,11 +481,17 @@ export default function DashboardLayout() {
             <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-medium border ${
               isApiOnline 
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
-                : 'bg-amber-50 border-amber-200 text-amber-600'
+                : 'bg-rose-50 border-rose-200 text-rose-600'
             }`}>
               {isApiOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-              <span className="hidden sm:inline">{isApiOnline ? 'API Connected' : 'Demo Offline Mode'}</span>
-              <span className="inline sm:hidden">{isApiOnline ? 'Online' : 'Demo'}</span>
+              <span className="hidden sm:inline">
+                {isApiOnline 
+                  ? 'API Connected' 
+                  : (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder')
+                      ? 'Supabase Config Error'
+                      : 'Supabase Connection Error')}
+              </span>
+              <span className="inline sm:hidden">{isApiOnline ? 'Online' : 'Error'}</span>
             </div>
           </div>
 

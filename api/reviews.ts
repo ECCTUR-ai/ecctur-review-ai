@@ -112,7 +112,8 @@ async function checkIsDuplicate(
   platformReviewId: string | null,
   guestName: string,
   rating: number,
-  reviewText: string
+  reviewText: string,
+  reviewDate?: string | null
 ): Promise<boolean> {
   if (platformReviewId) {
     const { data: existing, error } = await supabaseAdmin
@@ -126,15 +127,25 @@ async function checkIsDuplicate(
     }
   }
 
-  const { data: existingSec, error: errorSec } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('reviews')
     .select('id')
     .eq('hotel_id', hotelId)
     .eq('platform', platform)
     .eq('guest_name', guestName)
-    .eq('rating', rating)
-    .eq('review_text', reviewText)
-    .limit(1);
+    .eq('rating', rating);
+
+  if (reviewText) {
+    query = query.eq('review_text', reviewText);
+  } else {
+    query = query.or('review_text.is.null,review_text.eq.');
+  }
+
+  if (reviewDate) {
+    query = query.eq('review_date', reviewDate);
+  }
+
+  const { data: existingSec, error: errorSec } = await query.limit(1);
   if (!errorSec && existingSec && existingSec.length > 0) {
     return true;
   }
@@ -1325,7 +1336,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       }
 
       const useMockEnv = process.env.USE_MOCK_GOOGLE_PROVIDER;
-      let isMock = useMockEnv === 'true' ? true : useMockEnv === 'false' ? false : !googleLocationId;
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+      let isMock = isProduction ? false : (useMockEnv === 'true' ? true : useMockEnv === 'false' ? false : !googleLocationId);
 
       if (!googleLocationId) {
         if (isMock && googleMapsUrl) {
@@ -1958,6 +1970,16 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
 
     try {
+      // Self-healing: Correct any legacy platform names to 'Google'
+      try {
+        await supabaseAdmin
+          .from('reviews')
+          .update({ platform: 'Google' })
+          .in('platform', ['google-maps', 'google_maps', 'google maps']);
+      } catch (fixErr) {
+        console.error('[Platform Fix] Error correcting legacy platform names:', fixErr);
+      }
+
       const { data: hotelData, error: hotelError } = await supabaseAdmin
         .from('hotels')
         .select('organization_id, name')
@@ -1996,11 +2018,17 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         effectiveMode = 'daily_sync';
       }
 
-      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
+      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 1000 : 150;
 
+      console.log('[Aggregator] selected hotelId:', hotelId);
+      console.log('[Aggregator] found hotel.id:', hotelId);
+      console.log('[Aggregator] found hotel.name:', hotelName);
       console.log('[Aggregator] Running tri_angle/hotel-review-aggregator for', hotelName);
+      
       const scrapedReviews = await fetchAggregatorReviews(googleMapsUrl, limit);
-      console.log("[Aggregator SCRAPED FIRST ITEM]", scrapedReviews[0]);
+      
+      console.log('[Aggregator] Apify normalized item count:', scrapedReviews.length);
+      console.log('[Aggregator] First 3 items to insert:', scrapedReviews.slice(0, 3));
 
       let importedCount = 0;
       let duplicateCount = 0;
@@ -2026,30 +2054,32 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             unansweredCount++;
           }
 
-          // Requirement 15: Duplicate check across: hotel_id, platform, guest_name, rating, review_date, review_text
-          let query = supabaseAdmin
-            .from('reviews')
-            .select('id')
-            .eq('hotel_id', hotelId)
-            .eq('platform', r.platform)
-            .eq('guest_name', r.guestName)
-            .eq('rating', r.rating);
-            
-          if (r.reviewDate) {
-            query = query.eq('review_date', r.reviewDate);
-          } else {
-            query = query.is('review_date', null);
+          // Normalize platform name to standard forms
+          let platformVal = r.platform || 'Google';
+          const pLower = platformVal.toLowerCase();
+          if (pLower.includes('google')) {
+            platformVal = 'Google';
+          } else if (pLower.includes('tripadvisor') || pLower.includes('trip advisor')) {
+            platformVal = 'TripAdvisor';
+          } else if (pLower.includes('booking')) {
+            platformVal = 'Booking';
+          } else if (pLower.includes('holidaycheck')) {
+            platformVal = 'HolidayCheck';
+          } else if (pLower.includes('hotels.com') || pLower.includes('hotelscom') || pLower.includes('hotels com')) {
+            platformVal = 'Hotels.com';
           }
+
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            platformVal,
+            r.externalId || null,
+            r.guestName,
+            r.rating,
+            r.reviewText || '',
+            r.reviewDate || null
+          );
           
-          if (r.reviewText) {
-            query = query.eq('review_text', r.reviewText);
-          } else {
-            query = query.or('review_text.is.null,review_text.eq.');
-          }
-          
-          const { data: existing, error: dupErr } = await query.limit(1);
-          
-          if (!dupErr && existing && existing.length > 0) {
+          if (isDuplicate) {
             duplicateCount++;
             continue;
           }
@@ -2064,7 +2094,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             guest_name: r.guestName,
             rating: r.rating,
             review_text: r.reviewText,
-            platform: r.platform || 'Google',
+            platform: platformVal,
             platform_review_id: r.externalId || null,
             sentiment,
             status: 'draft',
@@ -2112,18 +2142,38 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const totalNormalized = scrapedReviews.length;
       const responseRate = totalNormalized > 0 ? (answeredCount / totalNormalized) * 100 : 0;
 
-      return res.status(200).json({
+      // Sample data for debug
+      const insertedSample = scrapedReviews.slice(0, 3);
+
+      const responsePayload = {
         success: true,
         hotelName,
+        hotelId,
         provider: "hotel-review-aggregator",
+        normalized: totalNormalized,
         imported: importedCount,
         duplicates: duplicateCount,
         skipped: 0,
         errors: detailedErrors,
         answeredReviews: answeredCount,
         unansweredReviews: unansweredCount,
-        responseRate
-      });
+        responseRate,
+        debug: {
+          apifyItems: scrapedReviews.length,
+          normalizedItems: totalNormalized,
+          selectedHotelId: hotelId,
+          insertedSample: insertedSample,
+          duplicateSample: duplicateCount,
+          errorSample: detailedErrors.slice(0, 3)
+        }
+      };
+
+      console.log('[Aggregator] insert success count:', importedCount);
+      console.log('[Aggregator] duplicate count:', duplicateCount);
+      console.log('[Aggregator] insert errors:', detailedErrors);
+      console.log('[Aggregator] import response object:', responsePayload);
+
+      return res.status(200).json(responsePayload);
     } catch (err: any) {
       console.error('[API import-hotel-review-aggregator] Failure:', err);
       return res.status(500).json({ success: false, error: err.message || String(err) });

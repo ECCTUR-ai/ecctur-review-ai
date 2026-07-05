@@ -89,7 +89,7 @@ export const reviewService = {
   },
 
   async getReviewById(id: string): Promise<Review> {
-    if (id.startsWith('test-')) {
+    if (!import.meta.env.PROD && id.startsWith('test-')) {
       const found = testReviews.find(r => r.id === id);
       if (found) return found;
     }
@@ -1218,7 +1218,7 @@ export const reviewService = {
   },
 
   async submitResponse(id: string, responseText: string): Promise<Review> {
-    if (id.startsWith('test-')) {
+    if (!import.meta.env.PROD && id.startsWith('test-')) {
       const found = testReviews.find(r => r.id === id);
       if (found) {
         found.response = responseText;
@@ -1230,7 +1230,7 @@ export const reviewService = {
   },
 
   async saveResponseDraft(id: string, responseText: string): Promise<Review> {
-    if (id.startsWith('test-')) {
+    if (!import.meta.env.PROD && id.startsWith('test-')) {
       const found = testReviews.find(r => r.id === id);
       if (found) {
         found.response = responseText;
@@ -1242,7 +1242,7 @@ export const reviewService = {
   },
 
   async updateReviewNotes(id: string, managerNotes: string, internalNotes: string): Promise<Review> {
-    if (id.startsWith('test-')) {
+    if (!import.meta.env.PROD && id.startsWith('test-')) {
       const found = testReviews.find(r => r.id === id);
       if (found) {
         found.managerNotes = managerNotes;
@@ -1254,7 +1254,7 @@ export const reviewService = {
   },
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
-    if (id.startsWith('test-')) {
+    if (!import.meta.env.PROD && id.startsWith('test-')) {
       const found = testReviews.find(r => r.id === id);
       if (found) {
         found.status = status;

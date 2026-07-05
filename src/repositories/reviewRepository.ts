@@ -36,7 +36,7 @@ export function mapReview(item: any): Review {
     owner_response_date: item.owner_response_date || null,
     source: (item.platform?.toLowerCase() === 'booking' ? 'Booking' :
              item.platform?.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' :
-             item.platform?.toLowerCase() === 'google' ? 'Google' :
+             (item.platform?.toLowerCase() === 'google' || item.platform?.toLowerCase() === 'google-maps' || item.platform?.toLowerCase() === 'google_maps' || item.platform?.toLowerCase() === 'google maps') ? 'Google' :
              item.platform?.toLowerCase() === 'holidaycheck' ? 'HolidayCheck' :
              item.platform?.toLowerCase() === 'hotels.com' ? 'Hotels.com' :
              item.platform || item.source || 'Google') as ReviewSource,
@@ -95,7 +95,7 @@ export const reviewRepository = {
       } else if (srcLower === 'tripadvisor') {
         query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
       } else if (srcLower === 'google') {
-        query = query.or('platform.eq.google,platform.eq.Google');
+        query = query.or('platform.eq.google,platform.eq.Google,platform.eq.google-maps,platform.eq.google_maps,platform.eq.google maps');
       } else if (srcLower === 'holidaycheck') {
         query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
       } else if (srcLower === 'hotels.com' || srcLower === 'hotelscom') {

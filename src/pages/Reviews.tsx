@@ -150,19 +150,7 @@ export default function Reviews() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [isImportingAggregator, setIsImportingAggregator] = useState(false);
-  const [aggregatorResult, setAggregatorResult] = useState<{
-    success: boolean;
-    hotelName: string;
-    provider: string;
-    imported: number;
-    duplicates: number;
-    skipped: number;
-    errors: any[];
-    answeredReviews?: number;
-    unansweredReviews?: number;
-    responseRate?: number;
-    rawError?: string;
-  } | null>(null);
+  const [aggregatorResult, setAggregatorResult] = useState<any | null>(null);
 
   const handleImportAggregatorReviews = async () => {
     if (!currentHotelId) {
@@ -219,8 +207,9 @@ export default function Reviews() {
         throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
 
+      console.log('[Reviews Page Debug] aggregator raw response:', result);
       setAggregatorResult(result);
-      refetchMain();
+      refetch();
     } catch (err: any) {
       console.error('[Aggregator Import Error]', err);
       setAggregatorResult({
@@ -256,6 +245,29 @@ export default function Reviews() {
     limit: backendLimit,
     sortBy
   }), [queriedHotelId, search, source, rating, status, priority, backendLimit, sortBy]);
+
+  // Console logs for debugging Reviews page data retrieval
+  useEffect(() => {
+    const selectedHotelObj = hotels?.find(h => h.id === currentHotelId);
+    console.log('[Reviews Page Debug] selectedHotel.id:', currentHotelId);
+    console.log('[Reviews Page Debug] selectedHotel.name:', selectedHotelObj?.name);
+    console.log('[Reviews Page Debug] reviews fetch request params:', {
+      hotelId: queriedHotelId,
+      search: search || undefined,
+      source: source || undefined,
+      rating: rating ? Number(rating) : undefined,
+      status: status || undefined,
+      priority: priority || undefined,
+      limit: backendLimit,
+      sortBy
+    });
+    console.log('[Reviews Page Debug] reviews fetch response count:', data?.reviews?.length ?? 0);
+    console.log('[Reviews Page Debug] First 3 review records:', data?.reviews?.slice(0, 3) ?? []);
+  }, [currentHotelId, hotels, queriedHotelId, search, source, rating, status, priority, backendLimit, sortBy, data]);
+
+  useEffect(() => {
+    console.log('[Reviews Page Debug] modal result state (aggregatorResult):', aggregatorResult);
+  }, [aggregatorResult]);
 
   // One-time repair backfill trigger
   useEffect(() => {
@@ -1979,83 +1991,107 @@ export default function Reviews() {
       )}
 
       {/* Aggregator Import Result Modal */}
-      {aggregatorResult && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg p-6 rounded-2xl border border-slate-200 shadow-2xl relative overflow-hidden space-y-6 text-slate-800">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-850 flex items-center gap-2 m-0">
-                <Bell size={16} className="text-violet-600" />
-                <span>Aggregator İçe Aktarım Sonuç Özeti (Beta)</span>
-              </h3>
-              <button 
-                onClick={() => setAggregatorResult(null)}
-                className="text-xs text-slate-500 hover:text-slate-800 font-bold"
-              >
-                Kapat
-              </button>
-            </div>
-            
-            <div className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Otel Adı:</span>
-                <span className="text-slate-800 font-bold text-right">{aggregatorResult.hotelName}</span>
+      {aggregatorResult && (() => {
+        const modalData = aggregatorResult.data || aggregatorResult;
+        return (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg p-6 rounded-2xl border border-slate-200 shadow-2xl relative overflow-hidden space-y-6 text-slate-800">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-850 flex items-center gap-2 m-0">
+                  <Bell size={16} className="text-violet-600" />
+                  <span>Aggregator İçe Aktarım Sonuç Özeti (Beta)</span>
+                </h3>
+                <button 
+                  onClick={() => setAggregatorResult(null)}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-bold"
+                >
+                  Kapat
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Sağlayıcı:</span>
-                <span className="text-slate-800 font-bold text-right">{aggregatorResult.provider}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Yeni Eklenen (Imported):</span>
-                <span className="text-emerald-600 font-bold text-right">{aggregatorResult.imported}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Mükerrer Atlanan (Duplicates):</span>
-                <span className="text-amber-600 font-bold text-right">{aggregatorResult.duplicates}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Atlanan (Skipped):</span>
-                <span className="text-slate-600 font-bold text-right">{aggregatorResult.skipped}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Cevaplanmış Yorumlar (Answered):</span>
-                <span className="text-blue-600 font-bold text-right">{aggregatorResult.answeredReviews ?? 0}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Cevaplanmamış Yorumlar (Unanswered):</span>
-                <span className="text-orange-600 font-bold text-right">{aggregatorResult.unansweredReviews ?? 0}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
-                <span className="text-slate-500 font-semibold">Cevaplama Oranı (Response Rate):</span>
-                <span className="text-indigo-600 font-bold text-right">%{Number(aggregatorResult.responseRate ?? 0).toFixed(1)}</span>
-              </div>
-            </div>
-
-            {/* Errors List */}
-            {aggregatorResult.errors && aggregatorResult.errors.length > 0 && (
-              <div className="space-y-2 border-t border-slate-200 pt-4">
-                <h4 className="font-bold text-rose-600 text-xs">Hata Detayları ({aggregatorResult.errors.length}):</h4>
-                <div className="max-h-24 overflow-y-auto space-y-1 bg-rose-50 p-2 rounded-xl border border-rose-100">
-                  {aggregatorResult.errors.map((err, idx) => (
-                    <div key={idx} className="text-[10px] text-rose-700 leading-normal font-mono">
-                      {err.externalId ? `[Id: ${err.externalId}] ` : ''}{err.message || String(err)}
-                    </div>
-                  ))}
+              
+              <div className="space-y-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Otel Adı:</span>
+                  <span className="text-slate-800 font-bold text-right">{modalData.hotelName || 'Bilinmiyor'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Sağlayıcı:</span>
+                  <span className="text-slate-800 font-bold text-right">{modalData.provider || 'Bilinmiyor'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Normalize Edilen (Normalized):</span>
+                  <span className="text-slate-800 font-bold text-right">{modalData.normalized ?? 0}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Yeni Eklenen (Imported):</span>
+                  <span className="text-emerald-600 font-bold text-right">{modalData.imported ?? 0}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Mükerrer Atlanan (Duplicates):</span>
+                  <span className="text-amber-600 font-bold text-right">{modalData.duplicates ?? 0}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Atlanan (Skipped):</span>
+                  <span className="text-slate-600 font-bold text-right">{modalData.skipped ?? 0}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Cevaplanmış Yorumlar (Answered):</span>
+                  <span className="text-blue-600 font-bold text-right">{modalData.answeredReviews ?? 0}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Cevaplanmamış Yorumlar (Unanswered):</span>
+                  <span className="text-orange-600 font-bold text-right">{modalData.unansweredReviews ?? 0}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Cevaplama Oranı (Response Rate):</span>
+                  <span className="text-indigo-600 font-bold text-right">%{Number(modalData.responseRate ?? 0).toFixed(1)}</span>
                 </div>
               </div>
-            )}
 
-            {/* Raw/API Error */}
-            {aggregatorResult.rawError && (
-              <div className="space-y-2 border-t border-slate-200 pt-4">
-                <h4 className="font-bold text-rose-600 text-xs">Hata Mesajı:</h4>
-                <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-100 text-[10px] text-rose-700 font-mono overflow-x-auto max-h-32">
-                  {aggregatorResult.rawError}
+              {/* Errors List */}
+              {modalData.errors && modalData.errors.length > 0 && (
+                <div className="space-y-2 border-t border-slate-200 pt-4">
+                  <h4 className="font-bold text-rose-600 text-xs">Hata Detayları ({modalData.errors.length}):</h4>
+                  <div className="max-h-24 overflow-y-auto space-y-1 bg-rose-50 p-2 rounded-xl border border-rose-100">
+                    {modalData.errors.map((err: any, idx: number) => (
+                      <div key={idx} className="text-[10px] text-rose-700 leading-normal font-mono">
+                        {err.externalId ? `[Id: ${err.externalId}] ` : ''}{err.message || String(err)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {/* Raw Backend Response */}
+              <div className="space-y-2 border-t border-slate-200 pt-4">
+                <details className="group">
+                  <summary className="font-bold text-slate-700 text-xs cursor-pointer select-none flex items-center justify-between group-open:mb-2 hover:text-slate-900 transition-colors">
+                    <span>Ham Backend Yanıtı (Raw JSON)</span>
+                    <span className="text-[10px] text-slate-400 font-mono group-hover:text-slate-600">
+                      [Göster / Gizle]
+                    </span>
+                  </summary>
+                  <pre className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-[9px] text-slate-600 font-mono overflow-x-auto max-h-48 leading-relaxed whitespace-pre-wrap">
+                    {JSON.stringify(aggregatorResult, null, 2)}
+                  </pre>
+                </details>
               </div>
-            )}
+
+              {/* Raw/API Error */}
+              {modalData.rawError && (
+                <div className="space-y-2 border-t border-slate-200 pt-4">
+                  <h4 className="font-bold text-rose-600 text-xs">Hata Mesajı:</h4>
+                  <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-100 text-[10px] text-rose-700 font-mono overflow-x-auto max-h-32">
+                    {modalData.rawError}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+
 
       {/* Premium Toast Notification Overlay */}
       {toastMessage && (

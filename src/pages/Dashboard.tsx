@@ -89,6 +89,7 @@ export default function Dashboard() {
   const {
     data: metrics,
     loading: metricsLoading,
+    error: metricsError,
     refetch: refetchMetrics
   } = useFetch(() => analyticsService.getMetrics(queriedHotelId), [queriedHotelId]);
 
@@ -96,6 +97,7 @@ export default function Dashboard() {
   const {
     data: recentReviewsData,
     loading: reviewsLoading,
+    error: reviewsError,
     refetch: refetchReviews
   } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: queriedHotelId }), [queriedHotelId]);
 
@@ -103,23 +105,27 @@ export default function Dashboard() {
   const {
     data: trends,
     loading: trendsLoading,
+    error: trendsError,
   } = useFetch(() => analyticsService.getTrends('30d', queriedHotelId), [queriedHotelId]);
 
   // 4. Load platform share
   const {
     data: platformShare,
     loading: platformLoading,
+    error: platformError,
   } = useFetch(() => analyticsService.getPlatformShare(queriedHotelId), [queriedHotelId]);
 
   // 5. Load rating distribution raw values to calculate star rating counts
   const {
     data: ratingsDistributionRaw,
     loading: ratingsLoading,
+    error: ratingsError,
   } = useFetch(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('reviews')
       .select('rating')
       .eq('hotel_id', queriedHotelId);
+    if (error) throw error;
     return data || [];
   }, [queriedHotelId]);
 
@@ -139,14 +145,14 @@ export default function Dashboard() {
     );
   }
 
-  // Set API status indicator
+  // Set API status indicator based on actual connection errors
   useEffect(() => {
-    if (metrics || recentReviewsData) {
-      setIsApiOnline(true);
-    } else {
+    if (metricsError || reviewsError || trendsError || platformError || ratingsError) {
       setIsApiOnline(false);
+    } else {
+      setIsApiOnline(true);
     }
-  }, [metrics, recentReviewsData, setIsApiOnline]);
+  }, [metricsError, reviewsError, trendsError, platformError, ratingsError, setIsApiOnline]);
 
   // Compute metrics with default fallbacks
   let totalReviews = 0;
@@ -393,8 +399,20 @@ export default function Dashboard() {
 
   const visibleReviews = showAllReviews ? displayReviews : displayReviews.slice(0, 3);
 
+  const connectionError = metricsError || reviewsError || trendsError || platformError || ratingsError || (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder') ? 'Supabase credentials are not defined. Please define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' : null);
+
   return (
     <div className="space-y-6 text-slate-800">
+      {connectionError && (
+        <div className="p-4 rounded-2xl border border-rose-200 text-rose-700 bg-rose-50 flex items-center gap-3 shadow-sm animate-pulse">
+          <ShieldAlert size={20} className="text-rose-500 shrink-0" />
+          <div className="text-xs">
+            <span className="font-bold">Veritabanı Bağlantı Hatası:</span>{' '}
+            {connectionError}
+          </div>
+        </div>
+      )}
+
       {/* Title Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">

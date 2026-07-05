@@ -3,7 +3,7 @@ export type NormalizedPlatform = 'google' | 'tripadvisor' | 'booking' | 'hotelsc
 export function normalizeReviewPlatform(platform: string): NormalizedPlatform {
   if (!platform) return 'other';
   const lower = platform.toLowerCase().trim();
-  if (lower === 'google' || lower === 'google reviews' || lower === 'google maps') {
+  if (lower === 'google' || lower === 'google reviews' || lower === 'google maps' || lower === 'google-maps' || lower === 'google_maps') {
     return 'google';
   }
   if (lower === 'tripadvisor' || lower === 'trip advisor') {
