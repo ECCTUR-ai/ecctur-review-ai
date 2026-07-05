@@ -282,6 +282,16 @@ export default function Reviews() {
     console.log('[Reviews Page Debug] modal result state (aggregatorResult):', aggregatorResult);
   }, [aggregatorResult]);
 
+  // Trigger automatic sync from dashboard redirect
+  useEffect(() => {
+    if (searchParams.get('triggerSync') === 'true' && currentHotelId && !isSyncingAll) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('triggerSync');
+      window.history.replaceState(null, '', url.pathname + url.search);
+      handleSyncAllPlatforms();
+    }
+  }, [searchParams, currentHotelId, isSyncingAll]);
+
   // One-time repair backfill trigger
   useEffect(() => {
     const triggerBackfill = async () => {
@@ -1343,6 +1353,47 @@ export default function Reviews() {
               finalResults.HolidayCheck.errors.push({ message: e.message || String(e) });
             }
           }
+
+          const syncTime = new Date().toISOString();
+          const healthStatus = {
+            lastSyncTime: syncTime,
+            Google: {
+              imported: finalResults.Google.imported,
+              duplicates: finalResults.Google.duplicates,
+              skipped: finalResults.Google.skipped,
+              status: finalResults.Google.errors.length > 0 ? "error" : "active",
+              errors: finalResults.Google.errors
+            },
+            "Booking.com": {
+              imported: finalResults["Booking.com"].imported,
+              duplicates: finalResults["Booking.com"].duplicates,
+              skipped: finalResults["Booking.com"].skipped,
+              status: finalResults["Booking.com"].errors.length > 0 ? "error" : "active",
+              errors: finalResults["Booking.com"].errors
+            },
+            "TripAdvisor": {
+              imported: finalResults.TripAdvisor.imported,
+              duplicates: finalResults.TripAdvisor.duplicates,
+              skipped: finalResults.TripAdvisor.skipped,
+              status: finalResults.TripAdvisor.errors.length > 0 ? "error" : "active",
+              errors: finalResults.TripAdvisor.errors
+            },
+            "Hotels.com": {
+              imported: finalResults["Hotels.com"].imported,
+              duplicates: finalResults["Hotels.com"].duplicates,
+              skipped: finalResults["Hotels.com"].skipped,
+              status: finalResults["Hotels.com"].errors.length > 0 ? "error" : "active",
+              errors: finalResults["Hotels.com"].errors
+            },
+            "HolidayCheck": {
+              imported: finalResults.HolidayCheck.imported,
+              duplicates: finalResults.HolidayCheck.duplicates,
+              skipped: finalResults.HolidayCheck.skipped,
+              status: finalResults.HolidayCheck.errors.length > 0 ? "error" : "active",
+              errors: finalResults.HolidayCheck.errors
+            }
+          };
+          localStorage.setItem(`sync_health_${currentHotelId}`, JSON.stringify(healthStatus));
 
           setUnifiedSyncResult({
             success: true,

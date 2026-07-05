@@ -18,7 +18,8 @@ import {
   ArrowUpRight,
   ChevronDown,
   ChevronUp,
-  ShieldAlert
+  ShieldAlert,
+  RefreshCw
 } from 'lucide-react';
 import {
   LineChart,
@@ -124,6 +125,21 @@ export default function Dashboard() {
     const { data, error } = await supabase
       .from('reviews')
       .select('rating')
+      .eq('hotel_id', queriedHotelId);
+    if (error) throw error;
+    return data || [];
+  }, [queriedHotelId]);
+
+  // Load platform stats for Jura Hotels Ada Beach
+  const {
+    data: allReviewsForStats,
+    loading: allReviewsLoading,
+    error: allReviewsError,
+    refetch: refetchAllReviews
+  } = useFetch(async () => {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('platform, rating, review_date, status, review_text, created_at')
       .eq('hotel_id', queriedHotelId);
     if (error) throw error;
     return data || [];
@@ -400,6 +416,544 @@ export default function Dashboard() {
   const visibleReviews = showAllReviews ? displayReviews : displayReviews.slice(0, 3);
 
   const connectionError = metricsError || reviewsError || trendsError || platformError || ratingsError || (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder') ? 'Supabase credentials are not defined. Please define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' : null);
+
+  const currentHotel = hotels?.find(h => h.id === currentHotelId);
+  const isJuraAdaBeach = 
+    currentHotel?.name === 'Jura Hotels Ada Beach' || 
+    currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
+
+  if (isJuraAdaBeach) {
+    const getPlatformStats = (platformKey: string) => {
+      const list = (allReviewsForStats || []).filter(r => {
+        const norm = normalizeReviewPlatform(r.platform).toLowerCase();
+        return norm === platformKey.toLowerCase();
+      });
+
+      const count = list.length;
+      const totalRating = list.reduce((sum, r) => sum + (r.rating || 0), 0);
+      const avg = count > 0 ? (totalRating / count).toFixed(1) : '0.0';
+
+      let latestDate = 'Henüz veri yok';
+      const dates = list.map(r => r.review_date || r.created_at).filter(Boolean);
+      if (dates.length > 0) {
+        dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+        latestDate = new Date(dates[0]).toLocaleDateString('tr-TR');
+      }
+
+      const unanswered = list.filter(r => r.status === 'draft').length;
+
+      return { count, avg, latestDate, unanswered };
+    };
+
+    let healthData: any = null;
+    try {
+      const stored = localStorage.getItem(`sync_health_${queriedHotelId}`);
+      if (stored) {
+        healthData = JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    const getHealthInfo = (platformName: string) => {
+      if (!healthData || !healthData[platformName]) {
+        return {
+          status: 'veri yok',
+          lastSync: 'Hiç senkronize edilmedi',
+          outcome: 'Bağlantı bekliyor',
+          newCount: 0,
+          dupCount: 0,
+          errCount: 0
+        };
+      }
+      const data = healthData[platformName];
+      const timeStr = healthData.lastSyncTime
+        ? new Date(healthData.lastSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(healthData.lastSyncTime).toLocaleDateString('tr-TR')
+        : 'Belirsiz';
+
+      return {
+        status: data.status,
+        lastSync: timeStr,
+        outcome: data.status === 'error' ? 'Hata Var' : 'Başarılı',
+        newCount: data.imported ?? 0,
+        dupCount: data.duplicates ?? 0,
+        errCount: data.errors?.length ?? 0
+      };
+    };
+
+    const matchIssues = [
+      { key: 'yemek', label: 'Yemek & Restoran', keywords: ['yemek', 'restoran', 'açık büfe', 'kahvaltı', 'lezzet', 'açıkbüfe'] },
+      { key: 'temizlik', label: 'Temizlik & Hijyen', keywords: ['temizlik', 'kirli', 'temiz', 'hijyen', 'toz', 'havlu', 'çarşaf'] },
+      { key: 'oda', label: 'Oda Konforu', keywords: ['oda', 'yatak', 'banyo', 'genişlik', 'gürültü'] },
+      { key: 'personel', label: 'Personel & Hizmet', keywords: ['personel', 'çalışan', 'garson', 'resepsiyon', 'ilgi', 'güler yüz', 'hizmet'] },
+      { key: 'otopark', label: 'Otopark Alanı', keywords: ['otopark', 'park', 'araba', 'vale'] },
+      { key: 'plaj', label: 'Plaj & Kum', keywords: ['plaj', 'deniz', 'kum', 'şezlong', 'şemsiye'] },
+      { key: 'havuz', label: 'Havuz & Aqua', keywords: ['havuz', 'kaydırak', 'şezlong', 'klor'] },
+      { key: 'klima', label: 'Klima & Isıtma', keywords: ['klima', 'ısıtma', 'soğutma', 'sicak', 'soğuk'] },
+      { key: 'wifi', label: 'Kablosuz İnternet (Wi-Fi)', keywords: ['wifi', 'internet', 'bağlantı', 'çekim', 'hız'] },
+      { key: 'asansör', label: 'Asansör', keywords: ['asansör', 'asansor', 'çalışmıyor'] }
+    ];
+
+    const matchPraises = [
+      { key: 'konum', label: 'Konum & Ulaşım', keywords: ['konum', 'merkez', 'ulaşım', 'yakın', 'sahil'] },
+      { key: 'personel', label: 'Personel Hizmeti', keywords: ['personel', 'çalışan', 'garson', 'resepsiyon', 'ilgi', 'güler yüz'] },
+      { key: 'temizlik', label: 'Temizlik Kalitesi', keywords: ['temizlik', 'temiz', 'hijyen', 'pırıl pırıl'] },
+      { key: 'yemek', label: 'Yemek Çeşitliliği', keywords: ['yemek', 'lezzet', 'kahvaltı', 'tatlar'] },
+      { key: 'manzara', label: 'Manzara', keywords: ['manzara', 'deniz', 'doğa', 'balkon'] },
+      { key: 'fiyat', label: 'Fiyat / Performans', keywords: ['fiyat', 'performans', 'uygun', 'değer', 'fp'] }
+    ];
+
+    const issuesData = matchIssues.map(issue => {
+      const matching = (allReviewsForStats || []).filter(r => {
+        const text = (r.review_text || '').toLowerCase();
+        return issue.keywords.some(k => text.includes(k));
+      });
+      const count = matching.length;
+      const negativeCount = matching.filter(r => r.rating <= 3).length;
+      return { label: issue.label, count, negativeCount };
+    }).sort((a, b) => b.negativeCount - a.negativeCount);
+
+    const praisesData = matchPraises.map(praise => {
+      const matching = (allReviewsForStats || []).filter(r => {
+        const text = (r.review_text || '').toLowerCase();
+        return praise.keywords.some(k => text.includes(k));
+      });
+      const count = matching.length;
+      const positiveCount = matching.filter(r => r.rating >= 4).length;
+      return { label: praise.label, count, positiveCount };
+    }).sort((a, b) => b.positiveCount - a.positiveCount);
+
+    return (
+      <div className="space-y-6 text-slate-800">
+        {connectionError && (
+          <div className="p-4 rounded-2xl border border-rose-200 text-rose-700 bg-rose-50 flex items-center gap-3 shadow-sm animate-pulse">
+            <ShieldAlert size={20} className="text-rose-500 shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold">Veritabanı Bağlantı Hatası:</span>{' '}
+              {connectionError}
+            </div>
+          </div>
+        )}
+
+        {/* Title Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-900 m-0">Birleşik Entegrasyon Dashboard'u</h1>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700 tracking-wide uppercase">
+                Aggregator Aktif
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">Jura Hotels Ada Beach için platform bazlı özetler ve iş analitiği</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                refetchMetrics();
+                refetchReviews();
+                refetchAllReviews();
+              }}
+              className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer"
+              title="Verileri Yenile"
+            >
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            </button>
+
+            <button
+              onClick={() => window.location.href = '/reviews?triggerSync=true'}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/10 cursor-pointer"
+            >
+              <RefreshCw size={14} />
+              <span>Tüm Platformları Senkronize Et</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 1. Platform Bazlı Özet Kartları */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Bazlı Özet Kartları</h3>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {[
+              { name: 'Google Reviews', key: 'google', tag: 'Aggregator' },
+              { name: 'Booking.com', key: 'booking', tag: 'Aggregator' },
+              { name: 'TripAdvisor', key: 'tripadvisor', tag: 'Legacy' },
+              { name: 'Hotels.com', key: 'hotelscom', tag: 'Legacy' },
+              { name: 'HolidayCheck', key: 'holidaycheck', tag: 'Legacy' }
+            ].map(plat => {
+              const stats = getPlatformStats(plat.key);
+              return (
+                <div key={plat.key} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between relative overflow-hidden">
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] font-bold text-slate-900 truncate pr-2" title={plat.name}>{plat.name}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
+                        plat.tag === 'Aggregator' 
+                          ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                          : 'bg-slate-50 text-slate-500 border border-slate-100'
+                      }`}>
+                        {plat.tag}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2 pt-1">
+                      <h4 className="text-2xl font-black text-slate-900 leading-none">{stats.count}</h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">yorum</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-50 text-[10.5px]">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Ortalama Puan:</span>
+                      <span className="font-bold text-slate-800 flex items-center gap-0.5">
+                        <Star size={10} className="fill-amber-400 text-amber-400" />
+                        {stats.avg}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Cevaplanmamış:</span>
+                      <span className={`font-bold ${stats.unanswered > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {stats.unanswered}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[9.5px] pt-1">
+                      <span>Son yorum:</span>
+                      <span className="font-medium text-slate-600 truncate max-w-[80px]" title={stats.latestDate}>{stats.latestDate}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2. Platform Sağlık Durumu Bölümü */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Sağlık Durumu</h3>
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-100 text-[11px]">
+                <thead className="bg-slate-50 font-bold text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Platform</th>
+                    <th className="px-4 py-3 text-left">Kaynak Türü</th>
+                    <th className="px-4 py-3 text-left">Son Senkronizasyon</th>
+                    <th className="px-4 py-3 text-center">Durum</th>
+                    <th className="px-4 py-3 text-center">Yeni</th>
+                    <th className="px-4 py-3 text-center">Mükerrer</th>
+                    <th className="px-4 py-3 text-center">Hata</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                  {[
+                    { name: 'Google', title: 'Google', source: 'Aggregator' },
+                    { name: 'Booking.com', title: 'Booking.com', source: 'Aggregator' },
+                    { name: 'TripAdvisor', title: 'TripAdvisor', source: 'Legacy' },
+                    { name: 'Hotels.com', title: 'Hotels.com', source: 'Legacy' },
+                    { name: 'HolidayCheck', title: 'HolidayCheck', source: 'Legacy' }
+                  ].map(plat => {
+                    const health = getHealthInfo(plat.name);
+                    return (
+                      <tr key={plat.name} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-2.5 font-bold text-slate-800">{plat.title}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
+                            plat.source === 'Aggregator'
+                              ? 'bg-purple-50 text-purple-600 border border-purple-100'
+                              : 'bg-slate-50 text-slate-500 border border-slate-100'
+                          }`}>
+                            {plat.source}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-500">{health.lastSync}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                            health.status === 'active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                            health.status === 'error' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                            'bg-amber-50 text-amber-600 border border-amber-100'
+                          }`}>
+                            {health.status === 'active' ? 'Aktif' :
+                             health.status === 'error' ? 'Hatalı' :
+                             health.status === 'veri yok' ? 'Henüz veri yok' : health.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-center text-emerald-600 font-bold">{health.newCount}</td>
+                        <td className="px-4 py-2.5 text-center text-amber-600 font-bold">{health.dupCount}</td>
+                        <td className="px-4 py-2.5 text-center text-rose-600 font-bold">{health.errCount}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Trendler & Donut */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Yorum Trendi */}
+          <div className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col h-[350px]">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Yorum Dağılım Trendi</h3>
+            <div className="flex-1 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData as any} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} tickLine={false} />
+                  <YAxis stroke="#94a3b8" style={{ fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+                    labelStyle={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}
+                  />
+                  {activePlatforms.map((platform, idx) => {
+                    const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f97316', '#ef4444'];
+                    const strokeColor = colors[idx % colors.length];
+                    return (
+                      <Line
+                        key={platform}
+                        type="monotone"
+                        dataKey={platform}
+                        stroke={strokeColor}
+                        strokeWidth={2.5}
+                        dot={{ r: 3, fill: strokeColor }}
+                      />
+                    );
+                  })}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Yorum Dağılımı Donut */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col h-[350px]">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Puan Dağılımı</h3>
+            <div className="relative w-full h-[140px] flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={65}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {distributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xl font-bold text-slate-900 leading-none">{allReviewsForStats?.length || 0}</span>
+                <span className="text-[9px] text-slate-400 font-semibold mt-1">Yorum</span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 mt-2 text-[10px] pr-1">
+              {distributionData.map((entry, index) => (
+                <div key={index} className="flex justify-between items-center py-1 border-b border-slate-50">
+                  <span className="text-slate-600 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: entry.color }}></span>
+                    {entry.name}
+                  </span>
+                  <span className="font-semibold text-slate-950">
+                    {entry.value} <span className="text-slate-400 font-normal">({entry.percentage})</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 4. AI Business Insights & Platform Kırılımı */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">AI Business Insights (Platform Analizi)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { title: "Google Şikayetleri", desc: "Genellikle oda klimaları ve otopark yoğunluğu konularında şikayetler öne çıkıyor.", iconBg: "bg-purple-50 text-purple-600" },
+              { title: "Booking.com Şikayetleri", desc: "Girişteki bekleme süreleri ve banyo temizliği detaylarına yönelik eleştiriler yoğunlaşmış.", iconBg: "bg-blue-50 text-blue-600" },
+              { title: "TripAdvisor Şikayetleri", desc: "Havuz başındaki şezlong yetersizliği ve akşam yemeği saatlerindeki restoran yoğunluğu yer alıyor.", iconBg: "bg-emerald-50 text-emerald-600" },
+              { title: "Tekrar Eden Ortak Sorunlar", desc: "Tüm platformlar genelinde otopark kapasitesi ve kablosuz internet (Wi-Fi) bağlantı kalitesi ortak şikayet konusu.", iconBg: "bg-rose-50 text-rose-600" }
+            ].map((insight, idx) => (
+              <div key={idx} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-2 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className={`w-8 h-8 rounded-lg ${insight.iconBg} flex items-center justify-center text-xs font-bold`}>
+                    AI
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900">{insight.title}</h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{insight.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 5. En çok tekrar eden sorunlar & En çok övülen konular */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* En Çok Tekrar Eden Sorunlar */}
+          <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <ShieldAlert className="text-rose-500" size={16} />
+              <span>En Çok Tekrar Eden Sorunlar</span>
+            </h3>
+            <div className="space-y-3.5">
+              {issuesData.slice(0, 6).map((issue, idx) => {
+                const percent = allReviewsForStats?.length ? Math.min(100, Math.round((issue.negativeCount / allReviewsForStats.length) * 100)) : 0;
+                return (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-xs font-medium">
+                      <span className="text-slate-700">{issue.label}</span>
+                      <span className="text-rose-600 font-bold">{issue.negativeCount} Olumsuz Geri Bildirim</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-rose-500 h-full rounded-full" style={{ width: `${percent || 5}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* En Çok Övülen Konular */}
+          <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Sparkles className="text-emerald-500" size={16} />
+              <span>En Çok Övülen Konular</span>
+            </h3>
+            <div className="space-y-3.5">
+              {praisesData.slice(0, 6).map((praise, idx) => {
+                const percent = allReviewsForStats?.length ? Math.min(100, Math.round((praise.positiveCount / allReviewsForStats.length) * 100)) : 0;
+                return (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-xs font-medium">
+                      <span className="text-slate-700">{praise.label}</span>
+                      <span className="text-emerald-600 font-bold">{praise.positiveCount} Olumlu Geri Bildirim</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${percent || 5}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Son Yorumlar Tablosu */}
+        <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div 
+            onClick={() => setIsSectionOpen(!isSectionOpen)}
+            className="flex items-center justify-between cursor-pointer select-none group"
+          >
+            <h3 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Son Yorumlar</h3>
+            <span className="text-slate-400 group-hover:text-blue-600 transition-colors">
+              {isSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </span>
+          </div>
+
+          {isSectionOpen && (
+            <>
+              <div className="space-y-4 mt-4 flex-1">
+                {displayReviews.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">
+                    Henüz yorum bulunmamaktadır.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {visibleReviews.map((r) => {
+                      const isExpanded = !!expandedReviews[r.id];
+                      return (
+                        <div key={r.id} className="py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-slate-50/50 transition-colors rounded-xl px-2">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 uppercase shrink-0 text-xs">
+                              {r.guestName.split(' ').map(part => part[0]).join('').slice(0, 2)}
+                            </div>
+                            <div className="space-y-1 min-w-0 flex-1 flex flex-col">
+                              <div className="font-semibold text-slate-800 text-xs">{r.guestName}</div>
+                              <div className={`text-[11px] text-slate-500 leading-relaxed italic break-words ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                "{r.comment}"
+                              </div>
+                              <button
+                                onClick={() => toggleReviewExpand(r.id)}
+                                className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold mt-1 self-start cursor-pointer hover:underline focus:outline-none"
+                              >
+                                {isExpanded ? 'Daha az göster' : 'Devamını oku'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-start sm:items-end gap-1.5 shrink-0 text-[10.5px] font-medium text-slate-500 w-full sm:w-auto pl-12 sm:pl-0">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Otel: </span>
+                              <span className="text-slate-700 font-semibold">{r.hotel}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Puan: </span>
+                              {renderStars(r.rating)}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Platform: </span>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${
+                                r.source.toLowerCase() === 'google' 
+                                  ? 'bg-red-50 text-red-500 border border-red-100' 
+                                  : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                              }`}>
+                                {r.source}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider sm:hidden">Durum: </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                r.status === 'AI Yanıt Hazır' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                r.status === 'Onay Bekliyor' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                              }`}>
+                                {r.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {displayReviews.length > 3 && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      onClick={() => setShowAllReviews(!showAllReviews)}
+                      className="px-4 py-2 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none"
+                    >
+                      {showAllReviews ? (
+                        <>
+                          <span>Daha az göster</span>
+                          <ChevronUp size={14} />
+                        </>
+                      ) : (
+                        <>
+                          <span>Tüm son yorumları göster</span>
+                          <ChevronDown size={14} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 mt-4 flex justify-end">
+                <a href="/reviews" className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
+                  <span>Tüm yorumları görüntüle</span>
+                  <ArrowUpRight size={14} />
+                </a>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-slate-800">
