@@ -11,7 +11,7 @@ export function mapReview(item: any): Review {
       comment: '',
       date: '',
       source: 'Google',
-      status: 'draft',
+      status: 'pending',
       priority: 'low',
       response: '',
       respondedAt: '',
@@ -43,7 +43,14 @@ export function mapReview(item: any): Review {
              item.platform?.toLowerCase() === 'airbnb' ? 'Airbnb' :
              item.platform?.toLowerCase() === 'yelp' ? 'Yelp' :
              item.platform || item.source || 'Google') as ReviewSource,
-    status: (item.status || 'draft').toLowerCase() as ReviewStatus,
+    status: (() => {
+      const rawStatus = (item.status || '').toLowerCase().trim();
+      if (rawStatus === 'published' || rawStatus === 'cevaplandi' || rawStatus === 'approved') return 'approved';
+      if (rawStatus === 'draft') return 'draft';
+      if (rawStatus === 'archived') return 'archived';
+      if (rawStatus === 'manual_replied' || rawStatus === 'manual-replied') return 'manual_replied';
+      return 'pending'; // Default fallback status
+    })() as ReviewStatus,
     priority: (item.priority || 'low').toLowerCase() as ReviewPriority,
     response: item.ai_reply || item.response || '',
     respondedAt: item.responded_at || item.respondedAt || item.updated_at || '',
@@ -114,8 +121,21 @@ export const reviewRepository = {
       query = query.eq('sentiment', params.sentiment);
     }
     if (params.status) {
-      const statusVal = params.status.charAt(0).toUpperCase() + params.status.slice(1);
-      query = query.or(`status.eq.${params.status},status.eq.${statusVal}`);
+      // For status query, fetch both the legacy and mapped version
+      const statusVal = params.status;
+      if (statusVal === 'approved') {
+        query = query.or('status.eq.approved,status.eq.Approved,status.eq.published,status.eq.Published,status.eq.cevaplandi');
+      } else if (statusVal === 'draft') {
+        query = query.or('status.eq.draft,status.eq.Draft');
+      } else if (statusVal === 'archived') {
+        query = query.or('status.eq.archived,status.eq.Archived');
+      } else if (statusVal === 'manual_replied') {
+        query = query.or('status.eq.manual_replied,status.eq.manual-replied,status.eq.Manual_Replied');
+      } else if (statusVal === 'pending') {
+        query = query.or('status.eq.pending,status.eq.Pending,status.eq.pending_approval,status.eq.waiting_approval');
+      } else {
+        query = query.eq('status', params.status);
+      }
     }
     if (params.priority) {
       query = query.eq('priority', params.priority);
@@ -158,9 +178,7 @@ export const reviewRepository = {
     console.log(`[Repository submitResponse] reviewId: ${id}`);
     const updateData: any = {
       ai_reply: responseText,
-      status: 'Published',
-      publish_status: 'Published',
-      published: 'Yes',
+      status: 'approved',
       updated_at: new Date().toISOString()
     };
 
@@ -169,19 +187,7 @@ export const reviewRepository = {
       .update(updateData)
       .eq('id', id);
 
-    if (error) {
-      console.warn(`[Repository submitResponse] Update failed, retrying fallback...`, error);
-      const fallbackData = {
-        ai_reply: responseText,
-        status: 'published'
-      };
-      const { error: fbError } = await supabase
-        .from('reviews')
-        .update(fallbackData)
-        .eq('id', id);
-      if (fbError) throw fbError;
-    }
-
+    if (error) throw error;
     return await reviewRepository.getReviewById(id);
   },
 
@@ -189,9 +195,7 @@ export const reviewRepository = {
     console.log(`[Repository saveResponseDraft] reviewId: ${id}`);
     const updateData: any = {
       ai_reply: responseText,
-      status: 'Draft',
-      publish_status: 'Not Published',
-      published: 'No',
+      status: 'draft',
       updated_at: new Date().toISOString()
     };
 
@@ -200,19 +204,7 @@ export const reviewRepository = {
       .update(updateData)
       .eq('id', id);
 
-    if (error) {
-      console.warn(`[Repository saveResponseDraft] Update failed, retrying fallback...`, error);
-      const fallbackData = {
-        ai_reply: responseText,
-        status: 'draft'
-      };
-      const { error: fbError } = await supabase
-        .from('reviews')
-        .update(fallbackData)
-        .eq('id', id);
-      if (fbError) throw fbError;
-    }
-
+    if (error) throw error;
     return await reviewRepository.getReviewById(id);
   },
 
@@ -230,43 +222,18 @@ export const reviewRepository = {
       .update(updateData)
       .eq('id', id);
 
-    if (error) {
-      console.warn(`[Repository updateReviewNotes] Update failed, retrying fallback...`, error);
-      const fallbackData = {
-        notes: managerNotes
-      };
-      const { error: fbError } = await supabase
-        .from('reviews')
-        .update(fallbackData)
-        .eq('id', id);
-      if (fbError) throw fbError;
-    }
-
+    if (error) throw error;
     return await reviewRepository.getReviewById(id);
   },
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
     console.log(`[Repository updateReviewStatus] reviewId: ${id}, status: ${status}`);
-    const statusVal = status.charAt(0).toUpperCase() + status.slice(1);
-    let mappedStatus = statusVal;
-    if (status === 'pending_approval') mappedStatus = 'Pending Approval';
-    if (status === 'waiting_approval') mappedStatus = 'Waiting Approval';
-    if (status === 'draft') mappedStatus = 'Draft';
-
     const { error } = await supabase
       .from('reviews')
-      .update({ status: mappedStatus, updated_at: new Date().toISOString() })
+      .update({ status: status, updated_at: new Date().toISOString() })
       .eq('id', id);
 
-    if (error) {
-      console.warn(`[Repository updateReviewStatus] Update failed, retrying fallback...`, error);
-      const { error: fbError } = await supabase
-        .from('reviews')
-        .update({ status })
-        .eq('id', id);
-      if (fbError) throw fbError;
-    }
-
+    if (error) throw error;
     return await reviewRepository.getReviewById(id);
   }
 };

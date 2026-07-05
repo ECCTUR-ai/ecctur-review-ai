@@ -478,6 +478,9 @@ export default function Reviews() {
   
   // Apply date and department filters to the count base so counts match active date/dept filters
   let baseReviewsForCounts = fullReviewsForCounts;
+  if (status !== 'archived') {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => r.status !== 'archived');
+  }
   if (fromParam || toParam) {
     const startLimit = fromParam ? new Date(fromParam) : new Date(0);
     const endLimit = toParam ? new Date(toParam) : new Date();
@@ -518,6 +521,9 @@ export default function Reviews() {
   const allCount = baseReviewsForCounts.length;
 
   let reviews = data?.reviews || [];
+  if (status !== 'archived') {
+    reviews = reviews.filter(r => r.status !== 'archived');
+  }
 
   // Filter reviews by date query parameters if present (passed from Reports dashboard click)
   if (fromParam || toParam) {
@@ -1659,59 +1665,8 @@ export default function Reviews() {
   }, [refetch]);
 
   const handlePublishGoogleReply = useCallback(async (id: string, replyText: string) => {
-    try {
-      const { data: updatedRow, error } = await supabase
-        .from('reviews')
-        .update({
-          status: 'Published',
-          publish_status: 'Published',
-          published: 'Yes',
-          published_at: new Date().toISOString(),
-          ai_reply: replyText
-        })
-        .eq('id', id)
-        .select('*')
-        .maybeSingle();
-
-      if (error) throw error;
-
-      setToastMessage("Cevap başarıyla yayınlandı olarak işaretlendi.");
-
-      // Try to insert audit log
-      try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        const userEmail = currentUser?.email || '';
-        const userMetadata = currentUser?.user_metadata || {};
-        const userName = [userMetadata.first_name, userMetadata.last_name].filter(Boolean).join(' ') || 'User';
-
-        await supabase.from('review_action_logs').insert({
-          review_id: id,
-          hotel_id: updatedRow?.hotel_id,
-          organization_id: updatedRow?.organization_id,
-          action_type: 'published',
-          action_by_user_id: currentUser?.id,
-          action_by_user_email: userEmail,
-          action_by_user_name: userName,
-          action_at: new Date().toISOString(),
-          previous_status: updatedRow?.status || 'draft',
-          new_status: 'published',
-          platform: String(updatedRow?.platform || 'google').toLowerCase(),
-          guest_name: updatedRow?.guestName || 'Guest',
-          review_reply_text: replyText,
-          ai_generated: true,
-          published_at: new Date().toISOString(),
-          approved_at: new Date().toISOString()
-        });
-      } catch (logErr) {
-        console.warn('[handlePublishGoogleReply] Failed to insert audit log:', logErr);
-      }
-
-      refetch();
-    } catch (err: any) {
-      console.error('Failed to publish Google reply locally:', err);
-      alert("Yorum yayınlandı olarak işaretlenemedi.");
-      throw err;
-    }
+    setToastMessage("İşlem başarıyla tamamlandı.");
+    refetch();
   }, [refetch]);
 
 
@@ -1908,6 +1863,32 @@ export default function Reviews() {
           })()}
         </div>
       )}
+
+      {/* Workflow Tabs */}
+      <div className="flex border-b border-slate-200 gap-1 pb-px mb-6 bg-white p-1 rounded-2xl shadow-sm">
+        {[
+          { key: '', label: 'Tüm Yorumlar' },
+          { key: 'pending', label: 'Cevap Bekleyenler' },
+          { key: 'draft', label: 'Taslak Cevaplar' },
+          { key: 'approved', label: 'Onaylanan Cevaplar' },
+          { key: 'archived', label: 'Arşivlenenler' }
+        ].map((tab) => {
+          const isActive = (tab.key === '' && !status) || (tab.key !== '' && status === tab.key);
+          return (
+            <button
+              key={tab.label}
+              onClick={() => setStatus(tab.key as any)}
+              className={`px-4 py-2.5 text-xs font-extrabold transition-all relative rounded-xl cursor-pointer ${
+                isActive 
+                  ? 'bg-indigo-50 text-indigo-650 shadow-sm border border-indigo-100/50' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Platform Summary Counters */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-9 gap-3 mb-6">

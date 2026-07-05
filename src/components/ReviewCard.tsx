@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Review } from '@/types';
+import { Review, ReviewStatus } from '@/types';
 import { reviewService } from '@/services/reviewService';
 import { StarRating } from './StarRating';
 import { PriorityBadge } from './PriorityBadge';
@@ -228,13 +228,76 @@ export const ReviewCard = React.memo(function ReviewCard({
     }
   };
 
-  const handleAiReplyPublish = async () => {
-    if (!onPublishReply) return;
+  // Workflow Actions
+  const handleSaveAsDraft = async () => {
     setIsPublishing(true);
     try {
-      await onPublishReply(review.id, aiReplyText);
+      await reviewService.saveResponseDraft(review.id, aiReplyText);
       setPublishSuccess(true);
-      setTimeout(() => setPublishSuccess(false), 3000);
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 1000);
+      if (onPublishReply) {
+        await onPublishReply(review.id, aiReplyText);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleApproveReply = async () => {
+    setIsPublishing(true);
+    try {
+      await reviewService.submitResponse(review.id, aiReplyText);
+      setPublishSuccess(true);
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 1000);
+      if (onPublishReply) {
+        await onPublishReply(review.id, aiReplyText);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleArchiveReview = async () => {
+    setIsPublishing(true);
+    try {
+      await reviewService.updateReviewStatus(review.id, 'archived');
+      setPublishSuccess(true);
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 1000);
+      if (onPublishReply) {
+        await onPublishReply(review.id, aiReplyText);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleMarkAsManuallyReplied = async () => {
+    setIsPublishing(true);
+    try {
+      await reviewService.updateReviewStatus(review.id, 'manual_replied');
+      setPublishSuccess(true);
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 1000);
+      if (onPublishReply) {
+        await onPublishReply(review.id, aiReplyText);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -292,6 +355,43 @@ export const ReviewCard = React.memo(function ReviewCard({
     return getPlatformLabel(plat);
   };
 
+  const getStatusBadge = () => {
+    const s = review.status;
+    if (s === 'approved' || s === 'published') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-55 text-emerald-700 border border-emerald-200/50 uppercase tracking-wider">
+          Onaylandı
+        </span>
+      );
+    }
+    if (s === 'draft') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-55 text-indigo-700 border border-indigo-200/50 uppercase tracking-wider">
+          Taslak Hazır
+        </span>
+      );
+    }
+    if (s === 'archived') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200/50 uppercase tracking-wider">
+          Arşivde
+        </span>
+      );
+    }
+    if (s === 'manual_replied') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700 border border-slate-300/50 uppercase tracking-wider">
+          Manuel Cevaplandı
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-55 text-amber-700 border border-amber-200/50 uppercase tracking-wider">
+        Yanıt Bekliyor
+      </span>
+    );
+  };
+
   return (
     <div
       className={`p-6 rounded-3xl border transition-all duration-200 flex flex-col md:grid md:grid-cols-12 gap-6 bg-white shadow-sm border-slate-100 hover:border-indigo-150 hover:shadow-md ${
@@ -342,12 +442,19 @@ export const ReviewCard = React.memo(function ReviewCard({
             <StarRating rating={review.rating} />
           </div>
           {getSentimentBadge()}
-          <PriorityBadge priority={review.priority} />
+          <div className="flex items-center gap-1.5">
+            <PriorityBadge priority={review.priority} />
+            {review.status === 'manual_replied' && (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-100 text-slate-600 border border-slate-200">
+                Manuel Cevaplandı
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Translation google-translate themed bar */}
         <div className="flex flex-wrap items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/50 w-fit">
-          <span className="px-2 py-1 text-[9px] font-black text-slate-450 uppercase border-r border-slate-200/70 mr-1 flex items-center gap-0.5">
+          <span className="px-2 py-1 text-[9px] font-black text-slate-455 uppercase border-r border-slate-200/70 mr-1 flex items-center gap-0.5">
             <Languages size={10} />
             Translate
           </span>
@@ -356,7 +463,7 @@ export const ReviewCard = React.memo(function ReviewCard({
               key={langCode}
               onClick={() => handleTranslate(langCode)}
               className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === langCode ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-750'
+                translationLang === langCode ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-750'
               }`}
             >
               {langCode.toUpperCase()}
@@ -376,7 +483,7 @@ export const ReviewCard = React.memo(function ReviewCard({
                   setTranslationLang(null);
                   setTranslationText(null);
                 }}
-                className="text-[9px] font-bold text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+                className="text-[9px] font-bold text-slate-505 hover:text-slate-800 hover:underline cursor-pointer"
               >
                 Orijinali Göster
               </button>
@@ -470,21 +577,11 @@ export const ReviewCard = React.memo(function ReviewCard({
         </div>
 
         {/* Status card at the bottom */}
-        <div className="text-right border-t border-slate-50 pt-2.5 w-full">
-          {(review.status as string) === 'published' || (review.status as string) === 'cevaplandi' ? (
-            <div className="space-y-0.5">
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex items-center justify-end gap-1.5">
-                <Check size={11} /> Yanıtlandı
-              </span>
-              {(review.respondedAt || review.owner_response_date) && (
-                <span className="text-[9px] text-slate-400 font-medium block">
-                  {new Date(review.respondedAt || review.owner_response_date || '').toLocaleDateString('tr-TR')}
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider block">
-              ⏳ Yanıt Bekleniyor
+        <div className="text-right border-t border-slate-50 pt-2.5 w-full flex flex-col items-end gap-1">
+          {getStatusBadge()}
+          {review.respondedAt && (
+            <span className="text-[9px] text-slate-400 font-medium block">
+              {new Date(review.respondedAt).toLocaleDateString('tr-TR')}
             </span>
           )}
         </div>
@@ -501,7 +598,7 @@ export const ReviewCard = React.memo(function ReviewCard({
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
             {/* Panel */}
             <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between p-6 border-l border-slate-200 animate-slide-in-right">
-              <div className="space-y-6 flex-1 overflow-y-auto">
+              <div className="space-y-6 flex-1 overflow-y-auto pr-1">
                 <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                   <h3 className="text-xs font-black text-slate-800 flex items-center gap-2 m-0 uppercase tracking-wider">
                     <Sparkles className="text-purple-600" size={14} />
@@ -531,7 +628,7 @@ export const ReviewCard = React.memo(function ReviewCard({
                       placeholder="AI cevabı hazırlanıyor..."
                     />
                     {isGenerating && (
-                      <div className="flex items-center gap-2 text-indigo-650 text-xs font-bold py-1">
+                      <div className="flex items-center gap-2 text-indigo-655 text-xs font-bold py-1">
                         <Loader2 size={14} className="animate-spin text-purple-600" />
                         <span>Yeni yanıt oluşturuluyor...</span>
                       </div>
@@ -540,18 +637,46 @@ export const ReviewCard = React.memo(function ReviewCard({
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 pt-4 mt-4 shrink-0">
-                <div className="flex justify-between items-center gap-3">
-                  <button
-                    onClick={handleAiReplyGenerate}
-                    disabled={isGenerating || isPublishing}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <RefreshCw size={12} className={isGenerating ? 'animate-spin' : ''} />
-                    <span>Yeniden Üret</span>
-                  </button>
+              <div className="border-t border-slate-100 pt-4 mt-4 shrink-0 space-y-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center gap-2">
+                    <button
+                      onClick={handleAiReplyGenerate}
+                      disabled={isGenerating || isPublishing}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RefreshCw size={12} className={isGenerating ? 'animate-spin' : ''} />
+                      <span>Yeniden Üret</span>
+                    </button>
+                    
+                    <button
+                      onClick={handleSaveAsDraft}
+                      disabled={isGenerating || isPublishing || !aiReplyText.trim()}
+                      className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
+                    >
+                      Taslak Olarak Kaydet
+                    </button>
+                  </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
+                    <button
+                      onClick={handleMarkAsManuallyReplied}
+                      disabled={isGenerating || isPublishing}
+                      className="flex-1 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer text-center border border-slate-200"
+                    >
+                      Manuel Cevaplandı İşaretle
+                    </button>
+                    
+                    <button
+                      onClick={handleArchiveReview}
+                      disabled={isGenerating || isPublishing}
+                      className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl border border-rose-250/30 transition-all cursor-pointer"
+                    >
+                      Arşivle
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                     <button
                       onClick={() => setShowAiDrawer(false)}
                       className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-600 font-semibold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
@@ -559,25 +684,23 @@ export const ReviewCard = React.memo(function ReviewCard({
                       İptal
                     </button>
                     <button
-                      onClick={handleAiReplyPublish}
+                      onClick={handleApproveReply}
                       disabled={isGenerating || isPublishing || !aiReplyText.trim()}
-                      className={`px-4 py-2 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-white ${
-                        publishSuccess ? 'bg-emerald-600' : 'bg-purple-600 hover:bg-purple-500'
-                      }`}
+                      className={`px-5 py-2 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-white bg-indigo-600 hover:bg-indigo-500`}
                     >
                       {isPublishing ? (
                         <>
                           <Loader2 size={12} className="animate-spin" />
-                          <span>Yayınlanıyor...</span>
+                          <span>İşleniyor...</span>
                         </>
                       ) : publishSuccess ? (
                         <>
                           <Check size={12} />
-                          <span>Yayınlandı!</span>
+                          <span>Tamamlandı!</span>
                         </>
                       ) : (
                         <>
-                          <span>Cevabı Yayınla</span>
+                          <span>Cevabı Onayla (Approve)</span>
                           <ArrowRight size={12} />
                         </>
                       )}
