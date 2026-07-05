@@ -141,6 +141,92 @@ async function checkIsDuplicate(
   return false;
 }
 
+async function handleGoogleDuplicate(
+  hotelId: string,
+  platformReviewId: string | null,
+  guestName: string,
+  rating: number,
+  reviewText: string,
+  incomingReviewDate: string | null,
+  incomingMetadata: any
+) {
+  try {
+    let existingReview: any = null;
+    
+    if (platformReviewId) {
+      const { data } = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('platform', 'Google')
+        .eq('platform_review_id', platformReviewId)
+        .limit(1);
+      if (data && data.length > 0) {
+        existingReview = data[0];
+      }
+    }
+    
+    if (!existingReview) {
+      const { data } = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'Google')
+        .eq('guest_name', guestName)
+        .eq('rating', rating)
+        .eq('review_text', reviewText)
+        .limit(1);
+      if (data && data.length > 0) {
+        existingReview = data[0];
+      }
+    }
+
+    if (!existingReview) return;
+
+    const existingReviewDate = existingReview.review_date;
+    const relativeDateText = incomingMetadata?.display_date || incomingMetadata?.google_relative_date;
+
+    if (!existingReviewDate && (incomingReviewDate || relativeDateText)) {
+      let dateToSet = incomingReviewDate;
+      
+      if (dateToSet && (dateToSet.includes('önce') || dateToSet.includes('ago') || isNaN(Date.parse(dateToSet)))) {
+        dateToSet = parseRelativeDate(dateToSet);
+      }
+      
+      if (!dateToSet && relativeDateText) {
+        dateToSet = parseRelativeDate(relativeDateText);
+      }
+
+      if (dateToSet) {
+        const currentMetadata = existingReview.metadata || {};
+        const updatedMetadata = {
+          ...currentMetadata,
+          google_relative_date: relativeDateText || currentMetadata.google_relative_date || null,
+          display_date: relativeDateText || currentMetadata.display_date || null
+        };
+
+        console.log(`[Google Duplicate Repair] Updating review ${existingReview.id}:`, {
+          review_date: dateToSet,
+          metadata: updatedMetadata
+        });
+
+        const { error: updateErr } = await supabaseAdmin
+          .from('reviews')
+          .update({
+            review_date: dateToSet,
+            metadata: updatedMetadata
+          })
+          .eq('id', existingReview.id);
+
+        if (updateErr) {
+          console.error(`[Google Duplicate Repair] Failed to update review ${existingReview.id}:`, updateErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Google Duplicate Repair] Unexpected error:', err);
+  }
+}
+
 
 function parseRelativeDate(relative: string): string {
   if (relative && !isNaN(Date.parse(relative))) {
@@ -1330,6 +1416,18 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           );
           if (isDuplicate) {
             duplicateCount++;
+            await handleGoogleDuplicate(
+              hotelId,
+              r.platform_review_id,
+              r.reviewer_display_name,
+              r.star_rating,
+              r.comment_text,
+              r.create_update_time,
+              {
+                google_relative_date: r.create_update_time,
+                display_date: r.create_update_time
+              }
+            );
             importDetails.push({ reviewId: r.platform_review_id, status: 'duplicate_skipped' });
             continue;
           }
@@ -1760,6 +1858,15 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
           if (isDuplicate) {
             duplicateCount++;
+            await handleGoogleDuplicate(
+              hotelId,
+              r.externalId || null,
+              r.guestName,
+              r.rating,
+              r.reviewText,
+              r.reviewDate,
+              r.metadata
+            );
             continue;
           }
 
