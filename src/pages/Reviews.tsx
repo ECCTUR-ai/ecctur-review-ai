@@ -151,6 +151,7 @@ export default function Reviews() {
 
   const [isImportingAggregator, setIsImportingAggregator] = useState(false);
   const [aggregatorResult, setAggregatorResult] = useState<any | null>(null);
+  const [unifiedSyncResult, setUnifiedSyncResult] = useState<any | null>(null);
 
   const handleImportAggregatorReviews = async () => {
     if (!currentHotelId) {
@@ -1210,6 +1211,149 @@ export default function Reviews() {
         } catch (e) {}
         const hotelscomMode = hotelscomExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
+        const isJuraAdaBeach = 
+          currentHotel?.name === 'Jura Hotels Ada Beach' || 
+          currentHotel?.name === 'Jura Hotels Ada Beach Kuşadası';
+
+        if (isJuraAdaBeach) {
+          const finalResults: any = {
+            Google: { imported: 0, duplicates: 0, skipped: 0, errors: [] },
+            "Booking.com": { imported: 0, duplicates: 0, skipped: 0, errors: [] },
+            TripAdvisor: { imported: 0, duplicates: 0, skipped: 0, errors: [] },
+            "Hotels.com": { imported: 0, duplicates: 0, skipped: 0, errors: [] },
+            HolidayCheck: { imported: 0, duplicates: 0, skipped: 0, errors: [] }
+          };
+
+          // A) Aggregator (Google & Booking.com)
+          try {
+            const finalUrlToSend = googleMapsUrl;
+            const googlePlaceId = currentHotel?.googlePlaceId || dbRow?.google_place_id;
+
+            if (finalUrlToSend || googlePlaceId) {
+              const aggResponse = await fetch('/api/reviews?action=import-hotel-review-aggregator', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                  action: 'import-hotel-review-aggregator',
+                  hotelId: currentHotelId,
+                  googleMapsUrl: finalUrlToSend
+                })
+              });
+              const aggText = await aggResponse.text();
+              if (aggResponse.ok && aggResponse.headers.get('content-type')?.includes('application/json')) {
+                const aggResult = JSON.parse(aggText);
+                const summary = aggResult.platformSummary || {};
+                if (summary.Google) {
+                  finalResults.Google.imported = summary.Google.imported ?? 0;
+                  finalResults.Google.duplicates = summary.Google.duplicates ?? 0;
+                  finalResults.Google.skipped = summary.Google.skipped ?? 0;
+                }
+                if (summary["Booking.com"]) {
+                  finalResults["Booking.com"].imported = summary["Booking.com"].imported ?? 0;
+                  finalResults["Booking.com"].duplicates = summary["Booking.com"].duplicates ?? 0;
+                  finalResults["Booking.com"].skipped = summary["Booking.com"].skipped ?? 0;
+                }
+                if (aggResult.errors && aggResult.errors.length > 0) {
+                  finalResults.Google.errors.push(...aggResult.errors);
+                  finalResults["Booking.com"].errors.push(...aggResult.errors);
+                }
+              } else {
+                finalResults.Google.errors.push({ message: aggText || `Aggregator returned error status ${aggResponse.status}` });
+                finalResults["Booking.com"].errors.push({ message: aggText || `Aggregator returned error status ${aggResponse.status}` });
+              }
+            } else {
+              finalResults.Google.errors.push({ message: "No Google Maps URL or Place ID configured." });
+              finalResults["Booking.com"].errors.push({ message: "No Google Maps URL or Place ID configured." });
+            }
+          } catch (e: any) {
+            finalResults.Google.errors.push({ message: e.message || String(e) });
+            finalResults["Booking.com"].errors.push({ message: e.message || String(e) });
+          }
+
+          // B) TripAdvisor (Legacy)
+          if (tripadvisorUrl) {
+            try {
+              const response = await fetch('/api/reviews?action=import-tripadvisor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ hotelId: currentHotelId, tripadvisorUrl, mode: taMode })
+              });
+              const text = await response.text();
+              if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                const res = JSON.parse(text);
+                finalResults.TripAdvisor.imported = res.insertedCount ?? res.importedCount ?? 0;
+                finalResults.TripAdvisor.duplicates = res.duplicateCount ?? res.duplicates ?? 0;
+                finalResults.TripAdvisor.skipped = res.skipped ?? 0;
+                if (res.errors) finalResults.TripAdvisor.errors.push(...res.errors);
+              } else {
+                finalResults.TripAdvisor.errors.push({ message: text || `TripAdvisor sync returned status ${response.status}` });
+              }
+            } catch (e: any) {
+              finalResults.TripAdvisor.errors.push({ message: e.message || String(e) });
+            }
+          }
+
+          // C) Hotels.com (Legacy)
+          if (hotelscomUrl) {
+            try {
+              const response = await fetch('/api/reviews?action=import-hotelscom', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                  hotelId: currentHotelId,
+                  hotelName: currentHotel?.name || dbRow?.name || '',
+                  hotelscomUrl,
+                  mode: hotelscomMode
+                })
+              });
+              const text = await response.text();
+              if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                const res = JSON.parse(text);
+                finalResults["Hotels.com"].imported = res.insertedCount ?? res.importedCount ?? 0;
+                finalResults["Hotels.com"].duplicates = res.duplicateCount ?? res.duplicates ?? 0;
+                finalResults["Hotels.com"].skipped = res.skipped ?? 0;
+                if (res.errors) finalResults["Hotels.com"].errors.push(...res.errors);
+              } else {
+                finalResults["Hotels.com"].errors.push({ message: text || `Hotels.com sync returned status ${response.status}` });
+              }
+            } catch (e: any) {
+              finalResults["Hotels.com"].errors.push({ message: e.message || String(e) });
+            }
+          }
+
+          // D) HolidayCheck (Legacy)
+          if (holidaycheckUrl) {
+            try {
+              const response = await fetch('/api/reviews?action=import-holidaycheck', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ hotelId: currentHotelId, holidaycheckUrl, mode: hcMode })
+              });
+              const text = await response.text();
+              if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                const res = JSON.parse(text);
+                finalResults.HolidayCheck.imported = res.insertedCount ?? res.importedCount ?? 0;
+                finalResults.HolidayCheck.duplicates = res.duplicateCount ?? res.duplicates ?? 0;
+                finalResults.HolidayCheck.skipped = res.skipped ?? 0;
+                if (res.errors) finalResults.HolidayCheck.errors.push(...res.errors);
+              } else {
+                finalResults.HolidayCheck.errors.push({ message: text || `HolidayCheck sync returned status ${response.status}` });
+              }
+            } catch (e: any) {
+              finalResults.HolidayCheck.errors.push({ message: e.message || String(e) });
+            }
+          }
+
+          setUnifiedSyncResult({
+            success: true,
+            hotelName: currentHotel?.name || dbRow?.name || 'Jura Hotels Ada Beach',
+            results: finalResults
+          });
+          refetch();
+          setIsSyncingAll(false);
+          return;
+        }
+
         // 1. Google
         if (googleMapsUrl) {
           try {
@@ -2148,6 +2292,99 @@ export default function Reviews() {
           </div>
         );
       })()}
+
+      {/* Unified Sync Results Modal */}
+      {unifiedSyncResult && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xl p-6 rounded-2xl border border-slate-200 shadow-2xl relative overflow-hidden space-y-6 text-slate-800">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-bold text-slate-850 flex items-center gap-2 m-0">
+                <Bell className="text-emerald-500" size={16} />
+                <span>Tüm Platformlar Senkronizasyon Raporu</span>
+              </h3>
+              <button 
+                onClick={() => setUnifiedSyncResult(null)}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold"
+              >
+                Kapat
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="text-xs text-slate-600">
+                Otel: <span className="font-bold text-slate-800">{unifiedSyncResult.hotelName}</span>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-sm">
+                <table className="min-w-full divide-y divide-slate-100 text-[11px]">
+                  <thead className="bg-slate-50 font-bold text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left">Platform</th>
+                      <th className="px-2 py-2.5 text-center">Yeni</th>
+                      <th className="px-2 py-2.5 text-center">Mükerrer</th>
+                      <th className="px-2 py-2.5 text-center">Atlanan</th>
+                      <th className="px-2 py-2.5 text-left">Hata / Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                    {Object.entries(unifiedSyncResult.results).map(([platform, stats]: [string, any]) => {
+                      const hasErrors = stats.errors && stats.errors.length > 0;
+                      return (
+                        <tr key={platform} className="hover:bg-slate-50/30">
+                          <td className="px-3 py-2 text-left font-bold text-slate-800">{platform}</td>
+                          <td className="px-2 py-2 text-center text-emerald-600 font-bold">{stats.imported ?? 0}</td>
+                          <td className="px-2 py-2 text-center text-amber-600 font-bold">{stats.duplicates ?? 0}</td>
+                          <td className="px-2 py-2 text-center text-slate-500 font-bold">{stats.skipped ?? 0}</td>
+                          <td className="px-2 py-2 text-left text-rose-600 font-mono text-[9px] max-w-[200px] truncate" title={hasErrors ? stats.errors.map((e: any) => e.message || String(e)).join(', ') : 'Başarılı'}>
+                            {hasErrors ? (
+                              <span className="text-rose-600 font-bold">Hata Var</span>
+                            ) : (
+                              <span className="text-emerald-600 font-bold">Başarılı</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Error Detail Sections */}
+            {(() => {
+              const allErrors = Object.entries(unifiedSyncResult.results)
+                .filter(([_, stats]: [any, any]) => stats.errors && stats.errors.length > 0);
+              if (allErrors.length === 0) return null;
+              return (
+                <div className="space-y-2 border-t border-slate-200 pt-4">
+                  <h4 className="font-bold text-rose-600 text-xs">Hata Detayları:</h4>
+                  <div className="max-h-36 overflow-y-auto space-y-2 bg-rose-50 p-3 rounded-xl border border-rose-100 font-mono text-[10px]">
+                    {allErrors.map(([platform, stats]: [any, any]) => (
+                      <div key={platform}>
+                        <div className="font-bold text-rose-800 mb-0.5">{platform}:</div>
+                        {stats.errors.map((err: any, idx: number) => (
+                          <div key={idx} className="text-rose-700 ml-2">
+                            - {err.message || String(err)}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex justify-end pt-2 border-t border-slate-200">
+              <button
+                onClick={() => setUnifiedSyncResult(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 

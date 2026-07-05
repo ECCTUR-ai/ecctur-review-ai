@@ -2050,9 +2050,11 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       let importedCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
+      let skippedCount = 0;
       let answeredCount = 0;
       let unansweredCount = 0;
       const detailedErrors: any[] = [];
+      const skippedProvidersList: any[] = [];
 
       const platformSummary: Record<string, { normalized: number; imported: number; duplicates: number; skipped: number }> = {
         "Google": { normalized: 0, imported: 0, duplicates: 0, skipped: 0 },
@@ -2112,6 +2114,21 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           const sumKey = getSummaryKey(platformVal);
           if (sumKey) {
             platformSummary[sumKey].normalized++;
+          }
+
+          // Sadeleştirme kuralı: Sadece Google ve Booking.com Aggregator üzerinden alınır
+          const isAggregatorTarget = platformVal === 'Google' || platformVal === 'Booking';
+          if (!isAggregatorTarget) {
+            skippedCount++;
+            if (sumKey) {
+              platformSummary[sumKey].skipped++;
+            }
+            skippedProvidersList.push({
+              provider: r.metadata?.originalProvider || r.platform,
+              detected: platformVal,
+              reviewId: r.externalId || null
+            });
+            continue;
           }
 
           const isDuplicate = await checkIsDuplicate(
@@ -2207,7 +2224,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         normalized: totalNormalized,
         imported: importedCount,
         duplicates: duplicateCount,
-        skipped: 0,
+        skipped: skippedCount,
         platformSummary,
         errors: detailedErrors,
         answeredReviews: answeredCount,
@@ -2219,7 +2236,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           selectedHotelId: hotelId,
           insertedSample: insertedSample,
           duplicateSample: duplicateCount,
-          errorSample: detailedErrors.slice(0, 3)
+          errorSample: detailedErrors.slice(0, 3),
+          skippedProviders: skippedProvidersList
         }
       };
 
