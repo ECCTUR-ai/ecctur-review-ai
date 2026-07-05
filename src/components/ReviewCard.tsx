@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Review, ReviewStatus } from '@/types';
 import { reviewService } from '@/services/reviewService';
+import { normalizeReviewStatus } from '@/utils/statusHelper';
 import { StarRating } from './StarRating';
 import { PriorityBadge } from './PriorityBadge';
 import { 
@@ -51,6 +52,13 @@ export const ReviewCard = React.memo(function ReviewCard({
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+
+  // Local reactive status state
+  const [localStatus, setLocalStatus] = useState<ReviewStatus>(review.status);
+
+  useEffect(() => {
+    setLocalStatus(review.status);
+  }, [review.status]);
 
   const getPlatformIcon = () => {
     switch (review.source as any) {
@@ -231,18 +239,20 @@ export const ReviewCard = React.memo(function ReviewCard({
   // Workflow Actions
   const handleSaveAsDraft = async () => {
     setIsPublishing(true);
+    setLocalStatus('draft');
     try {
       await reviewService.saveResponseDraft(review.id, aiReplyText);
       setPublishSuccess(true);
-      setTimeout(() => {
-        setPublishSuccess(false);
-        setShowAiDrawer(false);
-      }, 1000);
       if (onPublishReply) {
         await onPublishReply(review.id, aiReplyText);
       }
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 800);
     } catch (e) {
       console.error(e);
+      setLocalStatus(review.status); // Rollback on error
     } finally {
       setIsPublishing(false);
     }
@@ -250,18 +260,20 @@ export const ReviewCard = React.memo(function ReviewCard({
 
   const handleApproveReply = async () => {
     setIsPublishing(true);
+    setLocalStatus('approved');
     try {
       await reviewService.submitResponse(review.id, aiReplyText);
       setPublishSuccess(true);
-      setTimeout(() => {
-        setPublishSuccess(false);
-        setShowAiDrawer(false);
-      }, 1000);
       if (onPublishReply) {
         await onPublishReply(review.id, aiReplyText);
       }
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 800);
     } catch (e) {
       console.error(e);
+      setLocalStatus(review.status); // Rollback on error
     } finally {
       setIsPublishing(false);
     }
@@ -269,18 +281,20 @@ export const ReviewCard = React.memo(function ReviewCard({
 
   const handleArchiveReview = async () => {
     setIsPublishing(true);
+    setLocalStatus('archived');
     try {
       await reviewService.updateReviewStatus(review.id, 'archived');
       setPublishSuccess(true);
-      setTimeout(() => {
-        setPublishSuccess(false);
-        setShowAiDrawer(false);
-      }, 1000);
       if (onPublishReply) {
         await onPublishReply(review.id, aiReplyText);
       }
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 800);
     } catch (e) {
       console.error(e);
+      setLocalStatus(review.status); // Rollback on error
     } finally {
       setIsPublishing(false);
     }
@@ -288,18 +302,20 @@ export const ReviewCard = React.memo(function ReviewCard({
 
   const handleMarkAsManuallyReplied = async () => {
     setIsPublishing(true);
+    setLocalStatus('manual_replied');
     try {
       await reviewService.updateReviewStatus(review.id, 'manual_replied');
       setPublishSuccess(true);
-      setTimeout(() => {
-        setPublishSuccess(false);
-        setShowAiDrawer(false);
-      }, 1000);
       if (onPublishReply) {
         await onPublishReply(review.id, aiReplyText);
       }
+      setTimeout(() => {
+        setPublishSuccess(false);
+        setShowAiDrawer(false);
+      }, 800);
     } catch (e) {
       console.error(e);
+      setLocalStatus(review.status); // Rollback on error
     } finally {
       setIsPublishing(false);
     }
@@ -326,20 +342,20 @@ export const ReviewCard = React.memo(function ReviewCard({
     const s = review.sentiment || 'neutral';
     if (s === 'positive') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200/50 uppercase tracking-wider">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-55 text-emerald-600 border border-emerald-200/50 uppercase tracking-wider">
           Pozitif
         </span>
       );
     }
     if (s === 'negative') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-600 border border-rose-200/50 uppercase tracking-wider">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-55 text-rose-600 border border-rose-200/50 uppercase tracking-wider">
           Negatif
         </span>
       );
     }
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200/50 uppercase tracking-wider">
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-55 text-amber-600 border border-amber-200/50 uppercase tracking-wider">
         Nötr
       </span>
     );
@@ -356,24 +372,24 @@ export const ReviewCard = React.memo(function ReviewCard({
   };
 
   const getStatusBadge = () => {
-    const s = review.status;
-    if (s === 'approved' || s === 'published') {
+    const s = normalizeReviewStatus(localStatus);
+    if (s === 'approved') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-55 text-emerald-700 border border-emerald-200/50 uppercase tracking-wider">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200/50 uppercase tracking-wider">
           Onaylandı
         </span>
       );
     }
     if (s === 'draft') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-55 text-indigo-700 border border-indigo-200/50 uppercase tracking-wider">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200/50 uppercase tracking-wider">
           Taslak Hazır
         </span>
       );
     }
     if (s === 'archived') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200/50 uppercase tracking-wider">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-105 text-slate-500 border border-slate-200/50 uppercase tracking-wider">
           Arşivde
         </span>
       );
@@ -386,7 +402,7 @@ export const ReviewCard = React.memo(function ReviewCard({
       );
     }
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-55 text-amber-700 border border-amber-200/50 uppercase tracking-wider">
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200/50 uppercase tracking-wider">
         Yanıt Bekliyor
       </span>
     );
@@ -444,8 +460,8 @@ export const ReviewCard = React.memo(function ReviewCard({
           {getSentimentBadge()}
           <div className="flex items-center gap-1.5">
             <PriorityBadge priority={review.priority} />
-            {review.status === 'manual_replied' && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-100 text-slate-600 border border-slate-200">
+            {normalizeReviewStatus(localStatus) === 'manual_replied' && (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-105 text-slate-600 border border-slate-200">
                 Manuel Cevaplandı
               </span>
             )}
@@ -643,7 +659,7 @@ export const ReviewCard = React.memo(function ReviewCard({
                     <button
                       onClick={handleAiReplyGenerate}
                       disabled={isGenerating || isPublishing}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-3 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <RefreshCw size={12} className={isGenerating ? 'animate-spin' : ''} />
                       <span>Yeniden Üret</span>
@@ -662,7 +678,7 @@ export const ReviewCard = React.memo(function ReviewCard({
                     <button
                       onClick={handleMarkAsManuallyReplied}
                       disabled={isGenerating || isPublishing}
-                      className="flex-1 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer text-center border border-slate-200"
+                      className="flex-1 py-2 bg-slate-105 hover:bg-slate-205 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer text-center border border-slate-200"
                     >
                       Manuel Cevaplandı İşaretle
                     </button>

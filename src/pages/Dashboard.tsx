@@ -9,6 +9,7 @@ import { useAuth } from '@/components/AuthGuard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { normalizeReviewPlatform } from '@/utils/platform';
 import { matchesCategory } from '@/utils/categoryMappings';
+import { normalizeReviewStatus } from '@/utils/statusHelper';
 import {
   TrendingUp,
   Star,
@@ -495,11 +496,12 @@ export default function Dashboard() {
   // Map dynamic reviews
   const displayReviews: ScrapedReview[] = (recentReviewsData?.reviews && recentReviewsData.reviews.length > 0)
     ? recentReviewsData.reviews.map((r: any, idx: number) => {
+        const s = normalizeReviewStatus(r.status);
         let statusStr = 'Yanıt Bekliyor';
-        if (r.status === 'approved' || r.status === 'published' || r.status === 'cevaplandi') statusStr = 'Onaylandı';
-        else if (r.status === 'draft') statusStr = 'Taslak Hazır';
-        else if (r.status === 'manual_replied') statusStr = 'Manuel Cevaplandı';
-        else if (r.status === 'archived') statusStr = 'Arşivde';
+        if (s === 'approved') statusStr = 'Onaylandı';
+        else if (s === 'draft') statusStr = 'Taslak Hazır';
+        else if (s === 'manual_replied') statusStr = 'Manuel Cevaplandı';
+        else if (s === 'archived') statusStr = 'Arşivde';
 
         const hName = hotels?.find(h => h.id === r.hotelId)?.name || 'Demo Hotel';
 
@@ -634,7 +636,7 @@ export default function Dashboard() {
         latestDate = new Date(dates[0]).toLocaleDateString('tr-TR');
       }
 
-      const unanswered = list.filter((r: any) => r.status === 'draft').length;
+      const unanswered = list.filter((r: any) => normalizeReviewStatus(r.status) === 'pending').length;
 
       return { count, avg, latestDate, unanswered };
     };
@@ -805,15 +807,12 @@ export default function Dashboard() {
     const juraTotalRating = filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0);
     const juraAvgRating = juraTotalReviews > 0 ? Number((juraTotalRating / juraTotalReviews).toFixed(1)) : 0.0;
     const juraRespondedCount = filteredReviewsForStats.filter((r: any) => {
-      const s = (r.status || '').toLowerCase().trim();
-      return s === 'approved' || s === 'published' || s === 'manual_replied' || s === 'cevaplandi' || s === 'yayinlandi';
+      const s = normalizeReviewStatus(r.status);
+      return s === 'approved' || s === 'manual_replied';
     }).length;
     const juraAiResponseRate = juraTotalReviews > 0 ? Math.round((juraRespondedCount / juraTotalReviews) * 100) : 0;
-    const juraDraftReviews = filteredReviewsForStats.filter((r: any) => (r.status || '').toLowerCase().trim() === 'draft').length;
-    const juraPublishedReviews = filteredReviewsForStats.filter((r: any) => {
-      const s = (r.status || '').toLowerCase().trim();
-      return s === 'approved' || s === 'published' || s === 'cevaplandi' || s === 'yayinlandi';
-    }).length;
+    const juraDraftReviews = filteredReviewsForStats.filter((r: any) => normalizeReviewStatus(r.status) === 'draft').length;
+    const juraPublishedReviews = filteredReviewsForStats.filter((r: any) => normalizeReviewStatus(r.status) === 'approved').length;
 
     const juraRatingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     filteredReviewsForStats.forEach((r: any) => {
@@ -835,10 +834,7 @@ export default function Dashboard() {
     const periodAvgRating = periodTotalReviews > 0
       ? Number((filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / periodTotalReviews).toFixed(2))
       : 0.0;
-    const periodAwaiting = filteredReviewsForStats.filter((r: any) => {
-      const s = (r.status || '').toLowerCase().trim();
-      return s === 'pending' || s === 'pending_approval' || s === 'waiting_approval' || s === '';
-    }).length;
+    const periodAwaiting = filteredReviewsForStats.filter((r: any) => normalizeReviewStatus(r.status) === 'pending').length;
     const periodCritical = filteredReviewsForStats.filter((r: any) => (r.rating || 0) <= 2).length;
 
     // AI Executive Summary Bullet points calculation
@@ -861,8 +857,7 @@ export default function Dashboard() {
     }
 
     const criticalPendingCount = filteredReviewsForStats.filter((r: any) => {
-      const s = (r.status || '').toLowerCase().trim();
-      const isPending = s === 'pending' || s === 'pending_approval' || s === 'waiting_approval' || s === '';
+      const isPending = normalizeReviewStatus(r.status) === 'pending';
       return (r.rating || 0) <= 2 && isPending;
     }).length;
     const criticalText = criticalPendingCount > 0

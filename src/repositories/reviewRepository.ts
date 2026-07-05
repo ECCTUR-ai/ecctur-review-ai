@@ -1,6 +1,7 @@
 // src/repositories/reviewRepository.ts
 import { supabase } from '@/lib/supabase';
 import { Review, ReviewSource, Sentiment, ReviewStatus, ReviewPriority } from '@/types';
+import { normalizeReviewStatus } from '@/utils/statusHelper';
 
 export function mapReview(item: any): Review {
   if (!item) {
@@ -43,14 +44,7 @@ export function mapReview(item: any): Review {
              item.platform?.toLowerCase() === 'airbnb' ? 'Airbnb' :
              item.platform?.toLowerCase() === 'yelp' ? 'Yelp' :
              item.platform || item.source || 'Google') as ReviewSource,
-    status: (() => {
-      const rawStatus = (item.status || '').toLowerCase().trim();
-      if (rawStatus === 'published' || rawStatus === 'cevaplandi' || rawStatus === 'approved') return 'approved';
-      if (rawStatus === 'draft') return 'draft';
-      if (rawStatus === 'archived') return 'archived';
-      if (rawStatus === 'manual_replied' || rawStatus === 'manual-replied') return 'manual_replied';
-      return 'pending'; // Default fallback status
-    })() as ReviewStatus,
+    status: normalizeReviewStatus(item.status) as ReviewStatus,
     priority: (item.priority || 'low').toLowerCase() as ReviewPriority,
     response: item.ai_reply || item.response || '',
     respondedAt: item.responded_at || item.respondedAt || item.updated_at || '',
@@ -121,8 +115,7 @@ export const reviewRepository = {
       query = query.eq('sentiment', params.sentiment);
     }
     if (params.status) {
-      // For status query, fetch both the legacy and mapped version
-      const statusVal = params.status;
+      const statusVal = normalizeReviewStatus(params.status);
       if (statusVal === 'approved') {
         query = query.or('status.eq.approved,status.eq.Approved,status.eq.published,status.eq.Published,status.eq.cevaplandi');
       } else if (statusVal === 'draft') {
@@ -228,9 +221,10 @@ export const reviewRepository = {
 
   async updateReviewStatus(id: string, status: ReviewStatus): Promise<Review> {
     console.log(`[Repository updateReviewStatus] reviewId: ${id}, status: ${status}`);
+    const normalized = normalizeReviewStatus(status);
     const { error } = await supabase
       .from('reviews')
-      .update({ status: status, updated_at: new Date().toISOString() })
+      .update({ status: normalized, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) throw error;

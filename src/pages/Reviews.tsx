@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { normalizeReviewPlatform } from '@/utils/platform';
 import { matchesCategory } from '@/utils/categoryMappings';
+import { normalizeReviewStatus } from '@/utils/statusHelper';
 import { 
   RefreshCw, 
   Download, 
@@ -478,8 +479,16 @@ export default function Reviews() {
   
   // Apply date and department filters to the count base so counts match active date/dept filters
   let baseReviewsForCounts = fullReviewsForCounts;
-  if (status !== 'archived') {
-    baseReviewsForCounts = baseReviewsForCounts.filter(r => r.status !== 'archived');
+  if (status === 'archived') {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'archived');
+  } else if (status === 'pending') {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'pending');
+  } else if (status === 'draft') {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'draft');
+  } else if (status === 'approved') {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'approved');
+  } else {
+    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) !== 'archived');
   }
   if (fromParam || toParam) {
     const startLimit = fromParam ? new Date(fromParam) : new Date(0);
@@ -521,8 +530,16 @@ export default function Reviews() {
   const allCount = baseReviewsForCounts.length;
 
   let reviews = data?.reviews || [];
-  if (status !== 'archived') {
-    reviews = reviews.filter(r => r.status !== 'archived');
+  if (status === 'draft') {
+    reviews = reviews.filter(r => normalizeReviewStatus(r.status) === 'draft');
+  } else if (status === 'pending') {
+    reviews = reviews.filter(r => normalizeReviewStatus(r.status) === 'pending');
+  } else if (status === 'approved') {
+    reviews = reviews.filter(r => normalizeReviewStatus(r.status) === 'approved');
+  } else if (status === 'archived') {
+    reviews = reviews.filter(r => normalizeReviewStatus(r.status) === 'archived');
+  } else {
+    reviews = reviews.filter(r => normalizeReviewStatus(r.status) !== 'archived');
   }
 
   // Filter reviews by date query parameters if present (passed from Reports dashboard click)
