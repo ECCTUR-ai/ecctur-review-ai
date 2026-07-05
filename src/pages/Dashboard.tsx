@@ -525,7 +525,10 @@ export default function Dashboard() {
           outcome: 'Bağlantı bekliyor',
           newCount: 0,
           dupCount: 0,
-          errCount: 0
+          errCount: 0,
+          syncMode: 'Bekliyor',
+          lastReviewDate: '-',
+          savings: '-'
         };
       }
       const data = healthData[platformName];
@@ -533,13 +536,22 @@ export default function Dashboard() {
         ? new Date(healthData.lastSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(healthData.lastSyncTime).toLocaleDateString('tr-TR')
         : 'Belirsiz';
 
+      const modeLabel = data.syncMode === 'initial_full_sync'
+        ? 'İlk Kurulum'
+        : data.syncMode === 'manual_full_resync'
+        ? 'Manuel Tam'
+        : 'Kademeli';
+
       return {
         status: data.status,
         lastSync: timeStr,
         outcome: data.status === 'error' ? 'Hata Var' : 'Başarılı',
         newCount: data.imported ?? 0,
         dupCount: data.duplicates ?? 0,
-        errCount: data.errors?.length ?? 0
+        errCount: data.errors?.length ?? 0,
+        syncMode: modeLabel,
+        lastReviewDate: data.lastReviewDate ? new Date(data.lastReviewDate).toLocaleDateString('tr-TR') : '-',
+        savings: data.estimatedCostSavingMessage || (data.syncMode === 'incremental_sync' ? 'Kısmi Tarama' : 'Tasarruf Yok')
       };
     };
 
@@ -728,14 +740,15 @@ export default function Dashboard() {
                     <th className="px-4 py-3 text-left">Kaynak Türü</th>
                     <th className="px-4 py-3 text-left">Son Senkronizasyon</th>
                     <th className="px-4 py-3 text-center">Durum</th>
-                    <th className="px-4 py-3 text-center">Yeni</th>
-                    <th className="px-4 py-3 text-center">Mükerrer</th>
-                    <th className="px-4 py-3 text-center">Hata</th>
+                    <th className="px-4 py-3 text-center">Sync Modu</th>
+                    <th className="px-4 py-3 text-center">Son Yorum</th>
+                    <th className="px-4 py-3 text-center">Yeni/Mük/Hat</th>
+                    <th className="px-4 py-3 text-left">Maliyet Tasarrufu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                   {[
-                    { name: 'Google', title: 'Google', source: 'Aggregator' },
+                    { name: 'Google', title: 'Google Reviews', source: 'Aggregator' },
                     { name: 'Booking.com', title: 'Booking.com', source: 'Aggregator' },
                     { name: 'TripAdvisor', title: 'TripAdvisor', source: 'Legacy' },
                     { name: 'Hotels.com', title: 'Hotels.com', source: 'Legacy' },
@@ -766,9 +779,24 @@ export default function Dashboard() {
                              health.status === 'veri yok' ? 'Henüz veri yok' : health.status}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-center text-emerald-600 font-bold">{health.newCount}</td>
-                        <td className="px-4 py-2.5 text-center text-amber-600 font-bold">{health.dupCount}</td>
-                        <td className="px-4 py-2.5 text-center text-rose-600 font-bold">{health.errCount}</td>
+                        <td className="px-4 py-2.5 text-center font-medium text-slate-600">{health.syncMode}</td>
+                        <td className="px-4 py-2.5 text-center text-slate-500">{health.lastReviewDate}</td>
+                        <td className="px-4 py-2.5 text-center text-slate-600 font-medium">
+                          <span className="text-emerald-600 font-bold">{health.newCount}</span>
+                          <span className="text-slate-350 mx-1">/</span>
+                          <span className="text-amber-600 font-bold">{health.dupCount}</span>
+                          <span className="text-slate-350 mx-1">/</span>
+                          <span className="text-rose-600 font-bold">{health.errCount}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-left">
+                          {health.savings && health.savings !== '-' ? (
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              {health.savings}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic text-[9px]">-</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}

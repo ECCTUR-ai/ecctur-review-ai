@@ -78,7 +78,7 @@ function parseGoogleRelativeDate(text: string): string | null {
   return null;
 }
 
-export async function fetchAggregatorReviews(url: string, limit?: number): Promise<NormalizedReview[]> {
+export async function fetchAggregatorReviews(url: string, limit?: number, fromDate?: string): Promise<NormalizedReview[]> {
   const apifyToken = typeof process !== 'undefined' ? process.env.APIFY_TOKEN : '';
   if (!apifyToken) {
     throw new Error('apify_token_missing');
@@ -88,7 +88,7 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
   const encodedActorId = encodeURIComponent(actorId);
   const endpoint = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  const payload = {
+  const payload: any = {
     startUrls: [
       { url }
     ],
@@ -97,6 +97,10 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
     scrapeOwnerResponses: true,
     scrapeReviewPictures: false
   };
+
+  if (fromDate) {
+    payload.scrapeReviewsFromDate = fromDate;
+  }
 
   console.log('[Apify Scraper Request]', {
     url: endpoint,

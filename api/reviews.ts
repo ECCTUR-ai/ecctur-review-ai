@@ -2021,28 +2021,65 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         });
       }
 
-      // Rules 1 & 2: check existing count to determine effective mode
-      const { count: existingCount, error: countErr } = await supabaseAdmin
-        .from('reviews')
-        .select('id', { count: 'exact', head: true })
-        .eq('hotel_id', hotelId)
-        .eq('platform', 'Google');
+      // 1. Fetch existing sync states for Google and Booking
+      const { data: existingStates, error: stateFetchErr } = await supabaseAdmin
+        .from('review_sync_states')
+        .select('*')
+        .eq('hotel_id', hotelId);
 
-      if (countErr) throw countErr;
+      if (stateFetchErr) console.warn('[Aggregator] Failed to fetch sync states:', stateFetchErr);
 
-      let effectiveMode = mode;
-      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
-        effectiveMode = 'daily_sync';
+      const googleState = (existingStates || []).find(s => s.platform === 'Google');
+      const bookingState = (existingStates || []).find(s => s.platform === 'Booking');
+
+      let googleSyncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
+      if (googleSyncMode !== 'manual_full_resync') {
+        const hasSuccessfulGoogleSync = googleState && googleState.last_successful_sync_at;
+        if (!hasSuccessfulGoogleSync) {
+          googleSyncMode = 'initial_full_sync';
+        }
       }
 
-      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 1000 : 150;
+      let bookingSyncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
+      if (bookingSyncMode !== 'manual_full_resync') {
+        const hasSuccessfulBookingSync = bookingState && bookingState.last_successful_sync_at;
+        if (!hasSuccessfulBookingSync) {
+          bookingSyncMode = 'initial_full_sync';
+        }
+      }
+
+      // Check if both are incremental_sync.
+      // If yes, apply date filter with buffer:
+      let scrapeFromDate: string | undefined = undefined;
+      let estimatedCostSavingMessage = '';
+      if (googleSyncMode === 'incremental_sync' && bookingSyncMode === 'incremental_sync') {
+        const gDate = googleState?.last_review_date ? new Date(googleState.last_review_date) : null;
+        const bDate = bookingState?.last_review_date ? new Date(bookingState.last_review_date) : null;
+
+        let baseDate: Date | null = null;
+        if (gDate && bDate) {
+          baseDate = gDate.getTime() < bDate.getTime() ? gDate : bDate;
+        } else {
+          baseDate = gDate || bDate;
+        }
+
+        if (baseDate) {
+          // Date safety buffer: subtract 2 days
+          const bufferDate = new Date(baseDate.getTime() - (2 * 24 * 60 * 60 * 1000));
+          scrapeFromDate = bufferDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          estimatedCostSavingMessage = `Tam tarama yerine son ${Math.ceil((Date.now() - bufferDate.getTime()) / (24 * 60 * 60 * 1000))} günden veri çekildi.`;
+        }
+      }
+
+      const limit = (googleSyncMode === 'initial_full_sync' || bookingSyncMode === 'initial_full_sync') ? 1000 : 150;
 
       console.log('[Aggregator] selected hotelId:', hotelId);
       console.log('[Aggregator] found hotel.id:', hotelId);
       console.log('[Aggregator] found hotel.name:', hotelName);
+      console.log('[Aggregator] syncMode (Google):', googleSyncMode, 'syncMode (Booking):', bookingSyncMode, 'scrapeFromDate:', scrapeFromDate);
       console.log('[Aggregator] Running tri_angle/hotel-review-aggregator for', hotelName);
       
-      const scrapedReviews = await fetchAggregatorReviews(targetScrapeUrl, limit);
+      const scrapedReviews = await fetchAggregatorReviews(targetScrapeUrl, limit, scrapeFromDate);
       
       console.log('[Aggregator] Apify normalized item count:', scrapedReviews.length);
       console.log('[Aggregator] First 3 items to insert:', scrapedReviews.slice(0, 3));
@@ -2216,6 +2253,72 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       // Sample data for debug
       const insertedSample = scrapedReviews.slice(0, 3);
 
+      // Determine latest review dates and update sync states
+      const googleReviews = scrapedReviews.filter(r => r.platform === 'Google');
+      let googleLatestDate = googleState?.last_review_date || null;
+      if (googleReviews.length > 0) {
+        const dates = googleReviews.map(r => r.reviewDate).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+        if (dates.length > 0) googleLatestDate = dates[0];
+      }
+
+      const googleImported = platformSummary["Google"].imported;
+      const googleDuplicates = platformSummary["Google"].duplicates;
+      const googleSkipped = platformSummary["Google"].skipped;
+      const googleErrorsCount = detailedErrors.filter(e => e.platform === 'Google').length;
+
+      try {
+        await supabaseAdmin.from('review_sync_states').upsert({
+          hotel_id: hotelId,
+          platform: 'Google',
+          last_sync_at: new Date().toISOString(),
+          last_successful_sync_at: new Date().toISOString(),
+          last_review_date: googleLatestDate,
+          last_review_count: googleReviews.length,
+          last_imported_count: googleImported,
+          last_duplicate_count: googleDuplicates,
+          last_error_count: googleErrorsCount,
+          sync_mode: googleSyncMode,
+          status: googleErrorsCount > 0 && googleImported === 0 ? 'error' : 'active',
+          error_message: googleErrorsCount > 0 ? 'Aggregator failed for some Google reviews' : null,
+          metadata: { scrapeFromDate }
+        });
+      } catch (dbErr) {
+        console.error('[Aggregator Import] Failed to update Google sync state:', dbErr);
+      }
+
+      const bookingReviews = scrapedReviews.filter(r => r.platform === 'Booking');
+      let bookingLatestDate = bookingState?.last_review_date || null;
+      if (bookingReviews.length > 0) {
+        const dates = bookingReviews.map(r => r.reviewDate).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+        if (dates.length > 0) bookingLatestDate = dates[0];
+      }
+
+      const bookingImported = platformSummary["Booking.com"].imported;
+      const bookingDuplicates = platformSummary["Booking.com"].duplicates;
+      const bookingSkipped = platformSummary["Booking.com"].skipped;
+      const bookingErrorsCount = detailedErrors.filter(e => e.platform === 'Booking').length;
+
+      try {
+        await supabaseAdmin.from('review_sync_states').upsert({
+          hotel_id: hotelId,
+          platform: 'Booking',
+          last_sync_at: new Date().toISOString(),
+          last_successful_sync_at: new Date().toISOString(),
+          last_review_date: bookingLatestDate,
+          last_review_count: bookingReviews.length,
+          last_imported_count: bookingImported,
+          last_duplicate_count: bookingDuplicates,
+          last_error_count: bookingErrorsCount,
+          sync_mode: bookingSyncMode,
+          status: bookingErrorsCount > 0 && bookingImported === 0 ? 'error' : 'active',
+          error_message: bookingErrorsCount > 0 ? 'Aggregator failed for some Booking reviews' : null,
+          metadata: { scrapeFromDate }
+        });
+      } catch (dbErr) {
+        console.error('[Aggregator Import] Failed to update Booking sync state:', dbErr);
+      }
+
+      // Enriched Response Payload
       const responsePayload = {
         success: true,
         hotelName,
@@ -2230,6 +2333,29 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         answeredReviews: answeredCount,
         unansweredReviews: unansweredCount,
         responseRate,
+        syncMode: googleSyncMode, // Google mode as primary
+        syncStartDate: scrapeFromDate || 'Tüm geçmiş',
+        estimatedCostSavingMessage,
+        googleSyncDetails: {
+          syncMode: googleSyncMode,
+          syncStartDate: scrapeFromDate || 'Tüm geçmiş',
+          imported: googleImported,
+          duplicates: googleDuplicates,
+          skipped: googleSkipped,
+          errors: googleErrorsCount,
+          lastReviewDate: googleLatestDate,
+          nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        },
+        bookingSyncDetails: {
+          syncMode: bookingSyncMode,
+          syncStartDate: scrapeFromDate || 'Tüm geçmiş',
+          imported: bookingImported,
+          duplicates: bookingDuplicates,
+          skipped: bookingSkipped,
+          errors: bookingErrorsCount,
+          lastReviewDate: bookingLatestDate,
+          nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        },
         debug: {
           apifyItems: scrapedReviews.length,
           normalizedItems: totalNormalized,
@@ -2326,22 +2452,24 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const orgId = hotelData.organization_id;
       const hotelName = hotelData.name;
 
-      // Rules 1 & 2: check existing count to determine effective mode
-      const { count: existingCount, error: countErr } = await supabaseAdmin
-        .from('reviews')
-        .select('id', { count: 'exact', head: true })
+      // 1. Fetch TripAdvisor sync state
+      const { data: taState } = await supabaseAdmin
+        .from('review_sync_states')
+        .select('*')
         .eq('hotel_id', hotelId)
-        .eq('platform', 'Tripadvisor');
+        .eq('platform', 'TripAdvisor')
+        .maybeSingle();
 
-      if (countErr) throw countErr;
-
-      let effectiveMode = mode;
-      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
-        effectiveMode = 'daily_sync';
+      let syncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
+      if (syncMode !== 'manual_full_resync') {
+        const hasSuccessfulTASync = taState && taState.last_successful_sync_at;
+        if (!hasSuccessfulTASync) {
+          syncMode = 'initial_full_sync';
+        }
       }
 
-      // Rule 3: daily_sync limit is 50, otherwise 200
-      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
+      // If incremental sync and date filter is unsupported, set limit to a smaller value (like 20)
+      const limit = syncMode === 'incremental_sync' ? 20 : 200;
       const scrapedReviews = await reviewImportService.importReviews('Tripadvisor', tripadvisorUrl, limit);
 
       console.log("[TRIPADVISOR SCRAPED FIRST ITEM]", scrapedReviews[0]);
@@ -2416,12 +2544,43 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         .eq('hotel_id', hotelId)
         .eq('platform', 'Tripadvisor');
 
-      // Rule 6: Clear import result summary
+      const taLatestReviewDate = scrapedReviews.length > 0 
+        ? scrapedReviews.map(r => r.reviewDate).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+        : null;
+
+      try {
+        await supabaseAdmin.from('review_sync_states').upsert({
+          hotel_id: hotelId,
+          platform: 'TripAdvisor',
+          last_sync_at: new Date().toISOString(),
+          last_successful_sync_at: new Date().toISOString(),
+          last_review_date: taLatestReviewDate || taState?.last_review_date || null,
+          last_review_count: scrapedReviews.length,
+          last_imported_count: importedCount,
+          last_duplicate_count: duplicateCount,
+          last_error_count: failedCount,
+          sync_mode: syncMode,
+          status: failedCount > 0 && importedCount === 0 ? 'error' : 'active',
+          error_message: failedCount > 0 ? 'Some TripAdvisor reviews failed to import' : null,
+          metadata: { dateFilterUnsupported: true }
+        });
+      } catch (dbErr) {
+        console.error('[Tripadvisor Import] Failed to update sync state:', dbErr);
+      }
+
       return res.status(200).json({
         success: true,
-        platform: 'Tripadvisor',
+        platform: 'TripAdvisor',
         requestedMode: mode,
-        effectiveMode,
+        syncMode,
+        syncStartDate: 'Tarih filtresi desteklenmiyor',
+        imported: importedCount,
+        duplicates: duplicateCount,
+        skipped: 0,
+        errors: failedCount,
+        lastReviewDate: taLatestReviewDate || taState?.last_review_date || null,
+        nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        estimatedCostSavingMessage: syncMode === 'incremental_sync' ? 'Kısmi tarama yapıldı, son 20 yorum kontrol edilerek API maliyeti düşürüldü.' : '',
         fetchedCount: scrapedReviews.length,
         insertedCount: importedCount,
         duplicateCount,
@@ -2477,22 +2636,24 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       console.log('[HolidayCheck Import Request]', { hotelId, hotelName, holidaycheckUrl });
 
-      // Rules 1 & 2: check existing count to determine effective mode
-      const { count: existingCount, error: countErr } = await supabaseAdmin
-        .from('reviews')
-        .select('id', { count: 'exact', head: true })
+      // 1. Fetch HolidayCheck sync state
+      const { data: hcState } = await supabaseAdmin
+        .from('review_sync_states')
+        .select('*')
         .eq('hotel_id', hotelId)
-        .eq('platform', 'holidaycheck');
+        .eq('platform', 'HolidayCheck')
+        .maybeSingle();
 
-      if (countErr) throw countErr;
-
-      let effectiveMode = mode;
-      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
-        effectiveMode = 'daily_sync';
+      let syncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
+      if (syncMode !== 'manual_full_resync') {
+        const hasSuccessfulHCSync = hcState && hcState.last_successful_sync_at;
+        if (!hasSuccessfulHCSync) {
+          syncMode = 'initial_full_sync';
+        }
       }
 
-      // Rule 3: daily_sync limit is 50, otherwise 200
-      const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
+      // If incremental sync and date filter is unsupported, set limit to a smaller value (like 20)
+      const limit = syncMode === 'incremental_sync' ? 20 : 200;
       console.log('[HolidayCheck Import] using url', holidaycheckUrl);
       const scrapedReviews = await reviewImportService.importReviews('holidaycheck', holidaycheckUrl, limit);
 
@@ -2559,11 +2720,43 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         .eq('hotel_id', hotelId)
         .eq('platform', 'holidaycheck');
 
+      const hcLatestReviewDate = (scrapedReviews || []).length > 0
+        ? scrapedReviews.map((r: any) => r.reviewDate).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+        : null;
+
+      try {
+        await supabaseAdmin.from('review_sync_states').upsert({
+          hotel_id: hotelId,
+          platform: 'HolidayCheck',
+          last_sync_at: new Date().toISOString(),
+          last_successful_sync_at: new Date().toISOString(),
+          last_review_date: hcLatestReviewDate || hcState?.last_review_date || null,
+          last_review_count: (scrapedReviews || []).length,
+          last_imported_count: importedCount,
+          last_duplicate_count: duplicateCount,
+          last_error_count: failedCount,
+          sync_mode: syncMode,
+          status: failedCount > 0 && importedCount === 0 ? 'error' : 'active',
+          error_message: failedCount > 0 ? 'Some HolidayCheck reviews failed to import' : null,
+          metadata: { dateFilterUnsupported: true }
+        });
+      } catch (dbErr) {
+        console.error('[HolidayCheck Import] Failed to update sync state:', dbErr);
+      }
+
       return res.status(200).json({
         success: true,
-        platform: 'holidaycheck',
+        platform: 'HolidayCheck',
         requestedMode: mode,
-        effectiveMode,
+        syncMode,
+        syncStartDate: 'Tarih filtresi desteklenmiyor',
+        imported: importedCount,
+        duplicates: duplicateCount,
+        skipped: 0,
+        errors: failedCount,
+        lastReviewDate: hcLatestReviewDate || hcState?.last_review_date || null,
+        nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        estimatedCostSavingMessage: syncMode === 'incremental_sync' ? 'Kısmi tarama yapıldı, son 20 yorum kontrol edilerek API maliyeti düşürüldü.' : '',
         fetchedCount: scrapedReviews.length,
         insertedCount: importedCount,
         duplicateCount,
@@ -2620,22 +2813,24 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       console.log('[Hotels.com Import Request]', { hotelId, hotelName, hotelscomUrl });
 
-      // Rules 1 & 2: check existing count to determine effective mode
-      const { count: existingCount, error: countErr } = await supabaseAdmin
-        .from('reviews')
-        .select('id', { count: 'exact', head: true })
+      // 1. Fetch Hotels.com sync state
+      const { data: hotelsState } = await supabaseAdmin
+        .from('review_sync_states')
+        .select('*')
         .eq('hotel_id', hotelId)
-        .eq('platform', 'hotels.com');
+        .eq('platform', 'Hotels.com')
+        .maybeSingle();
 
-      if (countErr) throw countErr;
-
-      let effectiveMode = mode;
-      if (effectiveMode === 'initial_import' && existingCount !== null && existingCount > 0) {
-        effectiveMode = 'daily_sync';
+      let syncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
+      if (syncMode !== 'manual_full_resync') {
+        const hasSuccessfulHotelsSync = hotelsState && hotelsState.last_successful_sync_at;
+        if (!hasSuccessfulHotelsSync) {
+          syncMode = 'initial_full_sync';
+        }
       }
 
-      // Rule 3: daily_sync limit is 50, otherwise 100
-      const limitVal = limit || (effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 100 : 50);
+      // If incremental sync and date filter is unsupported, set limit to a smaller value (like 20)
+      const limitVal = limit || (syncMode === 'incremental_sync' ? 20 : 100);
       const scrapedReviews = await reviewImportService.importReviews('hotels.com', hotelscomUrl, limitVal);
 
       let importedCount = 0;
@@ -2708,11 +2903,43 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         .eq('hotel_id', hotelId)
         .eq('platform', 'hotels.com');
 
+      const hotelsLatestReviewDate = (scrapedReviews || []).length > 0
+        ? scrapedReviews.map((r: any) => r.reviewDate).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+        : null;
+
+      try {
+        await supabaseAdmin.from('review_sync_states').upsert({
+          hotel_id: hotelId,
+          platform: 'Hotels.com',
+          last_sync_at: new Date().toISOString(),
+          last_successful_sync_at: new Date().toISOString(),
+          last_review_date: hotelsLatestReviewDate || hotelsState?.last_review_date || null,
+          last_review_count: (scrapedReviews || []).length,
+          last_imported_count: importedCount,
+          last_duplicate_count: duplicateCount,
+          last_error_count: failedCount,
+          sync_mode: syncMode,
+          status: failedCount > 0 && importedCount === 0 ? 'error' : 'active',
+          error_message: failedCount > 0 ? 'Some Hotels.com reviews failed to import' : null,
+          metadata: { dateFilterUnsupported: true }
+        });
+      } catch (dbErr) {
+        console.error('[Hotels.com Import] Failed to update sync state:', dbErr);
+      }
+
       return res.status(200).json({
         success: true,
-        platform: 'hotels.com',
+        platform: 'Hotels.com',
         requestedMode: mode,
-        effectiveMode,
+        syncMode,
+        syncStartDate: 'Tarih filtresi desteklenmiyor',
+        imported: importedCount,
+        duplicates: duplicateCount,
+        skipped: 0,
+        errors: failedCount,
+        lastReviewDate: hotelsLatestReviewDate || hotelsState?.last_review_date || null,
+        nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        estimatedCostSavingMessage: syncMode === 'incremental_sync' ? 'Kısmi tarama yapıldı, son 20 yorum kontrol edilerek API maliyeti düşürüldü.' : '',
         fetchedCount: scrapedReviews.length,
         insertedCount: importedCount,
         duplicateCount,
