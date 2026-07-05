@@ -84,7 +84,7 @@ export async function fetchAggregatorReviews(url: string, limit?: number): Promi
     throw new Error('apify_token_missing');
   }
 
-  const actorId = 'tri_angle/hotel-review-aggregator';
+  const actorId = (typeof process !== 'undefined' ? process.env.APIFY_HOTEL_REVIEW_AGGREGATOR_ACTOR_ID : '') || 'tri_angle/hotel-review-aggregator';
   const encodedActorId = encodeURIComponent(actorId);
   const endpoint = `https://api.apify.com/v2/acts/${encodedActorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
