@@ -311,11 +311,11 @@ export const ReviewCard = React.memo(function ReviewCard({
           </button>
 
           {/* Translation mini menu */}
-          <div className="flex items-center bg-slate-50 border border-slate-205 rounded-xl p-0.5">
+          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-xl p-0.5 shadow-inner">
             <button
               onClick={() => handleTranslate('tr')}
               className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === 'tr' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/35' : 'text-slate-500 hover:text-slate-700'
+                translationLang === 'tr' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               TR
@@ -323,7 +323,7 @@ export const ReviewCard = React.memo(function ReviewCard({
             <button
               onClick={() => handleTranslate('en')}
               className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === 'en' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/35' : 'text-slate-500 hover:text-slate-700'
+                translationLang === 'en' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               EN
@@ -331,7 +331,7 @@ export const ReviewCard = React.memo(function ReviewCard({
             <button
               onClick={() => handleTranslate('ru')}
               className={`px-2 py-1 text-[9px] font-bold rounded-lg transition-all cursor-pointer ${
-                translationLang === 'ru' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/35' : 'text-slate-500 hover:text-slate-700'
+                translationLang === 'ru' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               RU
@@ -348,62 +348,60 @@ export const ReviewCard = React.memo(function ReviewCard({
           "{review.comment?.trim() ? review.comment : 'Yorum metni bulunmuyor'}"
         </p>
 
-        {review.comment && review.comment.length > 220 && (
+        {review.comment && review.comment.length > 150 && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-[10px] text-indigo-600 hover:text-indigo-700 font-bold transition-all cursor-pointer flex items-center gap-1 hover:underline"
+            className="text-[10px] text-indigo-650 hover:text-indigo-755 font-bold transition-all cursor-pointer flex items-center gap-1 focus:outline-none"
           >
             {isExpanded ? (
-              <>
-                <ChevronUp size={12} />
-                <span>Daha Az Göster</span>
-              </>
+              <span>▲ Daha Az Göster</span>
             ) : (
-              <>
-                <ChevronDown size={12} />
-                <span>Devamını Gör</span>
-              </>
+              <span>▼ Devamını Gör</span>
             )}
           </button>
         )}
       </div>
 
-      {/* Translation Accordion Panel */}
+      {/* Translation Accordion Panel (Google Translate styled) */}
       {(translationText || isTranslating) && (
-        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-150 animate-slide-in space-y-2">
-          <div className="flex justify-between items-center text-[9px]">
-            <span className="font-bold text-slate-550 flex items-center gap-1">
-              <Languages size={10} />
-              <span>
+        <div className="bg-slate-50/70 border border-slate-200/60 rounded-xl overflow-hidden animate-slide-in shadow-inner">
+          <div className="flex justify-between items-center bg-slate-100/80 px-3.5 py-2 border-b border-slate-200/50 text-[10px]">
+            <div className="flex items-center gap-2">
+              <span className="font-black text-blue-600 tracking-tight">G</span>
+              <span className="font-extrabold text-slate-700">Translate</span>
+              <span className="text-slate-350">|</span>
+              <span className="text-[9px] font-bold text-slate-500">
                 {isTranslating ? (
                   `Çevriliyor (${translationLang?.toUpperCase()})...`
                 ) : detectLang().toLowerCase() === translationLang?.toLowerCase() ? (
                   `Orijinal Metin (${translationLang?.toUpperCase()})`
                 ) : (
-                  `Çeviri (${translationLang?.toUpperCase()})`
+                  `Birebir Çeviri (${translationLang?.toUpperCase()})`
                 )}
               </span>
-            </span>
+            </div>
             <button
               onClick={() => {
                 setTranslationLang(null);
                 setTranslationText(null);
               }}
-              className="text-slate-500 hover:text-slate-800 font-bold hover:underline cursor-pointer"
+              className="text-[9px] font-bold text-slate-550 hover:text-slate-800 hover:underline cursor-pointer"
             >
-              Orijinali Göster
+              Kapat
             </button>
           </div>
-          <p className="text-xs text-slate-650 leading-relaxed italic font-medium">
+          <div className="p-3.5 text-xs text-slate-700 leading-relaxed italic">
             {isTranslating ? (
-              <span className="flex items-center gap-1.5 text-slate-400 font-medium">
-                <Loader2 size={12} className="animate-spin text-indigo-500" />
-                Çeviriliyor, lütfen bekleyin...
-              </span>
+              <div className="flex items-center gap-2 text-slate-400 font-semibold py-1">
+                <Loader2 size={12} className="animate-spin text-blue-500" />
+                <span>Çeviriliyor...</span>
+              </div>
             ) : (
-              `"${translationText}"`
+              <p className="font-medium text-slate-850">
+                "{translationText}"
+              </p>
             )}
-          </p>
+          </div>
         </div>
       )}
 

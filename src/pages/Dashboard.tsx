@@ -822,6 +822,143 @@ export default function Dashboard() {
       { name: 'Çok Kötü (1★)', value: juraRatingCounts[1], percentage: juraTotalReviews > 0 ? `${((juraRatingCounts[1] / juraTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#ef4444' },
     ];
 
+    // Dynamic stats and command center calculations
+    const periodTotalReviews = filteredReviewsForStats.length;
+    const periodAvgRating = periodTotalReviews > 0
+      ? Number((filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / periodTotalReviews).toFixed(2))
+      : 0.0;
+    const periodAwaiting = filteredReviewsForStats.filter((r: any) => r.status !== 'yayinlandi' && r.status !== 'cevaplandi' && r.status !== 'published').length;
+    const periodCritical = filteredReviewsForStats.filter((r: any) => (r.rating || 0) <= 2).length;
+
+    // AI Executive Summary Bullet points calculation
+    const avgCurrent = filteredReviewsForStats.length > 0
+      ? filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / filteredReviewsForStats.length
+      : 0;
+    const allStatsList = allReviewsForStats || [];
+    const avgAll = allStatsList.length > 0
+      ? allStatsList.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / allStatsList.length
+      : 0;
+
+    let scoreTrendText = "Seçilen dönemde ortalama memnuniyet puanınız stabil seyrediyor.";
+    let scoreTrendIcon = "🟢";
+    if (avgCurrent > avgAll + 0.05) {
+      scoreTrendText = "Son dönemde ortalama puanınız yükseldi.";
+      scoreTrendIcon = "📈";
+    } else if (avgCurrent < avgAll - 0.05) {
+      scoreTrendText = "Son dönemde ortalama memnuniyet puanınız düşüş eğiliminde.";
+      scoreTrendIcon = "📉";
+    }
+
+    const criticalPendingCount = filteredReviewsForStats.filter((r: any) => (r.rating || 0) <= 2 && r.status !== 'cevaplandi' && r.status !== 'yayinlandi' && r.status !== 'published').length;
+    const criticalText = criticalPendingCount > 0
+      ? `Bugün cevap bekleyen ${criticalPendingCount} kritik yorum bulunuyor.`
+      : "Cevaplanmamış kritik yorum bulunmuyor, platform stabil.";
+    const criticalIcon = criticalPendingCount > 0 ? "🔴" : "🛡️";
+
+    const topComplaint = issuesData[0];
+    const complaintText = topComplaint && topComplaint.negativeCount > 0
+      ? `En fazla şikayet ${topComplaint.label} departmanında.`
+      : "Belirgin bir departman şikayeti bulunmuyor.";
+    const complaintIcon = topComplaint && topComplaint.negativeCount > 0 ? "⚠️" : "✨";
+
+    const bookingRevs = filteredReviewsForStats.filter((r: any) => normalizeReviewPlatform(r.platform).toLowerCase() === 'booking');
+    const bookingAvg = bookingRevs.length > 0 ? bookingRevs.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / bookingRevs.length : 0;
+    const bookingText = bookingRevs.length > 0
+      ? (bookingAvg >= 4.0 ? "Booking.com puanınız stabil." : "Booking.com puanınız düşüş eğiliminde.")
+      : "Booking puanınız stabil.";
+    const bookingIcon = "Booking.com Logo";
+
+    const googleRevs = filteredReviewsForStats.filter((r: any) => normalizeReviewPlatform(r.platform).toLowerCase() === 'google');
+    const googlePosPercent = googleRevs.length > 0 ? (googleRevs.filter((r: any) => (r.rating || 0) >= 4).length / googleRevs.length) * 100 : 0;
+    const googleText = googleRevs.length > 0
+      ? (googlePosPercent >= 80 ? "Google yorumları olumlu yönde artıyor." : "Google yorumları stabil seyrediyor.")
+      : "Google yorumları olumlu yönde artıyor.";
+
+    // Action center tasks list
+    const todayTasks: Array<{ id: string; emoji: string; text: string; link: string; colorClass: string }> = [];
+    if (criticalPendingCount > 0) {
+      todayTasks.push({
+        id: 'task-critical',
+        emoji: '🔴',
+        text: `${criticalPendingCount} kritik yorumu cevapla`,
+        link: `/reviews?sentiment=negative&rating=1,2`,
+        colorClass: 'text-rose-600 hover:bg-rose-50/50'
+      });
+    }
+    if (bookingRevs.length > 0 && bookingAvg < 4.0) {
+      todayTasks.push({
+        id: 'task-booking',
+        emoji: '🟠',
+        text: 'Booking puanı düşüyor',
+        link: `/reviews?platform=booking`,
+        colorClass: 'text-amber-600 hover:bg-amber-50/50'
+      });
+    }
+    const temizlikRevs = filteredReviewsForStats.filter((r: any) => matchesCategory(r, 'temizlik'));
+    const temizlikPos = temizlikRevs.filter((r: any) => (r.rating || 0) >= 4).length;
+    if (temizlikPos > 0) {
+      todayTasks.push({
+        id: 'task-housekeeping',
+        emoji: '🟢',
+        text: 'Housekeeping olumlu yorum aldı',
+        link: `/reviews?sentiment=positive&category=temizlik`,
+        colorClass: 'text-emerald-600 hover:bg-emerald-50/50'
+      });
+    }
+    const klimaRevs = filteredReviewsForStats.filter((r: any) => matchesCategory(r, 'klima'));
+    const klimaNeg = klimaRevs.filter((r: any) => (r.rating || 0) <= 2).length;
+    if (klimaNeg > 0) {
+      todayTasks.push({
+        id: 'task-klima',
+        emoji: '🔴',
+        text: 'Klima şikayetleri arttı',
+        link: `/reviews?sentiment=negative&category=klima`,
+        colorClass: 'text-rose-600 hover:bg-rose-50/50'
+      });
+    }
+    if (todayTasks.length === 0) {
+      todayTasks.push({
+        id: 'task-safe',
+        emoji: '🟢',
+        text: 'Tüm platformlar ve departmanlar stabil seviyede',
+        link: `/reviews`,
+        colorClass: 'text-emerald-600 hover:bg-emerald-50/50'
+      });
+    }
+
+    // Dynamic departments stats
+    const deptsList = [
+      { key: 'yemek', label: 'Yemek & Restoran' },
+      { key: 'oda', label: 'Oda Konforu' },
+      { key: 'personel', label: 'Personel & Hizmet' },
+      { key: 'temizlik', label: 'Temizlik Kalitesi' },
+      { key: 'klima', label: 'Klima / Teknik' },
+      { key: 'plaj', label: 'Plaj & Kum' },
+      { key: 'havuz', label: 'Havuz & Aqua' },
+      { key: 'otopark', label: 'Otopark Alanı' },
+      { key: 'konum', label: 'Konum & Ulaşım' },
+      { key: 'fiyat', label: 'Fiyat / Performans' }
+    ];
+
+    const deptsStats = deptsList.map(dept => {
+      const deptRevs = filteredReviewsForStats.filter((r: any) => matchesCategory(r, dept.key));
+      const positive = deptRevs.filter((r: any) => (r.rating || 0) >= 4).length;
+      const negative = deptRevs.filter((r: any) => (r.rating || 0) <= 2).length;
+      const total = deptRevs.length;
+      const netSkor = total > 0 ? positive - negative : 0;
+      
+      let trend: 'up' | 'down' | 'stable' = 'stable';
+      if (total >= 3) {
+        const recentHalf = deptRevs.slice(0, Math.floor(total / 2));
+        const recentAvg = recentHalf.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / recentHalf.length;
+        const totalAvg = deptRevs.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / total;
+        if (recentAvg > totalAvg + 0.1) trend = 'up';
+        else if (recentAvg < totalAvg - 0.1) trend = 'down';
+      }
+      
+      return { ...dept, netSkor, positive, negative, total, trend };
+    });
+
     const premiumTrendData = React.useMemo(() => {
       if (!filteredReviewsForStats || filteredReviewsForStats.length === 0) return [];
       
@@ -944,46 +1081,12 @@ export default function Dashboard() {
           <div className="space-y-3 flex-1">
             <div className="flex items-center gap-2">
               <Link className="text-violet-600 w-5 h-5 shrink-0" />
-              <h1 className="text-xl font-extrabold text-slate-800 m-0">Birleşik Entegrasyon Dashboard'u</h1>
+              <h1 className="text-xl font-extrabold text-slate-800 m-0">AI Hotel Command Center</h1>
             </div>
             
             <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-2xl">
-              İlk kurulumda tüm geçmiş yorumlar alınır. Sonraki senkronizasyonlarda yalnızca yeni yorumlar eklenir.
+              Tesis performansınızı anlık izleyin, kritik aksiyonları yönetin ve misafir memnuniyetini artırın.
             </p>
-
-            <div className="flex items-start gap-2.5 bg-slate-50 border border-slate-100 p-3 rounded-2xl text-[11px] text-slate-600 max-w-xl font-medium mt-2 leading-relaxed">
-              <span className="text-sm leading-none select-none">ℹ️</span>
-              <span>
-                Google ve Booking.com Aggregator, TripAdvisor, Hotels.com, HolidayCheck kendi entegrasyonlarıyla senkronize edilir.
-              </span>
-            </div>
-
-            {lastSyncTimeVal ? (
-              <div className="flex flex-wrap items-center gap-2 mt-3 text-[11px] font-semibold text-slate-500">
-                <span>Son Senkronizasyon:</span>
-                <span className="text-slate-800 font-bold bg-slate-100/80 px-2 py-0.5 rounded-lg border border-slate-200/50">
-                  {new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncTimeVal).toLocaleDateString('tr-TR')}
-                </span>
-                <span className="text-slate-350">|</span>
-                <span>Durum:</span>
-                {isGlobalError ? (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-rose-50 text-rose-600 border border-rose-100">
-                    Hatalı
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
-                    Başarılı
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 mt-3 text-[11px] font-semibold text-slate-500">
-                <span>Son Senkronizasyon:</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-100 text-slate-500 border border-slate-200">
-                  Bekliyor
-                </span>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
@@ -1046,103 +1149,131 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Smart Sync Summary Card */}
+        {/* AI Yönetici Özeti Kartı */}
         <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm shadow-slate-100/50 relative overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-500 text-base leading-none select-none">⚡</span>
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Smart Sync Akıllı Özet</h3>
-            </div>
-            <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-bold text-indigo-600 tracking-wide uppercase">
-              Aktif Platformlar: {dbSyncStates.length} / 5
-            </span>
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-4">
+            <span className="text-yellow-500 text-base select-none">⚡</span>
+            <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">AI Yönetici Özeti</h2>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            {/* 1. Son Başarılı Senkronizasyon */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Database size={14} className="text-indigo-500" />
-                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Son Başarılı Senkronizasyon</span>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-lg leading-none mt-0.5">{scoreTrendIcon}</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Puan Trendi</span>
+                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{scoreTrendText}</p>
               </div>
-              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
-                {lastSuccessfulSyncTime 
-                  ? new Date(lastSuccessfulSyncTime).toLocaleDateString('tr-TR') + ' ' + new Date(lastSuccessfulSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-                  : 'Hiç senkronize edilmedi'
-                }
-              </h4>
-              <p className="text-[9.5px] text-slate-400 font-semibold">Tüm entegrasyonlar güncel</p>
             </div>
-
-            {/* 2. Aktif Sync Modu */}
-            <div className="space-y-1 pt-4 md:pt-0 md:pl-6">
-              <div className="flex items-center gap-2 text-slate-400">
-                <RefreshCw size={14} className="text-blue-500" />
-                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Aktif Sync Modu</span>
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-lg leading-none mt-0.5">{criticalIcon}</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Kritik Yorumlar</span>
+                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{criticalText}</p>
               </div>
-              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
-                {activeSyncModeLabel}
-              </h4>
-              <p className="text-[9.5px] text-slate-400 font-semibold">Veritabanı senkronizasyon modu</p>
             </div>
-
-            {/* 3. Son Yeni / Mükerrer */}
-            <div className="space-y-1 pt-4 md:pt-0 md:pl-6">
-              <div className="flex items-center gap-2 text-slate-400">
-                <MessageSquare size={14} className="text-emerald-500" />
-                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Son Yeni / Mükerrer</span>
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-lg leading-none mt-0.5">{complaintIcon}</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">En Çok Şikayet</span>
+                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{complaintText}</p>
               </div>
-              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
-                <span className="text-emerald-600 font-extrabold">{totalImported} yeni</span>
-                <span className="text-slate-300 mx-1.5">/</span>
-                <span className="text-amber-600 font-extrabold">{totalDuplicates} mükerrer</span>
-              </h4>
-              <p className="text-[9.5px] text-slate-400 font-semibold">Son taramada işlenen kayıtlar</p>
             </div>
-
-            {/* 4. Platform Durumu */}
-            <div className="space-y-1 pt-4 md:pt-0 md:pl-6">
-              <div className="flex items-center gap-2 text-slate-400">
-                <ShieldCheck size={14} className={isGlobalError ? 'text-rose-500' : 'text-emerald-500'} />
-                <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Platform Durumu</span>
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-lg leading-none mt-0.5">ℹ️</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Booking Durumu</span>
+                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{bookingText}</p>
               </div>
-              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
-                {isGlobalError ? (
-                  <span className="text-rose-600 font-extrabold">Hata Bildirimi</span>
-                ) : (
-                  <span className="text-emerald-600 font-extrabold">Tüm Platformlar Aktif</span>
-                )}
-              </h4>
-              <p className="text-[9.5px] text-slate-400 font-semibold">
-                {isGlobalError ? 'Bağlantı hatası düzeltilmeli' : 'Platform bağlantı durumu stabil'}
-              </p>
+            </div>
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-lg leading-none mt-0.5">🌟</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Google Memnuniyeti</span>
+                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{googleText}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 1. Platform Bazlı Özet Kartları */}
+        {/* Bugün Yapılması Gerekenler */}
+        <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm shadow-slate-100/50 space-y-4">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Bugün Yapılması Gerekenler</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {todayTasks.map((task) => (
+              <div
+                key={task.id}
+                onClick={() => window.location.href = task.link}
+                className={`p-4 rounded-2xl border border-slate-100 flex items-center justify-between cursor-pointer transition-all duration-205 hover:border-slate-200 hover:shadow-sm ${task.colorClass}`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-base select-none shrink-0">{task.emoji}</span>
+                  <span className="text-xs font-extrabold truncate">{task.text}</span>
+                </div>
+                <ArrowUpRight size={14} className="shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* KPI Kartları */}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          {[
+            { title: 'Toplam Yorum', val: periodTotalReviews, colorBg: 'bg-blue-50 text-blue-600', icon: <MessageSquare size={16} /> },
+            { title: 'Ortalama Puan', val: `${periodAvgRating} / 5`, colorBg: 'bg-amber-50 text-amber-600', icon: <Star size={16} className="fill-amber-400 text-amber-400" /> },
+            { title: 'Cevap Bekleyen', val: periodAwaiting, colorBg: 'bg-purple-50 text-purple-600', icon: <Clock size={16} /> },
+            { title: 'Kritik Yorum', val: periodCritical, colorBg: 'bg-rose-50 text-rose-600', icon: <ShieldAlert size={16} /> },
+            { title: 'Son Senkronizasyon', val: lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Bekliyor', colorBg: 'bg-slate-50 text-slate-500', icon: <RefreshCw size={16} /> },
+            { title: 'Platform Durumu', val: isGlobalError ? 'Sorun Var' : 'Stabil', colorBg: isGlobalError ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600', icon: <ShieldCheck size={16} /> }
+          ].map(kpi => (
+            <div key={kpi.title} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{kpi.title}</span>
+              <div className="flex items-center justify-between mt-3.5">
+                <span className="text-base font-black text-slate-900 leading-none truncate max-w-[100px]" title={String(kpi.val)}>{kpi.val}</span>
+                <div className={`p-2 rounded-xl ${kpi.colorBg} shrink-0 border border-slate-100`}>
+                  {kpi.icon}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Platform Performansı */}
         <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Bazlı Özet Kartları</h3>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Performansı</h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {[
-              { name: 'Google Reviews', key: 'google', tag: 'Aggregator' },
-              { name: 'Booking.com', key: 'booking', tag: 'Aggregator' },
-              { name: 'TripAdvisor', key: 'tripadvisor', tag: 'Legacy' },
-              { name: 'Hotels.com', key: 'hotelscom', tag: 'Legacy' },
-              { name: 'HolidayCheck', key: 'holidaycheck', tag: 'Legacy' }
+              { name: 'Google', key: 'google', label: 'Google' },
+              { name: 'Booking.com', key: 'booking', label: 'Booking.com' },
+              { name: 'TripAdvisor', key: 'tripadvisor', label: 'TripAdvisor' },
+              { name: 'Hotels.com', key: 'hotelscom', label: 'Hotels.com' },
+              { name: 'HolidayCheck', key: 'holidaycheck', label: 'HolidayCheck' }
             ].map(plat => {
               const stats = getPlatformStats(plat.key);
+              const health = getHealthInfo(plat.name);
+              
+              let trendText = 'Stabil';
+              let trendColor = 'text-slate-500 bg-slate-50 border-slate-100';
+              if (Number(stats.avg) >= 4.2) {
+                trendText = 'Artıyor';
+                trendColor = 'text-emerald-600 bg-emerald-50 border-emerald-100';
+              } else if (Number(stats.avg) > 0 && Number(stats.avg) < 3.8) {
+                trendText = 'Düşüyor';
+                trendColor = 'text-rose-600 bg-rose-50 border-rose-100';
+              }
+
               return (
-                <div key={plat.key} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between relative overflow-hidden">
+                <div 
+                  key={plat.key} 
+                  onClick={() => window.location.href = `/reviews?platform=${plat.key === 'booking' ? 'booking' : plat.key}`}
+                  className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between relative overflow-hidden cursor-pointer hover:border-indigo-100 hover:shadow-md transition-all duration-200"
+                >
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <span className="text-[11px] font-bold text-slate-900 truncate pr-2" title={plat.name}>{plat.name}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
-                        plat.tag === 'Aggregator' 
-                          ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
-                          : 'bg-slate-50 text-slate-500 border border-slate-100'
-                      }`}>
-                        {plat.tag}
+                      <div className="flex items-center gap-2">
+                        {renderPlatformLogo(plat.name)}
+                        <span className="text-[11px] font-bold text-slate-900 truncate pr-2" title={plat.name}>{plat.label}</span>
+                      </div>
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase border ${trendColor}`}>
+                        {trendText}
                       </span>
                     </div>
                     <div className="flex items-baseline gap-2 pt-1">
@@ -1159,15 +1290,9 @@ export default function Dashboard() {
                         {stats.avg}
                       </span>
                     </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>Cevaplanmamış:</span>
-                      <span className={`font-bold ${stats.unanswered > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                        {stats.unanswered}
-                      </span>
-                    </div>
                     <div className="flex justify-between text-slate-400 text-[9.5px] pt-1">
-                      <span>Son yorum:</span>
-                      <span className="font-medium text-slate-600 truncate max-w-[80px]" title={stats.latestDate}>{stats.latestDate}</span>
+                      <span>Son Güncelleme:</span>
+                      <span className="font-medium text-slate-650 truncate max-w-[90px]" title={health.lastSync}>{health.lastSync.split(' ')[0]}</span>
                     </div>
                   </div>
                 </div>
@@ -1345,76 +1470,81 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 5. En çok tekrar eden sorunlar & En çok övülen konular */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* En Çok Tekrar Eden Sorunlar */}
-          <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <ShieldAlert className="text-rose-500" size={16} />
-              <span>En Çok Tekrar Eden Sorunlar</span>
-            </h3>
-            <div className="space-y-3.5">
-              {issuesData.slice(0, 6).map((issue: any, idx: number) => {
-                const percent = (allReviewsForStats as any)?.length ? Math.min(100, Math.round((issue.negativeCount / (allReviewsForStats as any).length) * 100)) : 0;
-                return (
-                  <div 
-                    key={idx} 
-                    onClick={() => window.location.href = `/reviews?sentiment=negative&category=${issue.key}`}
-                    className="p-2.5 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/70 transition-all duration-200 cursor-pointer group/row relative"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-slate-700 font-semibold group-hover/row:text-indigo-650 transition-colors flex items-center gap-1.5">
-                          {issue.label}
-                          <span className="text-[10px] text-slate-400 opacity-0 group-hover/row:opacity-100 transition-opacity font-bold uppercase tracking-wider pl-1">
-                            Yorumları Gör →
-                          </span>
-                        </span>
-                        <span className="text-rose-600 font-bold">{issue.negativeCount} Olumsuz Geri Bildirim</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div className="bg-rose-500 h-full rounded-full transition-all" style={{ width: `${percent || 5}%` }}></div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {/* Departman Performansı */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Departman Performansı</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {deptsStats.map(dept => {
+              let trendColor = 'text-slate-500 bg-slate-50 border-slate-100';
+              let trendText = 'Stabil';
+              if (dept.trend === 'up') {
+                trendText = 'Artıyor';
+                trendColor = 'text-emerald-600 bg-emerald-50 border-emerald-100';
+              } else if (dept.trend === 'down') {
+                trendText = 'Düşüyor';
+                trendColor = 'text-rose-600 bg-rose-50 border-rose-100';
+              }
 
-          {/* En Çok Övülen Konular */}
-          <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Sparkles className="text-emerald-500" size={16} />
-              <span>En Çok Övülen Konular</span>
-            </h3>
-            <div className="space-y-3.5">
-              {praisesData.slice(0, 6).map((praise: any, idx: number) => {
-                const percent = (allReviewsForStats as any)?.length ? Math.min(100, Math.round((praise.positiveCount / (allReviewsForStats as any).length) * 100)) : 0;
-                return (
-                  <div 
-                    key={idx} 
-                    onClick={() => window.location.href = `/reviews?sentiment=positive&category=${praise.key}`}
-                    className="p-2.5 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/70 transition-all duration-200 cursor-pointer group/row relative"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-slate-700 font-semibold group-hover/row:text-indigo-650 transition-colors flex items-center gap-1.5">
-                          {praise.label}
-                          <span className="text-[10px] text-slate-400 opacity-0 group-hover/row:opacity-100 transition-opacity font-bold uppercase tracking-wider pl-1">
-                            Yorumları Gör →
-                          </span>
-                        </span>
-                        <span className="text-emerald-600 font-bold">{praise.positiveCount} Olumlu Geri Bildirim</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${percent || 5}%` }}></div>
-                      </div>
+              const isNetPositive = dept.netSkor > 0;
+              const isNetNegative = dept.netSkor < 0;
+              const netColor = isNetPositive 
+                ? 'text-emerald-600 bg-emerald-50 border-emerald-100' 
+                : isNetNegative 
+                ? 'text-rose-600 bg-rose-50 border-rose-100'
+                : 'text-slate-500 bg-slate-50 border-slate-100';
+
+              return (
+                <div 
+                  key={dept.key}
+                  className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between hover:border-indigo-100 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[11px] font-bold text-slate-800 leading-tight truncate pr-1" title={dept.label}>
+                        {dept.label}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border shrink-0 ${netColor}`}>
+                        Net: {dept.netSkor > 0 ? `+${dept.netSkor}` : dept.netSkor}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5 pt-1.5">
+                      <h4 className="text-xl font-black text-slate-900 leading-none">{dept.total}</h4>
+                      <span className="text-[9px] text-slate-400 font-semibold">yorum</span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-50 text-[10.5px]">
+                    <div className="flex justify-between items-center text-slate-500 font-semibold">
+                      <span>Olumlu:</span>
+                      <span className="font-bold text-emerald-600 flex items-center gap-0.5">
+                        {dept.positive}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500 font-semibold">
+                      <span>Olumsuz:</span>
+                      <span className="font-bold text-rose-600">
+                        {dept.negative}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400 text-[9.5px] pt-1">
+                      <span>Trend:</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase border ${trendColor}`}>
+                        {trendText}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      window.location.href = `/reviews?category=${dept.key}`;
+                    }}
+                    className="w-full text-center py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-150 text-[10px] font-bold text-slate-700 rounded-xl transition-all cursor-pointer shadow-sm"
+                  >
+                    Yorumları Gör
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 

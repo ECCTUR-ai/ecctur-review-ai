@@ -425,6 +425,39 @@ export default function Reports() {
     return { issues: issuesList, highlights: highlightsList, recommendations: recommendationsList };
   }, [topicsStats, stats]);
 
+  const shortAiRecommendations = useMemo(() => {
+    const list = [];
+    const sortedByComplaints = [...topicsStats].sort((a, b) => b.complaints - a.complaints);
+    const sortedByPraises = [...topicsStats].sort((a, b) => b.praises - a.praises);
+
+    if (sortedByComplaints[0] && sortedByComplaints[0].complaints > 0) {
+      list.push(`🔧 ${sortedByComplaints[0].label} için acil bakım planı oluştur.`);
+    } else {
+      list.push(`🔧 Klima ve teknik servis operasyonlarını gözden geçirin.`);
+    }
+
+    if (stats.pending > 0) {
+      list.push(`✉️ Booking yorumlarına bugün cevap ver.`);
+    } else {
+      list.push(`✉️ Gelen yeni yorumlar yanıtlandı, takibe devam edin.`);
+    }
+
+    if (sortedByPraises[0] && sortedByPraises[0].praises > 0) {
+      list.push(`🌟 Restoran departmanını örnek göstererek personele teşekkür et.`);
+    } else {
+      list.push(`🌟 Personel hizmet standartlarını en yüksek düzeyde tutun.`);
+    }
+
+    const bookingAvg = platformStatsList.find(p => p.name === 'Booking.com')?.avg || 0;
+    if (bookingAvg > 0 && bookingAvg < 4.2) {
+      list.push(`📈 Booking.com misafir memnuniyeti takip sürecini başlat.`);
+    } else {
+      list.push(`📈 Google Reviews memnuniyet oranını artırmaya odaklanın.`);
+    }
+
+    return list;
+  }, [topicsStats, stats, platformStatsList]);
+
   // Simulated chart data points grouped by date filters
   const chartData = useMemo(() => {
     if (filteredReviews.length === 0) return [];
@@ -548,59 +581,85 @@ export default function Reports() {
         </div>
       ) : (
         <>
-          {/* 2. Executive Summary Block - Redesigned as 4-Column Layout */}
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm space-y-5">
-            <div className="flex items-center gap-2 text-indigo-650 pb-2 border-b border-slate-100">
-              <Sparkles size={16} />
-              <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">AI Yapay Zeka Yönetici Özeti</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-              {/* Genel Durum */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Genel Durum</span>
+          {/* Executive Decision Center - 4 Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: Genel Durum */}
+            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex flex-col justify-between hover:border-indigo-100/50 hover:shadow-md transition-all duration-200">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <span className="p-2 rounded-xl bg-blue-50 text-blue-600"><TrendingUp size={16} /></span>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Genel Durum</h3>
+                </div>
                 <p className="text-xs text-slate-650 leading-relaxed font-semibold">
                   “{executiveSummaryText}”
                 </p>
+                <div className="pt-2 text-[10.5px] text-slate-500 font-medium">
+                  • Ortalama Tesis Puanı: <strong className="text-slate-800 font-bold">{stats.avgRating} ★</strong><br/>
+                  • Toplam İşlenen Yorum: <strong className="text-slate-800 font-bold">{stats.total} adet</strong>
+                </div>
               </div>
+            </div>
 
-              {/* Dikkat Edilmesi Gerekenler */}
-              <div className="pt-4 md:pt-0 pl-0 md:pl-6 space-y-2">
-                <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Dikkat Edilmesi Gerekenler</span>
-                <ul className="space-y-2">
+            {/* Card 2: Riskler */}
+            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex flex-col justify-between hover:border-rose-100/50 hover:shadow-md transition-all duration-200">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <span className="p-2 rounded-xl bg-rose-50 text-rose-600"><ShieldAlert size={16} /></span>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Riskler</h3>
+                </div>
+                <ul className="space-y-3">
                   {aiInsights.issues.slice(0, 3).map((issue, idx) => (
-                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-medium">
-                      • <strong className="text-slate-800 font-bold">{issue.title}:</strong> {issue.description}
+                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-semibold flex items-start gap-1.5 cursor-pointer hover:text-rose-600 transition-colors" onClick={() => navigate(`/reviews?sentiment=negative&category=${issue.category}`)}>
+                      <span className="text-rose-500 shrink-0">⚠️</span>
+                      <div>
+                        <strong className="text-slate-800 font-bold block">{issue.title}</strong>
+                        <span className="font-medium text-slate-500">{issue.description}</span>
+                      </div>
                     </li>
                   ))}
                   {aiInsights.issues.length === 0 && (
-                    <li className="text-xs text-slate-400 italic">Bildirilen kritik sorun alanı bulunmuyor.</li>
+                    <li className="text-xs text-slate-400 italic">Kritik bir operasyonel risk tespit edilmedi.</li>
                   )}
                 </ul>
               </div>
+            </div>
 
-              {/* Güçlü Yönler */}
-              <div className="pt-4 md:pt-0 pl-0 md:pl-6 space-y-2">
-                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Güçlü Yönler</span>
-                <ul className="space-y-2">
+            {/* Card 3: Fırsatlar */}
+            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex flex-col justify-between hover:border-emerald-100/50 hover:shadow-md transition-all duration-200">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600"><Sparkles size={16} /></span>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Fırsatlar</h3>
+                </div>
+                <ul className="space-y-3">
                   {aiInsights.highlights.slice(0, 3).map((highlight, idx) => (
-                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-medium">
-                      • <strong className="text-slate-800 font-bold">{highlight.title}:</strong> {highlight.description}
+                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-semibold flex items-start gap-1.5 cursor-pointer hover:text-emerald-600 transition-colors" onClick={() => navigate(`/reviews?sentiment=positive&category=${highlight.category}`)}>
+                      <span className="text-emerald-500 shrink-0">✨</span>
+                      <div>
+                        <strong className="text-slate-800 font-bold block">{highlight.title}</strong>
+                        <span className="font-medium text-slate-500">{highlight.description}</span>
+                      </div>
                     </li>
                   ))}
                   {aiInsights.highlights.length === 0 && (
-                    <li className="text-xs text-slate-400 italic">Genel misafir memnuniyeti stabil seyrediyor.</li>
+                    <li className="text-xs text-slate-400 italic">Genel misafir memnuniyeti stabil durumda.</li>
                   )}
                 </ul>
               </div>
+            </div>
 
-              {/* AI Önerileri */}
-              <div className="pt-4 md:pt-0 pl-0 md:pl-6 space-y-2">
-                <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-wider block">AI Önerileri</span>
-                <ul className="space-y-2">
-                  {aiInsights.recommendations.slice(0, 3).map((rec, idx) => (
-                    <li key={idx} className="text-xs text-slate-650 leading-relaxed font-medium">
-                      • <strong className="text-slate-800 font-bold">{rec.title}:</strong> {rec.description}
+            {/* Card 4: AI Önerileri */}
+            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex flex-col justify-between hover:border-indigo-100/50 hover:shadow-md transition-all duration-200">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600"><CheckSquare size={16} /></span>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">AI Önerileri</h3>
+                </div>
+                <ul className="space-y-3">
+                  {shortAiRecommendations.map((rec, idx) => (
+                    <li key={idx} className="text-xs text-slate-700 font-bold leading-relaxed flex items-start gap-2">
+                      <span>•</span>
+                      <span>{rec}</span>
                     </li>
                   ))}
                 </ul>
