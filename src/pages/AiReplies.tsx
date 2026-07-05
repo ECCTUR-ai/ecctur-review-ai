@@ -369,7 +369,7 @@ export default function AiReplies() {
 
         // Apply search query filter
         if (search.trim()) {
-          q = q.ilike('review_text', `%${search}%`);
+          q = q.ilike('guest_name', `%${search}%`);
         }
 
         return q;
@@ -1009,7 +1009,7 @@ export default function AiReplies() {
             <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
             <input
               type="text"
-              placeholder="Yorumlarda ara..."
+              placeholder="Misafir adına göre ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"

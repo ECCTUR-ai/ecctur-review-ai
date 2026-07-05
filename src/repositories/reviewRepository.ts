@@ -118,7 +118,7 @@ export const reviewRepository = {
       query = query.eq('rating', params.rating);
     }
     if (params.search) {
-      query = query.ilike('review_text', `%${params.search}%`);
+      query = query.ilike('guest_name', `%${params.search}%`);
     }
 
     const limit = params.limit || 20;

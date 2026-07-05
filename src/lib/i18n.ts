@@ -43,7 +43,7 @@ const resources = {
       reviews: {
         title: 'Review Console',
         subtitle: 'Manage and approve multi-channel guest comments & AI drafted responses.',
-        search: 'Search comments...',
+        search: 'Search by guest name...',
         sync: 'Sync Channels',
         export: 'Export Data',
         loading: 'Loading reviews workspace...',
@@ -164,7 +164,7 @@ const resources = {
       reviews: {
         title: 'Yorum Konsolu',
         subtitle: 'Çok kanallı misafir yorumlarını ve AI tarafından hazırlanan taslak yanıtları yönetin.',
-        search: 'Yorumlarda ara...',
+        search: 'Misafir adına göre ara...',
         sync: 'Kanalları Eşitle',
         export: 'Veriyi Dışa Aktar',
         loading: 'Yorum çalışma alanı yükleniyor...',
@@ -284,7 +284,7 @@ const resources = {
       reviews: {
         title: 'Консоль отзывов',
         subtitle: 'Управляйте и утверждайте многоканальные комментарии гостей и ответы, составленные ИИ.',
-        search: 'Поиск комментариев...',
+        search: 'Поиск по имени гостя...',
         sync: 'Синхронизировать',
         export: 'Экспорт данных',
         loading: 'Загрузка рабочего пространства отзывов...',

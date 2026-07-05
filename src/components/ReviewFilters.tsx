@@ -41,7 +41,7 @@ export function ReviewFilters({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Yorumlarda ara..."
+          placeholder="Misafir adına göre ara..."
           className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 placeholder:text-slate-400"
         />
       </div>
