@@ -21,7 +21,10 @@ import {
   ChevronUp,
   ShieldAlert,
   RefreshCw,
-  Download
+  Download,
+  Database,
+  Link,
+  ShieldCheck
 } from 'lucide-react';
 import {
   LineChart,
@@ -533,6 +536,58 @@ export default function Dashboard() {
   const isJuraAdaBeach = true;
 
   if (isJuraAdaBeach) {
+    const renderPlatformLogo = (platformName: string) => {
+      const norm = platformName.toLowerCase();
+      if (norm.includes('google')) {
+        return (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+          </svg>
+        );
+      }
+      if (norm.includes('booking')) {
+        return (
+          <svg className="w-5 h-5 shrink-0 shadow-sm rounded-md" viewBox="0 0 24 24" fill="none">
+            <rect width="24" height="24" rx="4" fill="#003580" />
+            <path d="M4 7h4.8c1.3 0 2.2.7 2.2 1.8 0 .8-.5 1.4-1.3 1.6.9.2 1.5.9 1.5 1.8 0 1.2-1 2-2.3 2H4V7zm2.2 3.1h2.2c.6 0 1-.3 1-.8s-.4-.8-1-.8H6.2v1.6zm0 2.9h2.4c.6 0 1.1-.3 1.1-.9 0-.5-.5-.9-1.1-.9H6.2V13z" fill="#FFF" />
+            <circle cx="15.5" cy="12.5" r="1.5" fill="#00F" />
+            <circle cx="19.5" cy="12.5" r="1.5" fill="#FFF" />
+          </svg>
+        );
+      }
+      if (norm.includes('tripadvisor')) {
+        return (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="#00af87">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-4.5-9c.83 0 1.5-.67 1.5-1.5S8.33 6 7.5 6 6 6.67 6 7.5 6.67 9 7.5 9zm9 0c.83 0 1.5-.67 1.5-1.5S17.33 6 16.5 6 15 6.67 15 7.5s.67 1.5 1.5 1.5zm-9 1.5c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm9 0c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-4.5 4c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+          </svg>
+        );
+      }
+      if (norm.includes('hotels')) {
+        return (
+          <svg className="w-5 h-5 shrink-0 rounded-md" viewBox="0 0 24 24" fill="none">
+            <rect width="24" height="24" rx="4" fill="#D32F2F" />
+            <path d="M7 6v12h3v-4.5h4V18h3V6h-3v4.5h-4V6H7z" fill="#FFF" />
+          </svg>
+        );
+      }
+      if (norm.includes('holidaycheck')) {
+        return (
+          <svg className="w-5 h-5 shrink-0 rounded-md" viewBox="0 0 24 24" fill="none">
+            <rect width="24" height="24" rx="4" fill="#F57C00" />
+            <path d="M6 8h3v8H6V8zm5 0h8v2h-8V8zm0 4h8v2h-8v-2zm0 4h5v2h-5v-2z" fill="#FFF" />
+          </svg>
+        );
+      }
+      return (
+        <span className="w-5 h-5 rounded bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px] uppercase">
+          {platformName.slice(0, 2)}
+        </span>
+      );
+    };
+
     const lastSyncTimeVal = dbSyncStates.length > 0
       ? dbSyncStates.map(s => s.last_sync_at).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0]
       : null;
@@ -885,38 +940,55 @@ export default function Dashboard() {
         )}
 
         {/* Title Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
-          <div className="space-y-2 flex-1">
-            <h1 className="text-xl font-bold text-slate-800 m-0">Birleşik Entegrasyon Dashboard'u</h1>
-            <p className="text-xs text-slate-500 font-medium leading-relaxed">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-slate-100 pb-6">
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center gap-2">
+              <Link className="text-violet-600 w-5 h-5 shrink-0" />
+              <h1 className="text-xl font-extrabold text-slate-800 m-0">Birleşik Entegrasyon Dashboard'u</h1>
+            </div>
+            
+            <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-2xl">
               İlk kurulumda tüm geçmiş yorumlar alınır. Sonraki senkronizasyonlarda yalnızca yeni yorumlar eklenir.
             </p>
-            <p className="text-[10px] text-slate-400 font-semibold italic">
-              * Google ve Booking.com Aggregator ile; TripAdvisor, Hotels.com ve HolidayCheck kendi entegrasyonlarıyla senkronize edilir.
-            </p>
+
+            <div className="flex items-start gap-2.5 bg-slate-50 border border-slate-100 p-3 rounded-2xl text-[11px] text-slate-600 max-w-xl font-medium mt-2 leading-relaxed">
+              <span className="text-sm leading-none select-none">ℹ️</span>
+              <span>
+                Google ve Booking.com Aggregator, TripAdvisor, Hotels.com, HolidayCheck kendi entegrasyonlarıyla senkronize edilir.
+              </span>
+            </div>
+
             {lastSyncTimeVal ? (
-              <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
+              <div className="flex flex-wrap items-center gap-2 mt-3 text-[11px] font-semibold text-slate-500">
                 <span>Son Senkronizasyon:</span>
-                <span className="font-bold text-slate-700">
+                <span className="text-slate-800 font-bold bg-slate-100/80 px-2 py-0.5 rounded-lg border border-slate-200/50">
                   {new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncTimeVal).toLocaleDateString('tr-TR')}
                 </span>
                 <span className="text-slate-350">|</span>
                 <span>Durum:</span>
                 {isGlobalError ? (
-                  <span className="text-rose-600 font-bold bg-rose-50 px-1 py-0.5 rounded text-[8px] border border-rose-100">Hatalı</span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-rose-50 text-rose-600 border border-rose-100">
+                    Hatalı
+                  </span>
                 ) : (
-                  <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded text-[8px] border border-emerald-100">Başarılı</span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
+                    Başarılı
+                  </span>
                 )}
               </div>
             ) : (
-              <div className="text-[10px] text-slate-400 font-semibold mt-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 self-start w-fit">
-                Son Senkronizasyon: Bekliyor (Henüz senkronize edilmedi)
+              <div className="flex items-center gap-2 mt-3 text-[11px] font-semibold text-slate-500">
+                <span>Son Senkronizasyon:</span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-100 text-slate-500 border border-slate-200">
+                  Bekliyor
+                </span>
               </div>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap items-center gap-1 bg-slate-105/80 p-1 rounded-xl border border-slate-200/50 mr-2 shadow-inner">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
+            {/* Time Filter Pill Buttons */}
+            <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/50 shadow-inner">
               {[
                 { id: 'today', label: 'Bugün' },
                 { id: '7_days', label: '7 Gün' },
@@ -929,9 +1001,9 @@ export default function Dashboard() {
                 <button
                   key={f.id}
                   onClick={() => setTimeFilter(f.id)}
-                  className={`px-3 py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 text-[10px] font-extrabold rounded-full transition-all cursor-pointer ${
                     timeFilter === f.id
-                      ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/30'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-md shadow-blue-500/10'
                       : 'text-slate-550 hover:text-slate-800'
                   }`}
                 >
@@ -940,86 +1012,110 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <button
-              onClick={() => {
-                refetchMetrics();
-                refetchReviews();
-                refetchAllReviews();
-                fetchSyncStates();
-              }}
-              className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer min-h-[36px]"
-              title="Verileri Yenile"
-            >
-              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  refetchMetrics();
+                  refetchReviews();
+                  refetchAllReviews();
+                  fetchSyncStates();
+                }}
+                className="p-2.5 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-full transition-all hover:bg-slate-50 cursor-pointer shadow-sm flex items-center justify-center shrink-0"
+                title="Verileri Yenile"
+              >
+                <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+              </button>
 
-            <button
-              onClick={() => window.location.href = '/reviews?triggerSync=true'}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/20 min-h-[38px] cursor-pointer animate-pulse-slow"
-            >
-              <RefreshCw size={14} />
-              <span>Tüm Platformları Senkronize Et</span>
-            </button>
+              <button
+                onClick={() => window.location.href = '/reviews?triggerSync=true'}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-blue-500/15 cursor-pointer"
+              >
+                <RefreshCw size={13} />
+                <span>Tüm Platformları Senkronize Et</span>
+              </button>
 
-            <button
-              onClick={handleExportReviews}
-              disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer"
-            >
-              <Download size={14} className={isExporting ? 'animate-spin' : ''} />
-              <span>{isExporting ? 'Exporting...' : 'Veriyi Dışa Aktar'}</span>
-            </button>
+              <button
+                onClick={handleExportReviews}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                <Download size={13} className={isExporting ? 'animate-spin' : ''} />
+                <span>Veriyi Dışa Aktar</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Smart Sync Summary Card */}
-        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-6 rounded-2xl border border-slate-800 shadow-xl text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-          <div className="relative space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-indigo-400" />
-                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Smart Sync Akıllı Özet</span>
+        <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm shadow-slate-100/50 relative overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-500 text-base leading-none select-none">⚡</span>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Smart Sync Akıllı Özet</h3>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-bold text-indigo-600 tracking-wide uppercase">
+              Aktif Platformlar: {dbSyncStates.length} / 5
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {/* 1. Son Başarılı Senkronizasyon */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Database size={14} className="text-indigo-500" />
+                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Son Başarılı Senkronizasyon</span>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-[9px] font-bold text-indigo-200 tracking-wide uppercase">
-                Aktif Platformlar: {dbSyncStates.length} / 5
-              </span>
+              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
+                {lastSuccessfulSyncTime 
+                  ? new Date(lastSuccessfulSyncTime).toLocaleDateString('tr-TR') + ' ' + new Date(lastSuccessfulSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                  : 'Hiç senkronize edilmedi'
+                }
+              </h4>
+              <p className="text-[9.5px] text-slate-400 font-semibold">Tüm entegrasyonlar güncel</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
-              <div className="space-y-1">
-                <span className="text-[10px] text-indigo-200/70 font-semibold block">Son Başarılı Senkronizasyon</span>
-                <h4 className="text-xs font-bold text-slate-100">
-                  {lastSuccessfulSyncTime 
-                    ? new Date(lastSuccessfulSyncTime).toLocaleDateString('tr-TR') + ' ' + new Date(lastSuccessfulSyncTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-                    : 'Hiç senkronize edilmedi'
-                  }
-                </h4>
+            {/* 2. Aktif Sync Modu */}
+            <div className="space-y-1 pt-4 md:pt-0 md:pl-6">
+              <div className="flex items-center gap-2 text-slate-400">
+                <RefreshCw size={14} className="text-blue-500" />
+                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Aktif Sync Modu</span>
               </div>
+              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
+                {activeSyncModeLabel}
+              </h4>
+              <p className="text-[9.5px] text-slate-400 font-semibold">Veritabanı senkronizasyon modu</p>
+            </div>
 
-              <div className="space-y-1">
-                <span className="text-[10px] text-indigo-200/70 font-semibold block">Aktif Senkronizasyon Modu</span>
-                <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle size={14} className="shrink-0" />
-                  {activeSyncModeLabel}
-                </h4>
+            {/* 3. Son Yeni / Mükerrer */}
+            <div className="space-y-1 pt-4 md:pt-0 md:pl-6">
+              <div className="flex items-center gap-2 text-slate-400">
+                <MessageSquare size={14} className="text-emerald-500" />
+                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Son Yeni / Mükerrer</span>
               </div>
+              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
+                <span className="text-emerald-600 font-extrabold">{totalImported} yeni</span>
+                <span className="text-slate-300 mx-1.5">/</span>
+                <span className="text-amber-600 font-extrabold">{totalDuplicates} mükerrer</span>
+              </h4>
+              <p className="text-[9.5px] text-slate-400 font-semibold">Son taramada işlenen kayıtlar</p>
+            </div>
 
-              <div className="space-y-1">
-                <span className="text-[10px] text-indigo-200/70 font-semibold block">Son Yeni / Mükerrer Yorum</span>
-                <h4 className="text-xs font-bold text-slate-100">
-                  <span className="text-emerald-400 font-extrabold">{totalImported} yeni</span>
-                  <span className="text-slate-400 mx-1.5">/</span>
-                  <span className="text-amber-400 font-extrabold">{totalDuplicates} mükerrer</span>
-                </h4>
+            {/* 4. Platform Durumu */}
+            <div className="space-y-1 pt-4 md:pt-0 md:pl-6">
+              <div className="flex items-center gap-2 text-slate-400">
+                <ShieldCheck size={14} className={isGlobalError ? 'text-rose-500' : 'text-emerald-500'} />
+                <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Platform Durumu</span>
               </div>
-
-              <div className="space-y-1">
-                <span className="text-[10px] text-indigo-200/70 font-semibold block">Tahmini Tasarruf Durumu</span>
-                <h4 className="text-[11px] font-bold text-indigo-300">
-                  {costSavingsMsg}
-                </h4>
-              </div>
+              <h4 className="text-sm font-black text-slate-800 leading-tight pt-1">
+                {isGlobalError ? (
+                  <span className="text-rose-600 font-extrabold">Hata Bildirimi</span>
+                ) : (
+                  <span className="text-emerald-600 font-extrabold">Tüm Platformlar Aktif</span>
+                )}
+              </h4>
+              <p className="text-[9.5px] text-slate-400 font-semibold">
+                {isGlobalError ? 'Bağlantı hatası düzeltilmeli' : 'Platform bağlantı durumu stabil'}
+              </p>
             </div>
           </div>
         </div>
@@ -1083,61 +1179,53 @@ export default function Dashboard() {
         {/* 2. Platform Sağlık Durumu Bölümü */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Sağlık Durumu</h3>
-          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm shadow-slate-100/50">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-100 text-[11px]">
-                <thead className="bg-slate-50 font-bold text-slate-500">
+                <thead className="bg-slate-50/75 font-bold text-slate-505 rounded-xl">
                   <tr>
                     <th className="px-4 py-3 text-left">Platform</th>
-                    <th className="px-4 py-3 text-left">Kaynak Türü</th>
-                    <th className="px-4 py-3 text-left">Son Senkronizasyon</th>
-                    <th className="px-4 py-3 text-center">Durum</th>
-                    <th className="px-4 py-3 text-center">Sync Modu</th>
+                    <th className="px-4 py-3 text-left">Sync Modu</th>
+                    <th className="px-4 py-3 text-left">Başlangıç</th>
+                    <th className="px-4 py-3 text-center">Yeni</th>
+                    <th className="px-4 py-3 text-center">Mükerrer</th>
                     <th className="px-4 py-3 text-center">Son Yorum</th>
-                    <th className="px-4 py-3 text-center">Yeni/Mük/Hat</th>
+                    <th className="px-4 py-3 text-center">Durum</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                   {[
-                    { name: 'Google', title: 'Google Reviews', source: 'Aggregator' },
-                    { name: 'Booking.com', title: 'Booking.com', source: 'Aggregator' },
-                    { name: 'TripAdvisor', title: 'TripAdvisor', source: 'Legacy' },
-                    { name: 'Hotels.com', title: 'Hotels.com', source: 'Legacy' },
-                    { name: 'HolidayCheck', title: 'HolidayCheck', source: 'Legacy' }
+                    { name: 'Google', title: 'Google Reviews' },
+                    { name: 'Booking.com', title: 'Booking.com' },
+                    { name: 'TripAdvisor', title: 'TripAdvisor' },
+                    { name: 'Hotels.com', title: 'Hotels.com' },
+                    { name: 'HolidayCheck', title: 'HolidayCheck' }
                   ].map(plat => {
                     const health = getHealthInfo(plat.name);
                     return (
-                      <tr key={plat.name} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-2.5 font-bold text-slate-800">{plat.title}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
-                            plat.source === 'Aggregator'
-                              ? 'bg-purple-50 text-purple-600 border border-purple-100'
-                              : 'bg-slate-50 text-slate-500 border border-slate-100'
-                          }`}>
-                            {plat.source}
-                          </span>
+                      <tr key={plat.name} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-bold text-slate-800">
+                          <div className="flex items-center gap-2.5">
+                            {renderPlatformLogo(plat.name)}
+                            <span>{plat.title}</span>
+                          </div>
                         </td>
-                        <td className="px-4 py-2.5 text-slate-500">{health.lastSync}</td>
-                        <td className="px-4 py-2.5 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
-                            health.status === 'active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                        <td className="px-4 py-3 text-slate-600 font-semibold">{health.syncMode}</td>
+                        <td className="px-4 py-3 text-slate-500 font-medium">{health.lastSync}</td>
+                        <td className="px-4 py-3 text-center text-emerald-600 font-black">{health.newCount}</td>
+                        <td className="px-4 py-3 text-center text-amber-600 font-black">{health.dupCount}</td>
+                        <td className="px-4 py-3 text-center text-slate-500 font-medium">{health.lastReviewDate}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                            health.status === 'active' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
                             health.status === 'error' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                            'bg-amber-50 text-amber-600 border border-amber-100'
+                            health.status === 'success' || health.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                            'bg-slate-50 text-slate-500 border border-slate-100'
                           }`}>
-                            {health.status === 'active' ? 'Aktif' :
-                             health.status === 'error' ? 'Hatalı' :
-                             health.status === 'veri yok' ? 'Henüz veri yok' : health.status}
+                            {health.status === 'active' ? 'Çalışıyor' :
+                             health.status === 'error' ? 'Hata' :
+                             health.status === 'veri yok' ? 'Bekliyor' : 'Başarılı'}
                           </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-center font-medium text-slate-600">{health.syncMode}</td>
-                        <td className="px-4 py-2.5 text-center text-slate-500">{health.lastReviewDate}</td>
-                        <td className="px-4 py-2.5 text-center text-slate-600 font-medium">
-                          <span className="text-emerald-600 font-bold">{health.newCount}</span>
-                          <span className="text-slate-350 mx-1">/</span>
-                          <span className="text-amber-600 font-bold">{health.dupCount}</span>
-                          <span className="text-slate-350 mx-1">/</span>
-                          <span className="text-rose-600 font-bold">{health.errCount}</span>
                         </td>
                       </tr>
                     );
@@ -1888,6 +1976,18 @@ export default function Dashboard() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Alt Bilgi */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-white border border-slate-100 px-6 py-4 rounded-3xl shadow-sm text-[11px] text-slate-500 font-medium mt-6">
+        <div className="flex items-center gap-2">
+          <span className="text-yellow-500 text-sm select-none">💡</span>
+          <span>Kademeli senkronizasyon sayesinde yalnızca yeni yorumlar çekilir ve gereksiz API maliyeti oluşmaz.</span>
+        </div>
+        <a href="/settings" className="text-blue-600 hover:text-blue-700 font-bold hover:underline flex items-center gap-0.5 shrink-0">
+          <span>Daha Fazla Bilgi</span>
+          <ArrowUpRight size={12} />
+        </a>
       </div>
     </div>
   );
