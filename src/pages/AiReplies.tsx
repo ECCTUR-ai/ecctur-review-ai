@@ -1251,7 +1251,17 @@ export default function AiReplies() {
                           <div className="flex items-center gap-2 mt-1">
                             {renderStars(review.rating)}
                             <span className="text-[10px] text-slate-400">
-                              {new Date(review.date).toLocaleDateString()}
+                              {(() => {
+                                const rawDate = review.review_date;
+                                if (rawDate) {
+                                  return new Date(rawDate).toLocaleDateString('tr-TR');
+                                }
+                                const relativeDate = review.metadata?.display_date || review.metadata?.google_relative_date;
+                                if (relativeDate) {
+                                  return relativeDate;
+                                }
+                                return review.created_at ? new Date(review.created_at).toLocaleDateString('tr-TR') : 'Tarih yok';
+                              })()}
                             </span>
                           </div>
                         </div>

@@ -112,19 +112,115 @@ export function normalizeTripAdvisorReview(item: any, tripadvisorUrl: string, id
   };
 }
 
+export function parseGoogleRelativeDate(text: string): string | null {
+  if (!text) return null;
+  const str = text.trim().toLowerCase();
+  const now = new Date();
+
+  // 1. "bir saat önce" / "1 hour ago" => today
+  if (
+    str.includes('hour') || 
+    str.includes('saat') || 
+    str.includes('minute') || 
+    str.includes('dakika') || 
+    str.includes('second') || 
+    str.includes('saniye') ||
+    str === 'now' ||
+    str === 'şimdi'
+  ) {
+    return now.toISOString();
+  }
+
+  // 2. "dün" / "yesterday" => today - 1 day
+  if (str === 'yesterday' || str === 'dün') {
+    now.setDate(now.getDate() - 1);
+    return now.toISOString();
+  }
+
+  // 3. Spelled out or numerical quantities
+  const trNumbers: { [key: string]: number } = {
+    'bir': 1, 'iki': 2, 'üç': 3, 'dört': 4, 'beş': 5, 'altı': 6, 'yedi': 7, 'sekiz': 8, 'dokuz': 9, 'on': 10
+  };
+  const enNumbers: { [key: string]: number } = {
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+  };
+
+  let val = 1;
+  const match = str.match(/(\d+)/);
+  if (match) {
+    val = parseInt(match[1], 10);
+  } else {
+    const words = str.split(/\s+/);
+    for (const w of words) {
+      if (trNumbers[w] !== undefined) {
+        val = trNumbers[w];
+        break;
+      }
+      if (enNumbers[w] !== undefined) {
+        val = enNumbers[w];
+        break;
+      }
+    }
+  }
+
+  if (str.includes('gün') || str.includes('day')) {
+    now.setDate(now.getDate() - val);
+    return now.toISOString();
+  }
+  if (str.includes('hafta') || str.includes('week')) {
+    now.setDate(now.getDate() - val * 7);
+    return now.toISOString();
+  }
+  if (str.includes('ay') || str.includes('month')) {
+    now.setMonth(now.getMonth() - val);
+    return now.toISOString();
+  }
+  if (str.includes('yıl') || str.includes('year')) {
+    now.setFullYear(now.getFullYear() - val);
+    return now.toISOString();
+  }
+
+  return null;
+}
+
 export function normalizeGoogleReview(item: any, googleUrl: string, idx: number = 0): UnifiedNormalizedReview {
   const guestName = item.name || item.authorName || 'Anonymous Guest';
   const rating = Number(item.starsScore || item.stars || 5);
 
   const reviewText = item.text || item.textTranslated || 'No comment review.';
   
-  const reviewDate = 
-    item.publishedAt ||
-    item.publishedDate ||
-    item.reviewTime ||
+  // Extract relative date text from possible Google payload fields
+  const googleRelativeDate = 
+    item.relativePublishTimeDescription ||
+    item.publishedAtText ||
+    item.timeDescription ||
+    item.relativeTime ||
     item.relativeTimeDescription ||
-    item.date ||
-    null;
+    (item.date && (String(item.date).includes('önce') || String(item.date).includes('ago')) ? item.date : '') ||
+    (item.publishedAt && (String(item.publishedAt).includes('önce') || String(item.publishedAt).includes('ago')) ? item.publishedAt : '') ||
+    '';
+
+  let reviewDate: string | null = null;
+  
+  // Try finding an absolute date first
+  const possibleAbsoluteDates = [
+    item.publishedAt,
+    item.publishedDate,
+    item.reviewTime,
+    item.date
+  ];
+  
+  for (const possibleDate of possibleAbsoluteDates) {
+    if (possibleDate && !isNaN(Date.parse(possibleDate)) && !String(possibleDate).includes('önce') && !String(possibleDate).includes('ago')) {
+      reviewDate = new Date(possibleDate).toISOString();
+      break;
+    }
+  }
+
+  // Fallback: parse relative date to approximate absolute date
+  if (!reviewDate && googleRelativeDate) {
+    reviewDate = parseGoogleRelativeDate(googleRelativeDate);
+  }
 
   const ownerResponseText = item.reply?.text || item.reply?.comment || null;
   const ownerResponseDate = item.reply?.publishedAt || item.reply?.date || null;
@@ -133,7 +229,9 @@ export function normalizeGoogleReview(item: any, googleUrl: string, idx: number 
     publishAt: item.publishAt || null,
     publishedAtDate: item.publishedAtDate || null,
     relativeTimeDate: item.relativeTimeDate || null,
-    relativeTime: item.relativeTime || null
+    relativeTime: item.relativeTime || null,
+    google_relative_date: googleRelativeDate || null,
+    display_date: googleRelativeDate || null
   };
 
   const externalId = item.reviewId || item.id || `google-mock-${guestName}-${rating}-${reviewDate || 'nodate'}-${idx}`;
