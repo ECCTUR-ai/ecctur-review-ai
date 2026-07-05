@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { reviewImportService } from '../api-services/reviewImportService.js';
 import { bookingProvider } from '../api-services/providers/bookingProvider.js';
+import { fetchAggregatorReviews } from '../src/services/providers/hotelReviewAggregatorProvider.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -1795,7 +1796,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
-    const { hotelId, googleMapsUrl, mode = 'initial_import' } = req.body;
+    const { hotelId, googleMapsUrl, mode = 'initial_import', provider } = req.body;
     if (!hotelId || !googleMapsUrl) {
       return res.status(400).json({ success: false, error: 'Missing hotelId or googleMapsUrl parameter' });
     }
@@ -1820,6 +1821,10 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const orgId = hotelData.organization_id;
       const hotelName = hotelData.name;
 
+      const isAggregator = 
+        provider === 'hotel-review-aggregator' && 
+        (hotelName === 'Jura Hotels Ada Beach' || hotelName === 'Jura Hotels Ada Beach Kuşadası');
+
       // Rules 1 & 2: check existing count to determine effective mode
       const { count: existingCount, error: countErr } = await supabaseAdmin
         .from('reviews')
@@ -1836,13 +1841,21 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       // Rule 3: daily_sync limit is 50, otherwise 200
       const limit = effectiveMode === 'initial_import' || effectiveMode === 'backfill_import' ? 200 : 50;
-      const scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl, limit);
+
+      let scrapedReviews: any[] = [];
+      if (isAggregator) {
+        console.log('[Aggregator] Running tri_angle/hotel-review-aggregator for', hotelName);
+        scrapedReviews = await fetchAggregatorReviews(googleMapsUrl, limit);
+      } else {
+        scrapedReviews = await reviewImportService.importReviews('Google', googleMapsUrl, limit);
+      }
 
       console.log("[GOOGLE SCRAPED FIRST ITEM]", scrapedReviews[0]);
 
       let importedCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
+      const detailedErrors: any[] = [];
 
       for (const r of scrapedReviews) {
         try {
@@ -1853,27 +1866,59 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             r.metadata.google_relative_date = "Yeni";
           }
 
-          // Rule 5: Strengthen duplicate control
-          const isDuplicate = await checkIsDuplicate(
-            hotelId,
-            'Google',
-            r.externalId || null,
-            r.guestName,
-            r.rating,
-            r.reviewText
-          );
-
-          if (isDuplicate) {
-            duplicateCount++;
-            await handleGoogleDuplicate(
+          let isDuplicate = false;
+          if (isAggregator) {
+            // Requirement 4: Duplicate kontrolünü şu alanlarla yap:
+            // hotel_id, platform, guest_name, rating, review_date, review_text
+            let query = supabaseAdmin
+              .from('reviews')
+              .select('id')
+              .eq('hotel_id', hotelId)
+              .eq('platform', r.platform)
+              .eq('guest_name', r.guestName)
+              .eq('rating', r.rating);
+              
+            if (r.reviewDate) {
+              query = query.eq('review_date', r.reviewDate);
+            } else {
+              query = query.is('review_date', null);
+            }
+            
+            if (r.reviewText) {
+              query = query.eq('review_text', r.reviewText);
+            } else {
+              query = query.or('review_text.is.null,review_text.eq.');
+            }
+            
+            const { data: existing, error } = await query.limit(1);
+            if (!error && existing && existing.length > 0) {
+              isDuplicate = true;
+            }
+          } else {
+            // Standard duplicate check
+            isDuplicate = await checkIsDuplicate(
               hotelId,
+              'Google',
               r.externalId || null,
               r.guestName,
               r.rating,
-              r.reviewText,
-              r.reviewDate,
-              r.metadata
+              r.reviewText
             );
+          }
+
+          if (isDuplicate) {
+            duplicateCount++;
+            if (!isAggregator) {
+              await handleGoogleDuplicate(
+                hotelId,
+                r.externalId || null,
+                r.guestName,
+                r.rating,
+                r.reviewText,
+                r.reviewDate,
+                r.metadata
+              );
+            }
             continue;
           }
 
@@ -1892,7 +1937,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             guest_name: r.guestName,
             rating: r.rating,
             review_text: r.reviewText,
-            platform: 'Google',
+            platform: r.platform || 'Google',
             platform_review_id: r.externalId || null,
             sentiment,
             status: 'draft',
@@ -1908,13 +1953,45 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           if (insertErr) {
             console.error('[Google Import] Database insert error:', insertErr);
             failedCount++;
+            detailedErrors.push({ externalId: r.externalId || null, message: insertErr.message });
           } else {
             importedCount++;
+
+            // Requirement 11: Supabase'e insert sonrası mevcut AI reply generation pipeline çalışmaya devam etsin.
+            try {
+              await postToN8N({
+                platform_review_id: r.externalId || null,
+                reviewer_display_name: r.guestName,
+                star_rating: r.rating,
+                comment_text: r.reviewText,
+                create_update_time: r.reviewDate || new Date().toISOString(),
+                reply: null,
+                google_location_id: r.metadata?.google_location_id || null,
+                hotel_id: hotelId,
+                organization_id: orgId
+              });
+            } catch (n8nErr) {
+              console.error('[Google Import] postToN8N failed:', n8nErr);
+            }
           }
-        } catch (loopErr) {
+        } catch (loopErr: any) {
           console.error('[Google Import] Loop exception:', loopErr);
           failedCount++;
+          detailedErrors.push({ message: loopErr.message || String(loopErr) });
         }
+      }
+
+      // Requirement 10: Import sonrası aggregator için özel cevap döndür
+      if (isAggregator) {
+        return res.status(200).json({
+          success: true,
+          hotelName,
+          provider: "hotel-review-aggregator",
+          imported: importedCount,
+          duplicates: duplicateCount,
+          skipped: 0,
+          errors: detailedErrors
+        });
       }
 
       console.log(`Google Inserted Reviews: ${importedCount}`);
