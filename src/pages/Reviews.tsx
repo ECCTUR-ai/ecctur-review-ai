@@ -1378,6 +1378,7 @@ export default function Reviews() {
               finalResults.Google.lastReviewDate = gDetails.lastReviewDate;
               finalResults.Google.nextRecommendedSyncAt = gDetails.nextRecommendedSyncAt;
               finalResults.Google.estimatedCostSavingMessage = aggResult.estimatedCostSavingMessage || '';
+              finalResults.Google.hasMorePotentialReviews = gDetails.hasMorePotentialReviews;
 
               finalResults["Booking.com"].imported = summary["Booking.com"]?.imported ?? 0;
               finalResults["Booking.com"].duplicates = summary["Booking.com"]?.duplicates ?? 0;
@@ -1387,6 +1388,7 @@ export default function Reviews() {
               finalResults["Booking.com"].lastReviewDate = bDetails.lastReviewDate;
               finalResults["Booking.com"].nextRecommendedSyncAt = bDetails.nextRecommendedSyncAt;
               finalResults["Booking.com"].estimatedCostSavingMessage = aggResult.estimatedCostSavingMessage || '';
+              finalResults["Booking.com"].hasMorePotentialReviews = bDetails.hasMorePotentialReviews;
 
               if (aggResult.errors && aggResult.errors.length > 0) {
                 finalResults.Google.errors.push(...aggResult.errors);
@@ -1578,7 +1580,8 @@ export default function Reviews() {
             lastReviewDate: finalResults.Google.lastReviewDate,
             nextRecommendedSyncAt: finalResults.Google.nextRecommendedSyncAt,
             estimatedCostSavingMessage: finalResults.Google.estimatedCostSavingMessage,
-            elapsedMs: finalResults.Google.elapsedMs
+            elapsedMs: finalResults.Google.elapsedMs,
+            hasMorePotentialReviews: finalResults.Google.hasMorePotentialReviews
           },
           "Booking.com": {
             imported: finalResults["Booking.com"].imported,
@@ -1591,7 +1594,8 @@ export default function Reviews() {
             lastReviewDate: finalResults["Booking.com"].lastReviewDate,
             nextRecommendedSyncAt: finalResults["Booking.com"].nextRecommendedSyncAt,
             estimatedCostSavingMessage: finalResults["Booking.com"].estimatedCostSavingMessage,
-            elapsedMs: finalResults["Booking.com"].elapsedMs
+            elapsedMs: finalResults["Booking.com"].elapsedMs,
+            hasMorePotentialReviews: finalResults["Booking.com"].hasMorePotentialReviews
           },
           "TripAdvisor": {
             imported: finalResults.TripAdvisor.imported,
@@ -2556,6 +2560,38 @@ export default function Reviews() {
                 </table>
               </div>
             </div>
+
+            {/* Limit Warning Alert & Continue Sync Option */}
+            {(() => {
+              const platformsWithWarning = Object.entries(unifiedSyncResult.results)
+                .filter(([_, stats]: [any, any]) => stats.hasMorePotentialReviews || (stats.imported + stats.duplicates >= 100))
+                .map(([platform]) => platform);
+              
+              if (platformsWithWarning.length === 0) return null;
+
+              return (
+                <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 space-y-2">
+                  <div className="flex items-start gap-2 text-xs">
+                    <span className="text-sm">⚠️</span>
+                    <div>
+                      <span className="font-bold">Daha fazla yeni yorum olabilir:</span>{' '}
+                      {platformsWithWarning.join(', ')} platformlarında 100 yorum limitine ulaşıldı.
+                    </div>
+                  </div>
+                  {isSuperAdmin && (
+                    <button
+                      onClick={() => {
+                        setUnifiedSyncResult(null);
+                        handleSyncAllPlatforms('manual_full_resync');
+                      }}
+                      className="w-full mt-1 py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10px] rounded-lg transition-all shadow-sm cursor-pointer text-center block"
+                    >
+                      Devam Sync Çalıştır (Kalan Geçmişi Çek - Full Sync)
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Error Detail Sections */}
             {(() => {

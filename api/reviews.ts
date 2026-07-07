@@ -2082,7 +2082,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         }
       }
 
-      const limit = (googleSyncMode === 'initial_full_sync' || bookingSyncMode === 'initial_full_sync') ? 1000 : 150;
+      const limit = (googleSyncMode === 'initial_full_sync' || bookingSyncMode === 'initial_full_sync' || googleSyncMode === 'manual_full_resync' || bookingSyncMode === 'manual_full_resync') ? 1000 : 100;
 
       console.log('[Aggregator] selected hotelId:', hotelId);
       console.log('[Aggregator] found hotel.id:', hotelId);
@@ -2291,7 +2291,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           sync_mode: googleSyncMode,
           status: googleErrorsCount > 0 && googleImported === 0 ? 'error' : 'active',
           error_message: googleErrorsCount > 0 ? 'Aggregator failed for some Google reviews' : null,
-          metadata: { scrapeFromDate }
+          metadata: { scrapeFromDate, hasMorePotentialReviews: hasMore, warningMessage: hasMore ? 'Daha fazla yeni yorum olabilir.' : null }
         });
       } catch (dbErr) {
         console.error('[Aggregator Import] Failed to update Google sync state:', dbErr);
@@ -2323,11 +2323,14 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           sync_mode: bookingSyncMode,
           status: bookingErrorsCount > 0 && bookingImported === 0 ? 'error' : 'active',
           error_message: bookingErrorsCount > 0 ? 'Aggregator failed for some Booking reviews' : null,
-          metadata: { scrapeFromDate }
+          metadata: { scrapeFromDate, hasMorePotentialReviews: hasMore, warningMessage: hasMore ? 'Daha fazla yeni yorum olabilir.' : null }
         });
       } catch (dbErr) {
         console.error('[Aggregator Import] Failed to update Booking sync state:', dbErr);
       }
+
+      // Enriched Response Payload
+      const hasMore = scrapedReviews.length >= limit;
 
       // Enriched Response Payload
       const responsePayload = {
@@ -2347,6 +2350,8 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         syncMode: googleSyncMode, // Google mode as primary
         syncStartDate: scrapeFromDate || 'Tüm geçmiş',
         estimatedCostSavingMessage,
+        hasMorePotentialReviews: hasMore,
+        warningMessage: hasMore ? 'Daha fazla yeni yorum olabilir.' : null,
         googleSyncDetails: {
           syncMode: googleSyncMode,
           syncStartDate: scrapeFromDate || 'Tüm geçmiş',
@@ -2355,7 +2360,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           skipped: googleSkipped,
           errors: googleErrorsCount,
           lastReviewDate: googleLatestDate,
-          nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          hasMorePotentialReviews: hasMore,
+          warningMessage: hasMore ? 'Daha fazla yeni yorum olabilir.' : null
         },
         bookingSyncDetails: {
           syncMode: bookingSyncMode,
@@ -2365,7 +2372,9 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           skipped: bookingSkipped,
           errors: bookingErrorsCount,
           lastReviewDate: bookingLatestDate,
-          nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          hasMorePotentialReviews: hasMore,
+          warningMessage: hasMore ? 'Daha fazla yeni yorum olabilir.' : null
         },
         debug: {
           apifyItems: scrapedReviews.length,

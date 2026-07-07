@@ -143,4 +143,22 @@ Yorumlar sayfasındaki platform filtreleme kartlarındaki pasif platformların k
 - Kartların grid tasarımı, 6 aktif filtre (Tümü + 5 aktif platform) için `md:grid-cols-6` olarak güncellenmiş ve yerleşim simetrisi optimize edilmiştir.
 - "Tümü" kartı listenin en başında kalmış ve tüm platformlardaki toplam yorum sayısını göstermeye devam etmektedir.
 
+---
+
+## 9. Kademeli Senkronizasyon (Incremental Sync) Limiti ve Devam Sync Altyapısı
+
+Veri transfer maliyetlerini düşürmek ve API limitlerini verimli yönetmek için senkronizasyon derinliği ve limit uyarı mekanizmaları kurulmuştur:
+
+### 1. Kademeli Senkronizasyon Limiti (`100 Yorum`)
+- **İlk Import (Historical/Full Sync)**: Otelin ilk kurulumunda veya Super Admin tam senkronizasyon tetiklediğinde platform bazlı limit `1000` yorum olarak uygulanmaya devam eder.
+- **Normal Kademeli Senkronizasyon (Incremental Sync)**: Sonraki günlük/periyodik senkronizasyonlarda, Apify Aggregator limiti `100` yorum olarak sınırlandırılmıştır.
+- **Tarih Güvenlik Aralığı**: Senkronizasyon, veritabanındaki en son çekilen yorum tarihinden (`last_review_date`) geriye doğru `2 günlük` güvenlik aralığı eklenerek başlatılır.
+
+### 2. Limit Uyarısı ve Devam Sync Mekanizması
+- Senkronizasyon sırasında 100 yoruma ulaşıldıysa (`scrapedReviews.length >= limit`), API yanıtında `hasMorePotentialReviews: true` bayrağı ve `"Daha fazla yeni yorum olabilir."` uyarısı gönderilir.
+- Bu bilgi, veritabanındaki `review_sync_states` tablosunun `metadata` kolonuna kaydedilir.
+- **Arayüz Bildirimi**: Yorumlar sayfasında senkronizasyon raporu gösterilirken, limite ulaşılan platformlar için `⚠️ Daha fazla yeni yorum olabilir` uyarısı verilir.
+- **Super Admin Kontrolü**: Giriş yapan kullanıcı `Super Admin` yetkisine sahipse, bu uyarının hemen altında **"Devam Sync Çalıştır (Kalan Geçmişi Çek - Full Sync)"** butonu görüntülenir. Bu buton tetiklendiğinde sistem otomatik olarak tam geçmiş tarama (`manual_full_resync`) modunda kalan tüm yorumları çeker.
+
+
 
