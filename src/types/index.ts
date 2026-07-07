@@ -111,10 +111,16 @@ export interface Task {
   assignedTo: string;
   dueDate: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'in_progress' | 'waiting' | 'completed';
+  status: 'open' | 'in_progress' | 'waiting' | 'completed' | 'deferred';
   createdAt: string;
   hotelId?: string;
   organizationId?: string;
+  createdBy?: string;
+  completedBy?: string;
+  completedAt?: string;
+  resolutionNote?: string;
+  sourcePlatform?: string;
+  metadata?: any;
 }
 
 export interface AppNotification {

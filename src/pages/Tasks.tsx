@@ -11,27 +11,29 @@ import {
   Clock, 
   User, 
   Search, 
-  Filter,
-  Building,
-  Calendar,
-  CheckCircle2,
-  Hourglass,
-  HelpCircle,
-  X,
-  RefreshCw
+  Building, 
+  Calendar, 
+  CheckCircle2, 
+  Hourglass, 
+  HelpCircle, 
+  X, 
+  RefreshCw,
+  AlertTriangle,
+  Globe
 } from 'lucide-react';
 
 export default function Tasks() {
   const { t } = useTranslation();
   const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
-  const { hasPermission } = useAuth();
+  const { hasPermission, email: currentUserEmail } = useAuth();
   const canManageTasks = hasPermission('manage:tasks');
 
   // Filter States
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
   const [department, setDepartment] = useState('');
-  
+  const [status, setStatus] = useState('');
+
   // Tab State
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
@@ -88,7 +90,13 @@ export default function Tasks() {
       const cleanOrigDescription = task.description.split('\n\nÇözüm Notu: ')[0];
       const newDesc = `${cleanOrigDescription}\n\nÇözüm Notu: ${resolutionNote.trim()}`;
 
-      await taskService.completeTask(resolvingTaskId, 'completed', newDesc);
+      await taskService.completeTask(
+        resolvingTaskId, 
+        'completed', 
+        resolutionNote.trim(), 
+        currentUserEmail || 'Bilinmeyen Kullanıcı', 
+        newDesc
+      );
       setResolvingTaskId(null);
       setResolutionNote('');
       refetch();
@@ -103,13 +111,23 @@ export default function Tasks() {
   const getPriorityBadgeClass = (p: string) => {
     switch (p) {
       case 'critical':
-        return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+        return 'bg-rose-500/10 text-rose-400 border border-rose-500/25';
       case 'high':
-        return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+        return 'bg-amber-500/10 text-amber-400 border border-amber-500/25';
       case 'medium':
-        return 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+        return 'bg-blue-500/10 text-blue-400 border border-blue-500/25';
       default:
-        return 'bg-slate-500/10 text-slate-400 border border-slate-500/20';
+        return 'bg-slate-500/10 text-slate-400 border border-slate-500/25';
+    }
+  };
+
+  const getPriorityText = (p: string) => {
+    switch (p) {
+      case 'critical': return 'Kritik';
+      case 'high': return 'Yüksek';
+      case 'medium': return 'Orta';
+      case 'low': return 'Düşük';
+      default: return p;
     }
   };
 
@@ -121,21 +139,62 @@ export default function Tasks() {
       case 'in_progress':
         return <Hourglass size={13} className="text-blue-400" />;
       case 'waiting':
-        return <Clock size={13} className="text-amber-400" />;
+      case 'deferred':
+        return <AlertTriangle size={13} className="text-amber-400" />;
       default:
-        return <HelpCircle size={13} className="text-slate-400" />;
+        return <Clock size={13} className="text-slate-400" />;
     }
   };
 
+  const getStatusText = (s: string) => {
+    switch (s) {
+      case 'completed': return 'Tamamlandı';
+      case 'in_progress': return 'Devam Ediyor';
+      case 'waiting':
+      case 'deferred': return 'Ertelendi';
+      case 'open': return 'Açık';
+      default: return s;
+    }
+  };
+
+  function formatDate(dateStr?: string) {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function formatDateTime(dateStr?: string) {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleString('tr-TR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateStr;
+    }
+  }
+
   const activeList = activeTab === 'active' ? activeTasksList : completedTasksList;
 
+  // Render filter status selection options matching Turkish UI
   return (
     <div className="space-y-6">
       {/* Title Header */}
       <div className="border-b border-slate-200 pb-6">
-        <h1 className="text-xl font-bold text-slate-100 m-0">Misafir İlişkileri Görev Takip Modülü</h1>
+        <h1 className="text-xl font-bold text-slate-100 m-0">Misafir İlişkileri Görev Takibi</h1>
         <p className="text-xs text-slate-400 mt-1.5">
-          Misafir şikayet ve yorumlarına dayalı olarak oluşturulan düzeltici faaliyet ve görevlerin takibi.
+          Olumsuz yorumlar, kritik uyarılar ve departman problemleri için aksiyon görevleri oluşturmak, takip etmek ve tamamlananları arşivlemek.
         </p>
       </div>
 
@@ -148,7 +207,7 @@ export default function Tasks() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Görev adı veya açıklama ile ara..."
+            placeholder="Görevlerde ara..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
@@ -161,10 +220,10 @@ export default function Tasks() {
             className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">Tüm Öncelikler</option>
-            <option value="low">Düşük</option>
-            <option value="medium">Orta</option>
-            <option value="high">Yüksek</option>
             <option value="critical">Kritik</option>
+            <option value="high">Yüksek</option>
+            <option value="medium">Orta</option>
+            <option value="low">Düşük</option>
           </select>
         </div>
 
@@ -176,11 +235,13 @@ export default function Tasks() {
             className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">Tüm Departmanlar</option>
-            <option value="Front Office">Ön Büro (Front Office)</option>
-            <option value="Housekeeping">Kat Hizmetleri (Housekeeping)</option>
-            <option value="Food & Beverage">Yiyecek & İçecek (F&B)</option>
-            <option value="Spa & Wellness">Spa & Wellness</option>
-            <option value="Technical Service">Teknik Servis (Technical Service)</option>
+            <option value="Misafir İlişkileri">Misafir İlişkileri</option>
+            <option value="Ön Büro">Ön Büro</option>
+            <option value="Housekeeping">Housekeeping</option>
+            <option value="Teknik Servis">Teknik Servis</option>
+            <option value="Yiyecek & İçecek">Yiyecek & İçecek</option>
+            <option value="Spa">Spa</option>
+            <option value="Yönetim">Yönetim</option>
           </select>
         </div>
       </div>
@@ -226,21 +287,21 @@ export default function Tasks() {
           <div className="glass-panel rounded-2xl p-12 text-center space-y-4 border border-white/[0.05]">
             <CheckSquare className="mx-auto text-slate-600" size={40} />
             <h3 className="text-sm font-semibold text-slate-400">
-              {activeTab === 'active' ? 'Aktif görev bulunmuyor' : 'Tamamlanan görev bulunmuyor'}
+              {activeTab === 'active' ? 'Henüz aktif görev yok.' : 'Henüz tamamlanan görev bulunmuyor.'}
             </h3>
-            <p className="text-xs text-slate-500 max-w-[280px] mx-auto">
+            <p className="text-xs text-slate-500 max-w-[340px] mx-auto leading-relaxed">
               {activeTab === 'active' 
-                ? 'Şu anda takip edilmesi gereken aktif bir aksiyon görevi bulunmamaktadır.'
+                ? 'Kritik yorumlar ve operasyonel uyarılar otomatik olarak burada görev haline gelir.'
                 : 'Tamamlanarak arşive taşınmış bir görev kaydı bulunmamaktadır.'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {activeList.map((task) => {
-              // Parse resolution note if available
+              // Parse resolution note fallback if it was saved in description
               const descParts = task.description.split('\n\nÇözüm Notu: ');
               const displayDescription = descParts[0];
-              const resolutionText = descParts[1] || '';
+              const resolutionText = task.resolutionNote || descParts[1] || '';
 
               return (
                 <div 
@@ -251,20 +312,27 @@ export default function Tasks() {
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="text-sm font-semibold text-slate-200">{task.title}</h3>
                       <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase ${getPriorityBadgeClass(task.priority)}`}>
-                        {task.priority === 'low' ? 'Düşük' : task.priority === 'medium' ? 'Orta' : task.priority === 'high' ? 'Yüksek' : 'Kritik'}
+                        {getPriorityText(task.priority)}
                       </span>
                       {task.reviewId && (
                         <span className="text-[10px] text-slate-500 font-mono">
                           Ref Yorum: #{task.reviewId.substring(0, 8)}
                         </span>
                       )}
+                      {task.sourcePlatform && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-400">
+                          <Globe size={10} />
+                          {task.sourcePlatform}
+                        </span>
+                      )}
                     </div>
 
-                    <p className="text-xs text-slate-400 leading-relaxed">
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/20 p-3 rounded-xl border border-white/[0.02] italic">
+                      <span className="font-semibold text-slate-400 block not-italic text-[10px] uppercase tracking-wide mb-1">Aksiyon / Yapılacak İş</span>
                       {displayDescription}
                     </p>
 
-                    {/* Resolution Note display (completed tab only) */}
+                    {/* Resolution Note display */}
                     {activeTab === 'completed' && resolutionText && (
                       <div className="mt-3 p-3.5 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/15 text-xs">
                         <div className="flex items-center gap-1.5 text-emerald-400 font-bold mb-1">
@@ -280,18 +348,36 @@ export default function Tasks() {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-mono mt-1 pt-1.5 border-t border-white/[0.02]">
                       <span className="flex items-center gap-1">
                         <Building size={11} className="text-slate-600" />
-                        {task.department}
+                        Departman: {task.department}
                       </span>
                       <span>&bull;</span>
                       <span className="flex items-center gap-1">
                         <User size={11} className="text-slate-600" />
-                        Atanan Kişi: {task.assignedTo || 'Atanmamış'}
+                        {activeTab === 'active' ? 'Atanan Kişi' : 'Tamamlayan'}: {activeTab === 'active' ? (task.assignedTo || 'Atanmamış') : (task.completedBy || 'Bilinmiyor')}
                       </span>
                       <span>&bull;</span>
                       <span className="flex items-center gap-1">
                         <Calendar size={11} className="text-slate-600" />
-                        Termin Tarihi: {task.dueDate}
+                        Oluşturulma: {formatDate(task.createdAt)}
                       </span>
+                      {task.dueDate && (
+                        <>
+                          <span>&bull;</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar size={11} className="text-slate-600" />
+                            Termin: {formatDate(task.dueDate)}
+                          </span>
+                        </>
+                      )}
+                      {activeTab === 'completed' && task.completedAt && (
+                        <>
+                          <span>&bull;</span>
+                          <span className="flex items-center gap-1 text-emerald-400">
+                            <CheckCircle2 size={11} />
+                            Kapatılma: {formatDateTime(task.completedAt)}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -308,8 +394,8 @@ export default function Tasks() {
                             className="bg-transparent border-0 text-[10px] font-bold focus:outline-none text-slate-300 capitalize cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <option value="open" className="bg-[#090b16]">Açık</option>
-                            <option value="in_progress" className="bg-[#090b16]">İşlemde</option>
-                            <option value="waiting" className="bg-[#090b16]">Beklemede</option>
+                            <option value="in_progress" className="bg-[#090b16]">Devam Ediyor</option>
+                            <option value="waiting" className="bg-[#090b16]">Ertelendi</option>
                             <option value="completed" className="bg-[#090b16]">Tamamlandı</option>
                           </select>
                         </div>
@@ -320,7 +406,7 @@ export default function Tasks() {
                               setResolvingTaskId(task.id);
                               setResolutionNote('');
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 transition-colors text-white font-semibold text-xs rounded-xl shadow-md cursor-pointer"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 transition-colors text-white font-semibold text-xs rounded-xl shadow-md cursor-pointer"
                           >
                             <CheckCircle2 size={13} />
                             Tamamlandı
@@ -330,7 +416,7 @@ export default function Tasks() {
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase">
                         <CheckCircle2 size={12} />
-                        Tamamlandı
+                        {getStatusText(task.status)}
                       </span>
                     )}
                   </div>
@@ -348,7 +434,7 @@ export default function Tasks() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-400" />
-                Görevi Tamamla & Çözüm Notu Gir
+                Görevi Kapat & Çözüm Notu Gir
               </h3>
               <button 
                 onClick={() => { setResolvingTaskId(null); setResolutionNote(''); }}
@@ -367,7 +453,7 @@ export default function Tasks() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Çözüm Açıklaması / Notu</label>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Çözüm Açıklaması / Notu (Önerilir)</label>
                 <textarea
                   required
                   rows={4}
@@ -387,7 +473,7 @@ export default function Tasks() {
                 </button>
                 <button
                   onClick={handleSubmitResolution}
-                  disabled={isSubmittingResolution || !resolutionNote.trim()}
+                  disabled={isSubmittingResolution}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmittingResolution && <RefreshCw size={12} className="animate-spin" />}

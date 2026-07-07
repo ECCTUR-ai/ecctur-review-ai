@@ -55,8 +55,8 @@ export const taskService = {
     return updatedTask;
   },
 
-  async completeTask(id: string, status: string, description: string): Promise<Task> {
-    const updatedTask = await taskRepository.completeTask(id, status, description);
+  async completeTask(id: string, status: string, resolutionNote: string, completedBy?: string, description?: string): Promise<Task> {
+    const updatedTask = await taskRepository.completeTask(id, status, resolutionNote, completedBy, description);
 
     try {
       const { notificationService } = await import('./notificationService');

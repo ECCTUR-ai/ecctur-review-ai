@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 
 export function mapTaskRecord(item: any): Task {
+  if (!item) return {} as Task;
   return {
     id: item.id,
     reviewId: item.review_id || item.reviewId,
@@ -15,7 +16,13 @@ export function mapTaskRecord(item: any): Task {
     status: item.status || 'open',
     createdAt: item.created_at || item.createdAt || '',
     hotelId: item.hotel_id || item.hotelId,
-    organizationId: item.organization_id || item.organizationId
+    organizationId: item.organization_id || item.organizationId,
+    createdBy: item.created_by || item.createdBy,
+    completedBy: item.completed_by || item.completedBy,
+    completedAt: item.completed_at || item.completedAt,
+    resolutionNote: item.resolution_note || item.resolutionNote,
+    sourcePlatform: item.source_platform || item.sourcePlatform,
+    metadata: item.metadata || {}
   };
 }
 
@@ -108,16 +115,41 @@ export const taskRepository = {
     return mapTaskRecord(data);
   },
 
-  async completeTask(id: string, status: string, description: string): Promise<Task> {
-    const { data, error } = await supabase
-      .from('tasks')
-      .update({ status, description })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
+  async completeTask(id: string, status: string, resolutionNote: string, completedBy?: string, description?: string): Promise<Task> {
+    const payload: any = {
+      status,
+      completed_at: new Date().toISOString(),
+      completed_by: completedBy || null,
+      resolution_note: resolutionNote
+    };
 
-    if (error) throw error;
-    return mapTaskRecord(data);
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      return mapTaskRecord(data);
+    } catch (err: any) {
+      // Fallback: If columns do not exist in active database cache, update status & description instead
+      const cleanOrigDescription = description ? description.split('\n\nÇözüm Notu: ')[0] : '';
+      const fallbackDesc = `${cleanOrigDescription}\n\nÇözüm Notu: ${resolutionNote}`;
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({ 
+          status,
+          description: fallbackDesc
+        })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      return mapTaskRecord(data);
+    }
   },
 
   async getDashboardTasks(hotelId?: string): Promise<{ openTasks: Task[]; overdueTasks: Task[] }> {
