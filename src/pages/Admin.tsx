@@ -456,6 +456,61 @@ export default function Admin() {
 
   console.log('[Admin Page] Loaded roles data:', roles);
 
+  // Form States - Filters
+  const [userSearchText, setUserSearchText] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterHotel, setFilterHotel] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [activeDropdownUserId, setActiveDropdownUserId] = useState<string | null>(null);
+
+  const filteredUsersList = useMemo(() => {
+    if (!users) return [];
+    return users.filter((u) => {
+      if (userSearchText) {
+        const query = userSearchText.toLowerCase();
+        const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+        const emailMatch = (u.email || '').toLowerCase().includes(query);
+        const nameMatch = fullName.includes(query);
+        if (!emailMatch && !nameMatch) return false;
+      }
+      if (filterRole) {
+        if (u.roleId !== filterRole && u.roleName !== filterRole) return false;
+      }
+      if (filterHotel) {
+        if (!u.hotelIds || !u.hotelIds.includes(filterHotel)) return false;
+      }
+      if (filterStatus) {
+        if (filterStatus === 'active') {
+          if (u.displayStatus !== 'active') return false;
+        } else if (filterStatus === 'invited') {
+          if (u.displayStatus !== 'invited') return false;
+        } else if (filterStatus === 'inactive') {
+          if (u.status !== 'inactive') return false;
+        }
+      }
+      return true;
+    });
+  }, [users, userSearchText, filterRole, filterHotel, filterStatus]);
+
+  const userKpiStats = useMemo(() => {
+    const total = users?.length || 0;
+    let active = 0;
+    let invited = 0;
+    let passive = 0;
+
+    users?.forEach((u) => {
+      if (u.status === 'inactive') {
+        passive++;
+      } else if (u.displayStatus === 'invited') {
+        invited++;
+      } else {
+        active++;
+      }
+    });
+
+    return { total, active, invited, passive };
+  }, [users]);
+
   const filteredHotelsList = useMemo<Hotel[]>(() => {
     if (isTrueSuperAdmin) return hotels || [];
     return (hotels || []).filter((h: Hotel) => h.organizationId === organizationId);
@@ -1255,158 +1310,335 @@ export default function Admin() {
               </div>
             );})()}
 
-            {/* Users List Card */}
-            <div className="glass-panel rounded-2xl relative overflow-hidden card-glow">
-              <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
-                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
-                  <Users size={16} className="text-blue-400" />
-                  {t('admin.users.profilesCount', { count: users?.length || 0 })}
-                </h3>
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Toplam Kullanıcı</span>
+                  <span className="text-xl font-bold text-slate-100 mt-1 block">{userKpiStats.total}</span>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <Users size={16} />
+                </div>
+              </div>
+              <div className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Aktif Kullanıcı</span>
+                  <span className="text-xl font-bold text-slate-100 mt-1 block">{userKpiStats.active}</span>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                </div>
+              </div>
+              <div className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Davet Bekliyor</span>
+                  <span className="text-xl font-bold text-slate-100 mt-1 block">{userKpiStats.invited}</span>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                </div>
+              </div>
+              <div className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Pasif Kullanıcı</span>
+                  <span className="text-xl font-bold text-slate-100 mt-1 block">{userKpiStats.passive}</span>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Header & Controls Dock */}
+            <div className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/20 flex flex-col md:flex-row gap-3 items-center justify-between">
+              <div className="relative w-full md:flex-1">
+                <input
+                  type="text"
+                  value={userSearchText}
+                  onChange={(e) => setUserSearchText(e.target.value)}
+                  placeholder="İsim veya e-posta ile ara..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-200 placeholder:text-slate-500"
+                />
+                <svg className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              
+              <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                <select
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                  className="px-3.5 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Tüm Roller</option>
+                  {filteredRoles?.map(r => (
+                    <option key={r.id} value={r.id} className="bg-[#090b16]">{r.name}</option>
+                  ))}
+                  {isTrueSuperAdmin && <option value="Super Admin" className="bg-[#090b16]">Super Admin</option>}
+                </select>
+
+                <select
+                  value={filterHotel}
+                  onChange={(e) => setFilterHotel(e.target.value)}
+                  className="px-3.5 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500 max-w-[150px] truncate"
+                >
+                  <option value="">Tüm Oteller</option>
+                  {filteredHotelsList?.map(h => (
+                    <option key={h.id} value={h.id} className="bg-[#090b16]">{h.name}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3.5 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Tüm Durumlar</option>
+                  <option value="active" className="bg-[#090b16]">Aktif</option>
+                  <option value="invited" className="bg-[#090b16]">Davet Edildi</option>
+                  <option value="inactive" className="bg-[#090b16]">Pasif</option>
+                </select>
+
+                {(userSearchText || filterRole || filterHotel || filterStatus) && (
+                  <button
+                    onClick={() => {
+                      setUserSearchText('');
+                      setFilterRole('');
+                      setFilterHotel('');
+                      setFilterStatus('');
+                    }}
+                    className="px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs transition-colors"
+                  >
+                    Temizle
+                  </button>
+                )}
+
                 {isSuperOrAdmin && (
                   <button
                     onClick={handleOpenAddUser}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl ml-2"
                   >
                     <Plus size={14} />
                     {t('admin.users.addUser')}
                   </button>
                 )}
               </div>
+            </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 font-medium bg-white/[0.01]">
-                      <th className="p-4 pl-6">Name</th>
-                      <th className="p-4">Email</th>
-                      <th className="p-4">{t('admin.users.phone')}</th>
-                      <th className="p-4">{t('admin.users.title')}</th>
-                      <th className="p-4">{t('admin.users.assignedRole')}</th>
-                      <th className="p-4">Durum</th>
-                      <th className="p-4">Son Giriş</th>
-                      <th className="p-4">{t('admin.users.assignedHotels')}</th>
-                      <th className="p-4 pr-6 text-right">{t('admin.users.actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usersLoading ? (
-                      <tr>
-                        <td colSpan={8} className="p-12 text-center text-slate-500">
-                          <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-slate-600" />
-                          Loading user directories...
-                        </td>
-                      </tr>
-                    ) : users?.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="p-12 text-center text-slate-500">
-                          {t('admin.users.empty')}
-                        </td>
-                      </tr>
-                    ) : (
-                      users?.map((u) => (
-                        <tr key={u.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors text-slate-300">
-                          <td className="p-4 pl-6 font-semibold">
-                            {u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'N/A'}
-                          </td>
-                          <td className="p-4">{u.email}</td>
-                          <td className="p-4 text-slate-400">{u.phone || '-'}</td>
-                          <td className="p-4 text-slate-400">
-                            {u.title ? (
-                              <span className="font-medium text-slate-300">
-                                {u.title} {u.department ? `(${u.department})` : ''}
-                              </span>
-                            ) : (
-                              u.department || '-'
-                            )}
-                          </td>
-                           <td className="p-4">
-                            <span className={`px-2 py-0.5 rounded font-semibold border text-[10px] ${
-                              u.roleName 
-                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                            }`}>
-                              {u.roleName || 'Bu kullanıcıya rol atanmamış.'}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            {renderStatusBadge(u.displayStatus)}
-                          </td>
-                          <td className="p-4 text-slate-400">
-                            {formatRelativeTime(u.lastSignInAt)}
-                          </td>
-                          <td className="p-4 max-w-xs truncate">
-                            {u.hotelIds && u.hotelIds.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {u.hotelIds.map(hId => {
-                                  const name = hotels?.find(h => h.id === hId)?.name || 'Unknown';
-                                  return (
-                                    <span key={hId} className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-slate-200">
-                                      {name}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <span className="text-slate-500">No hotel clearances</span>
-                            )}
-                          </td>
-                           <td className="p-4 pr-6 text-right flex items-center justify-end gap-1.5 font-mono text-[10px]">
-                            {isSuperOrAdmin ? (
-                              <>
-                                <button
-                                  onClick={() => handleOpenEditUser(u)}
-                                  className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                                  title="Düzenle / Otel & Rol Atama"
-                                >
-                                  <Edit3 size={14} />
-                                </button>
-                                <button
-                                  onClick={() => setResetPasswordUser(u)}
-                                  className="p-1 rounded hover:bg-slate-800 text-amber-400 hover:text-amber-300 transition-colors"
-                                  title="Şifre Sıfırla"
-                                >
-                                  <Key size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleToggleStatus(u)}
-                                  disabled={u.email === 'cemil.sezgin@ecctur.com'}
-                                  className={`p-1 rounded hover:bg-slate-800 transition-colors ${
-                                    u.status === 'active' 
-                                      ? 'text-rose-400 hover:text-rose-300' 
-                                      : 'text-emerald-400 hover:text-emerald-300'
-                                  } ${u.email === 'cemil.sezgin@ecctur.com' ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                  title={u.status === 'active' ? 'Pasifleştir' : 'Aktifleştir'}
-                                >
-                                  <Power size={14} />
-                                </button>
-                                {isTrueSuperAdmin && (
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id)}
-                                    disabled={u.email === 'cemil.sezgin@ecctur.com'}
-                                    className={`p-1 rounded hover:bg-slate-800 text-rose-500 hover:text-rose-400 transition-colors ${
-                                      u.email === 'cemil.sezgin@ecctur.com' ? 'opacity-30 cursor-not-allowed' : ''
-                                    }`}
-                                    title="Kullanıcı Sil"
+            {/* Card-Row Container list */}
+            <div className="space-y-3">
+              {usersLoading ? (
+                <div className="glass-panel p-12 text-center text-slate-500 rounded-2xl border border-white/[0.05]">
+                  <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-slate-600" />
+                  Kullanıcı rehberi yükleniyor...
+                </div>
+              ) : filteredUsersList.length === 0 ? (
+                <div className="glass-panel p-12 text-center text-slate-500 rounded-2xl border border-white/[0.05]">
+                  Aranan kriterlere uygun kullanıcı bulunamadı.
+                </div>
+              ) : (
+                filteredUsersList.map((u) => {
+                  const firstInit = u.firstName ? u.firstName.charAt(0).toUpperCase() : '';
+                  const lastInit = u.lastName ? u.lastName.charAt(0).toUpperCase() : '';
+                  const initials = `${firstInit}${lastInit}` || '?';
+                  
+                  const hash = u.email.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                  const gradients = [
+                    'from-blue-600 to-indigo-600',
+                    'from-emerald-600 to-teal-600',
+                    'from-purple-600 to-pink-600',
+                    'from-amber-600 to-orange-600',
+                    'from-rose-600 to-red-600'
+                  ];
+                  const gradient = gradients[hash % gradients.length];
+
+                  return (
+                    <div 
+                      key={u.id}
+                      className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/10 hover:bg-slate-900/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 card-glow relative"
+                    >
+                      <div className="flex items-center gap-3">
+                        {u.avatarUrl ? (
+                          <img 
+                            src={u.avatarUrl} 
+                            alt={`${u.firstName} ${u.lastName}`} 
+                            className="w-10 h-10 rounded-full object-cover border border-white/10"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) {
+                                const initialsDiv = parent.querySelector('.avatar-initials') as HTMLElement;
+                                if (initialsDiv) initialsDiv.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-xs font-bold text-white border border-white/10 avatar-initials`}
+                          style={{ display: u.avatarUrl ? 'none' : 'flex' }}
+                        >
+                          {initials}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold text-slate-100 m-0">
+                            {u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'İsimsiz'}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">{u.email}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4 md:gap-6 flex-1 md:justify-end pr-10">
+                        <span className={`px-2 py-0.5 rounded-lg border text-[9px] font-semibold tracking-wide uppercase ${
+                          u.roleName === 'Super Admin'
+                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                            : u.roleName === 'Admin'
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}>
+                          {u.roleName || 'Staff'}
+                        </span>
+
+                        {renderStatusBadge(u.displayStatus)}
+
+                        <div className="text-right">
+                          <span className="text-[9px] text-slate-500 block uppercase font-medium">Son Giriş</span>
+                          <span className="text-[10px] text-slate-300 block mt-0.5">{formatRelativeTime(u.lastSignInAt)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 min-w-[120px]">
+                          {u.hotelIds && u.hotelIds.length > 0 ? (
+                            <>
+                              {u.hotelIds.slice(0, 2).map((hId) => {
+                                const hName = hotels?.find(h => h.id === hId)?.name || 'Bilinmeyen Otel';
+                                return (
+                                  <span 
+                                    key={hId} 
+                                    className="px-1.5 py-0.5 rounded bg-slate-850/80 border border-slate-800 text-[9px] text-slate-300 max-w-[80px] truncate"
+                                    title={hName}
                                   >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-slate-500">Read Only</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                                    {hName}
+                                  </span>
+                                );
+                              })}
+                              {u.hotelIds.length > 2 && (
+                                <span 
+                                  className="px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] text-blue-400 font-semibold"
+                                  title={u.hotelIds.slice(2).map(hId => hotels?.find(h => h.id === hId)?.name || '').join(', ')}
+                                >
+                                  +{u.hotelIds.length - 2}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-slate-500">Yetkili otel yok</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownUserId(activeDropdownUserId === u.id ? null : u.id);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                          title="İşlemler Menüsü"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          </svg>
+                        </button>
+
+                        {activeDropdownUserId === u.id && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-10" 
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setActiveDropdownUserId(null);
+                              }}
+                            />
+                            <div className="absolute right-0 mt-1 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-xl z-20 overflow-hidden py-1 text-xs text-left">
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownUserId(null);
+                                  handleOpenEditUser(u);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                              >
+                                <Edit3 size={12} className="text-slate-400" />
+                                Düzenle
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownUserId(null);
+                                  handleOpenEditUser(u);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                              >
+                                <Building size={12} className="text-slate-400" />
+                                Otel Atamaları
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownUserId(null);
+                                  handleOpenEditUser(u);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                              >
+                                <Users size={12} className="text-slate-400" />
+                                Rol Değiştir
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownUserId(null);
+                                  setResetPasswordUser(u);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                              >
+                                <Key size={12} className="text-amber-400" />
+                                Şifre Sıfırla
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownUserId(null);
+                                  handleToggleStatus(u);
+                                }}
+                                disabled={u.email === 'cemil.sezgin@ecctur.com'}
+                                className={`w-full text-left px-4 py-2 hover:bg-slate-800 transition-colors flex items-center gap-2 ${
+                                  u.status === 'active' ? 'text-rose-400 hover:text-rose-300' : 'text-emerald-400 hover:text-emerald-300'
+                                } disabled:opacity-30 disabled:cursor-not-allowed`}
+                              >
+                                <Power size={12} />
+                                {u.status === 'active' ? 'Pasifleştir' : 'Aktifleştir'}
+                              </button>
+                              {isTrueSuperAdmin && (
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdownUserId(null);
+                                    handleDeleteUser(u.id);
+                                  }}
+                                  disabled={u.email === 'cemil.sezgin@ecctur.com'}
+                                  className="w-full text-left px-4 py-2 hover:bg-slate-800 text-rose-500 transition-colors flex items-center gap-2 border-t border-slate-800/60 disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                  <Trash2 size={12} />
+                                  Kullanıcı Sil
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
-
-        {/* TAB 2: HOTEL MANAGEMENT */}
+                {/* TAB 2: HOTEL MANAGEMENT */}
         {isTrueSuperAdmin && activeTab === 'hotels' && (
           <div className="space-y-6">
             {/* Hotel Form Panel */}
