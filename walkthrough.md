@@ -90,3 +90,25 @@ Her iki ekran da doğrudan Supabase üzerindeki **`reviews`** tablosunu temel al
 3. **Veri Eşleşme Doğrulaması**:
    - `Jura Hotels Ada Beach` oteli için veritabanında **20 adet** Booking yorumu olduğu ve bunların son 30 gün içinde yapılan aramada Dashboard'un veri kaynağına başarıyla dahil edildiği doğrulanmıştır.
    - 30 günden eski yorumların Dashboard KPI'larında görünmesi için "Tüm Zamanlar" (All Time) tarih filtresinin seçilmesi gerekmektedir.
+
+---
+
+## 6. Dashboard Hero Alanı Yeniden Tasarımı
+
+### Tasarım İyileştirmeleri ve Yerleşim Düzeni
+Dashboard Hero bölümü dikeydeki gereksiz boşluklar kaldırılarak yükseklik olarak **%40 oranında daraltılmış** ve SaaS standartlarına uygun bilgi-yoğun bir düzene kavuşturulmuştur:
+
+1. Sol Sütun (%35)
+   - AI Hotel Command Center etiketi ve seçili otel adı.
+   - En son başarılı platform senkronizasyon zamanı.
+   - Entegre **AI Yönetici Özeti** (Puan trendi, kritik yorumlar ve en çok şikayet alanları bullet-point olarak).
+   - Küçük KPI Özeti (Toplam Yorum, Ortalama Puan ve Cevap Bekleyen sayıları küçük rozetler halinde).
+
+2. Sağ Sütun (%65)
+   - **Üst Kısım**: Zaman filtresi hap butonları (Tarih filtreleri).
+   - **Sol-Alt Kısım**: Her bir platform (Google, Booking, TripAdvisor, Hotels.com, HolidayCheck) için durum, son sync zamanı, yeni yorum ve duplicate sayılarını içeren küçük performans kartları.
+   - **Sağ-Alt Kısım (Premium Action Bar)**: Platform bazlı hızlı sync (Google Sync, Booking Sync), tüm platformları senkronize etme ve CSV veri dışa aktarım butonları.
+
+3. Dikey Sıkıştırma ve KPI Konumlandırma
+   - Eski hantal "AI Yönetici Özeti Kartı" tamamen kaldırılmış, bilgileri sol sütuna yedirilmiştir.
+   - Ana **KPI Kartları** (Toplam Yorum, Ortalama Puan vb.) sayfa üzerinde mümkün olduğunca yukarı taşınarak Hero alanının hemen altına yerleştirilmiştir.

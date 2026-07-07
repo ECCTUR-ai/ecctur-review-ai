@@ -1020,122 +1020,182 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Title Header */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-slate-100 pb-6">
-          <div className="space-y-3 flex-1">
-            <div className="flex items-center gap-2">
-              <Link className="text-violet-600 w-5 h-5 shrink-0" />
-              <h1 className="text-xl font-extrabold text-slate-800 m-0">AI Hotel Command Center</h1>
+        {/* Redesigned Executive Hero Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 border-b border-slate-100 pb-5 items-stretch">
+          {/* SOL (%35) -> 4 columns in lg */}
+          <div className="lg:col-span-4 flex flex-col justify-between space-y-3 pr-4 border-r border-slate-100/50">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-purple-600 font-extrabold text-[10px] uppercase tracking-wider">
+                <Sparkles size={11} className="text-purple-500 animate-pulse" />
+                AI Hotel Command Center
+              </div>
+              <h1 className="text-base font-black text-slate-900 leading-tight">
+                {currentHotel?.name || 'Seçili Otel'}
+              </h1>
+              <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
+                <Clock size={10} />
+                Son Senkronizasyon: {lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncTimeVal).toLocaleDateString('tr-TR') : 'Bekliyor'}
+              </div>
             </div>
             
-            <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-2xl">
-              Tesis performansınızı anlık izleyin, kritik aksiyonları yönetin ve misafir memnuniyetini artırın.
-            </p>
+            <div className="bg-purple-50/50 border border-purple-100/30 p-2.5 rounded-2xl space-y-1.5 shadow-sm">
+              <div className="text-[10px] text-slate-700 font-bold leading-relaxed flex items-start gap-1">
+                <span className="shrink-0">{scoreTrendIcon}</span>
+                <span>{scoreTrendText}</span>
+              </div>
+              <div className="text-[10px] text-slate-700 font-bold leading-relaxed flex items-start gap-1">
+                <span className="shrink-0">{criticalIcon}</span>
+                <span>{criticalText}</span>
+              </div>
+              <div className="text-[10px] text-slate-700 font-bold leading-relaxed flex items-start gap-1">
+                <span className="shrink-0">{complaintIcon}</span>
+                <span>{complaintText}</span>
+              </div>
+            </div>
+
+            {/* Küçük KPI Özeti */}
+            <div className="flex items-center gap-2.5 text-[9.5px] text-slate-500 font-extrabold">
+              <span className="flex items-center gap-1 bg-blue-50/60 px-2 py-0.5 rounded-full border border-blue-100/50">
+                <MessageSquare size={9} /> {periodTotalReviews} Yorum
+              </span>
+              <span className="flex items-center gap-1 bg-amber-50/60 px-2 py-0.5 rounded-full border border-amber-100/50">
+                <Star size={9} className="fill-amber-400 text-amber-400" /> {periodAvgRating} / 5
+              </span>
+              <span className="flex items-center gap-1 bg-purple-50/60 px-2 py-0.5 rounded-full border border-purple-100/50">
+                <Clock size={9} /> {periodAwaiting} Bekleyen
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
-            {/* Time Filter Pill Buttons */}
-            <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/50 shadow-inner">
-              {[
-                { id: 'today', label: 'Bugün' },
-                { id: '7_days', label: '7 Gün' },
-                { id: '30_days', label: '30 Gün' },
-                { id: '3_months', label: '3 Ay' },
-                { id: '6_months', label: '6 Ay' },
-                { id: '1_year', label: '1 Yıl' },
-                { id: 'all', label: 'Tüm Zamanlar' }
-              ].map(f => (
+          {/* SAĞ (%65) -> 8 columns in lg */}
+          <div className="lg:col-span-8 flex flex-col justify-between gap-4">
+            {/* Üst Satır: Tarih Filtreleri */}
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tarih Filtresi</span>
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-full border border-slate-200/50 shadow-inner shrink-0">
+                {[
+                  { id: 'today', label: 'Bugün' },
+                  { id: '7_days', label: '7 Gün' },
+                  { id: '30_days', label: '30 Gün' },
+                  { id: '3_months', label: '3 Ay' },
+                  { id: '6_months', label: '6 Ay' },
+                  { id: '1_year', label: '1 Yıl' },
+                  { id: 'all', label: 'Tüm Zamanlar' }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setTimeFilter(f.id)}
+                    className={`px-2.5 py-1 text-[9px] font-extrabold rounded-full transition-all cursor-pointer ${
+                      timeFilter === f.id
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Alt Satır: Platform Sync Durumu ve Action Bar */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
+              {/* Platform Sync List -> 8 cols in xl */}
+              <div className="xl:col-span-8 grid grid-cols-5 gap-2">
+                {[
+                  { name: 'Google', label: 'Google' },
+                  { name: 'Booking.com', label: 'Booking' },
+                  { name: 'TripAdvisor', label: 'TripAdvisor' },
+                  { name: 'Hotels.com', label: 'Hotels' },
+                  { name: 'HolidayCheck', label: 'HolidayCheck' }
+                ].map(p => {
+                  const health = getHealthInfo(p.name);
+                  
+                  return (
+                    <div key={p.name} className="bg-slate-50/50 border border-slate-100 p-2.5 rounded-2xl flex flex-col justify-between min-h-[78px] shadow-sm hover:border-slate-250 transition-all">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold text-slate-800 truncate pr-1" title={p.name}>{p.label}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${health.status === 'active' ? 'bg-emerald-500 animate-pulse' : health.status === 'error' ? 'bg-rose-500' : 'bg-slate-300'}`}></span>
+                      </div>
+                      <div className="space-y-0.5 mt-2">
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400">
+                          <span>Yeni:</span>
+                          <span className="text-slate-700 font-extrabold">{health.newCount}</span>
+                        </div>
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400">
+                          <span>Mükerrer:</span>
+                          <span className="text-slate-650 font-extrabold">{health.dupCount}</span>
+                        </div>
+                        <div className="flex justify-between text-[8px] font-bold text-slate-450 pt-0.5 border-t border-slate-100/50 mt-0.5">
+                          <span>Sync:</span>
+                          <span className="text-slate-600 truncate max-w-[32px] font-extrabold" title={health.lastSync}>{health.lastSync.split(' ')[0]}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Action Bar -> 4 cols in xl */}
+              <div className="xl:col-span-4 flex flex-col gap-1.5 pl-1.5 border-l border-slate-100/40">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => window.location.href = `/reviews?platform=google&triggerSync=true`}
+                    className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-black text-[9px] rounded-xl hover:bg-slate-100 cursor-pointer transition-all shadow-sm"
+                  >
+                    <Database size={10} />
+                    <span>Google Sync</span>
+                  </button>
+                  <button
+                    onClick={() => window.location.href = `/reviews?platform=booking&triggerSync=true`}
+                    className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-black text-[9px] rounded-xl hover:bg-slate-100 cursor-pointer transition-all shadow-sm"
+                  >
+                    <Database size={10} />
+                    <span>Booking Sync</span>
+                  </button>
+                </div>
                 <button
-                  key={f.id}
-                  onClick={() => setTimeFilter(f.id)}
-                  className={`px-3 py-1.5 text-[10px] font-extrabold rounded-full transition-all cursor-pointer ${
-                    timeFilter === f.id
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-md shadow-blue-500/10'
-                      : 'text-slate-550 hover:text-slate-800'
-                  }`}
+                  onClick={() => window.location.href = '/reviews?triggerSync=true'}
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-[9px] rounded-xl transition-all shadow-sm shadow-blue-500/10 cursor-pointer"
                 >
-                  {f.label}
+                  <RefreshCw size={9} className={isLoading ? 'animate-spin' : ''} />
+                  <span>Senkronize Et</span>
                 </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  refetchDashboard();
-                }}
-                className="p-2.5 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-full transition-all hover:bg-slate-50 cursor-pointer shadow-sm flex items-center justify-center shrink-0"
-                title="Verileri Yenile"
-              >
-                <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
-              </button>
-
-              <button
-                onClick={() => window.location.href = '/reviews?triggerSync=true'}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-blue-500/15 cursor-pointer"
-              >
-                <RefreshCw size={13} />
-                <span>Tüm Platformları Senkronize Et</span>
-              </button>
-
-              <button
-                onClick={handleExportReviews}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
-              >
-                <Download size={13} className={isExporting ? 'animate-spin' : ''} />
-                <span>Veriyi Dışa Aktar</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* AI Yönetici Özeti Kartı */}
-        <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm shadow-slate-100/50 relative overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-4">
-            <span className="text-yellow-500 text-base select-none">⚡</span>
-            <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">AI Yönetici Özeti</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-lg leading-none mt-0.5">{scoreTrendIcon}</span>
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Puan Trendi</span>
-                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{scoreTrendText}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-lg leading-none mt-0.5">{criticalIcon}</span>
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Kritik Yorumlar</span>
-                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{criticalText}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-lg leading-none mt-0.5">{complaintIcon}</span>
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">En Çok Şikayet</span>
-                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{complaintText}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-lg leading-none mt-0.5">ℹ️</span>
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Booking Durumu</span>
-                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{bookingText}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-lg leading-none mt-0.5">🌟</span>
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Google Memnuniyeti</span>
-                <p className="text-[11px] font-semibold text-slate-650 leading-relaxed">{googleText}</p>
+                <button
+                  onClick={handleExportReviews}
+                  disabled={isExporting}
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[9px] rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  <Download size={9} className={isExporting ? 'animate-spin' : ''} />
+                  <span>Dışa Aktar</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bugün Yapılması Gerekenler */}
+        {/* KPI Kartları - Moved up immediately below Hero */}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          {[
+            { title: 'Toplam Yorum', val: periodTotalReviews, colorBg: 'bg-blue-50 text-blue-600', icon: <MessageSquare size={16} /> },
+            { title: 'Ortalama Puan', val: `${periodAvgRating} / 5`, colorBg: 'bg-amber-50 text-amber-600', icon: <Star size={16} className="fill-amber-400 text-amber-400" /> },
+            { title: 'Cevap Bekleyen', val: periodAwaiting, colorBg: 'bg-purple-50 text-purple-600', icon: <Clock size={16} /> },
+            { title: 'Kritik Yorum', val: periodCritical, colorBg: 'bg-rose-50 text-rose-600', icon: <ShieldAlert size={16} /> },
+            { title: 'Son Senkronizasyon', val: lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Bekliyor', colorBg: 'bg-slate-50 text-slate-500', icon: <RefreshCw size={16} /> },
+            { title: 'Platform Durumu', val: isGlobalError ? 'Sorun Var' : 'Stabil', colorBg: isGlobalError ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600', icon: <ShieldCheck size={16} /> }
+          ].map(kpi => (
+            <div key={kpi.title} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between hover:border-slate-200 transition-all duration-200">
+              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{kpi.title}</span>
+              <div className="flex items-center justify-between mt-3.5">
+                <span className="text-base font-black text-slate-900 leading-none truncate max-w-[100px]" title={String(kpi.val)}>{kpi.val}</span>
+                <div className={`p-2 rounded-xl ${kpi.colorBg} shrink-0 border border-slate-100`}>
+                  {kpi.icon}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bugün Yapılması Gerekenler - Positioned below KPI cards */}
         <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm shadow-slate-100/50 space-y-4">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Bugün Yapılması Gerekenler</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1153,28 +1213,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* KPI Kartları */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-          {[
-            { title: 'Toplam Yorum', val: periodTotalReviews, colorBg: 'bg-blue-50 text-blue-600', icon: <MessageSquare size={16} /> },
-            { title: 'Ortalama Puan', val: `${periodAvgRating} / 5`, colorBg: 'bg-amber-50 text-amber-600', icon: <Star size={16} className="fill-amber-400 text-amber-400" /> },
-            { title: 'Cevap Bekleyen', val: periodAwaiting, colorBg: 'bg-purple-50 text-purple-600', icon: <Clock size={16} /> },
-            { title: 'Kritik Yorum', val: periodCritical, colorBg: 'bg-rose-50 text-rose-600', icon: <ShieldAlert size={16} /> },
-            { title: 'Son Senkronizasyon', val: lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Bekliyor', colorBg: 'bg-slate-50 text-slate-500', icon: <RefreshCw size={16} /> },
-            { title: 'Platform Durumu', val: isGlobalError ? 'Sorun Var' : 'Stabil', colorBg: isGlobalError ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600', icon: <ShieldCheck size={16} /> }
-          ].map(kpi => (
-            <div key={kpi.title} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{kpi.title}</span>
-              <div className="flex items-center justify-between mt-3.5">
-                <span className="text-base font-black text-slate-900 leading-none truncate max-w-[100px]" title={String(kpi.val)}>{kpi.val}</span>
-                <div className={`p-2 rounded-xl ${kpi.colorBg} shrink-0 border border-slate-100`}>
-                  {kpi.icon}
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
 
         {/* Platform Performansı */}
