@@ -1358,7 +1358,7 @@ export default function Admin() {
                   value={userSearchText}
                   onChange={(e) => setUserSearchText(e.target.value)}
                   placeholder="İsim veya e-posta ile ara..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-200 placeholder:text-slate-500"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder:text-slate-400"
                 />
                 <svg className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1369,35 +1369,35 @@ export default function Admin() {
                 <select
                   value={filterRole}
                   onChange={(e) => setFilterRole(e.target.value)}
-                  className="px-3.5 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                  className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 >
                   <option value="">Tüm Roller</option>
                   {filteredRoles?.map(r => (
-                    <option key={r.id} value={r.id} className="bg-[#090b16]">{r.name}</option>
+                    <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
-                  {isTrueSuperAdmin && <option value="Super Admin" className="bg-[#090b16]">Super Admin</option>}
+                  {isTrueSuperAdmin && <option value="Super Admin">Super Admin</option>}
                 </select>
 
                 <select
                   value={filterHotel}
                   onChange={(e) => setFilterHotel(e.target.value)}
-                  className="px-3.5 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500 max-w-[150px] truncate"
+                  className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 max-w-[150px] truncate"
                 >
                   <option value="">Tüm Oteller</option>
                   {filteredHotelsList?.map(h => (
-                    <option key={h.id} value={h.id} className="bg-[#090b16]">{h.name}</option>
+                    <option key={h.id} value={h.id}>{h.name}</option>
                   ))}
                 </select>
 
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3.5 py-2.5 rounded-xl bg-[#090b16]/60 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                  className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 >
                   <option value="">Tüm Durumlar</option>
-                  <option value="active" className="bg-[#090b16]">Aktif</option>
-                  <option value="invited" className="bg-[#090b16]">Davet Edildi</option>
-                  <option value="inactive" className="bg-[#090b16]">Pasif</option>
+                  <option value="active">Aktif</option>
+                  <option value="invited">Davet Edildi</option>
+                  <option value="inactive">Pasif</option>
                 </select>
 
                 {(userSearchText || filterRole || filterHotel || filterStatus) && (
@@ -1456,7 +1456,9 @@ export default function Admin() {
                   return (
                     <div 
                       key={u.id}
-                      className="glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/10 hover:bg-slate-900/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 card-glow relative"
+                      className={`glass-panel p-4 rounded-2xl border border-white/[0.05] bg-slate-900/10 hover:bg-slate-900/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 card-glow relative ${
+                        activeDropdownUserId === u.id ? 'z-30' : 'z-10'
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         {u.avatarUrl ? (
@@ -1490,12 +1492,16 @@ export default function Admin() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-4 md:gap-6 flex-1 md:justify-end pr-10">
-                        <span className={`px-2 py-0.5 rounded-lg border text-[9px] font-semibold tracking-wide uppercase ${
+                        <span className={`px-2.5 py-0.5 rounded-lg border text-[9px] font-bold tracking-wide uppercase ${
                           u.roleName === 'Super Admin'
-                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
                             : u.roleName === 'Admin'
-                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                            ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                            : u.roleName === 'Hotel Manager' || u.roleName === 'Manager'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            : u.roleName === 'Department Manager'
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                            : 'bg-slate-500/20 text-slate-300 border-slate-500/40'
                         }`}>
                           {u.roleName || 'Staff'}
                         </span>
@@ -1515,7 +1521,7 @@ export default function Admin() {
                                 return (
                                   <span 
                                     key={hId} 
-                                    className="px-1.5 py-0.5 rounded bg-slate-850/80 border border-slate-800 text-[9px] text-slate-300 max-w-[80px] truncate"
+                                    className="px-2 py-0.5 rounded-lg bg-blue-500/[0.08] border border-blue-500/20 text-[9px] text-blue-300 font-semibold max-w-[90px] truncate"
                                     title={hName}
                                   >
                                     {hName}
@@ -1560,15 +1566,15 @@ export default function Admin() {
                                 setActiveDropdownUserId(null);
                               }}
                             />
-                            <div className="absolute right-0 mt-1 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-xl z-20 overflow-hidden py-1 text-xs text-left">
+                            <div className="absolute right-0 mt-2 w-[220px] rounded-xl bg-white border border-slate-200 shadow-xl z-40 overflow-hidden py-1 text-xs text-left">
                               <button
                                 onClick={() => {
                                   setActiveDropdownUserId(null);
                                   handleOpenEditUser(u);
                                 }}
-                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50/50 text-slate-700 hover:text-slate-900 font-medium transition-colors flex items-center gap-2"
                               >
-                                <Edit3 size={12} className="text-slate-400" />
+                                <Edit3 size={12} className="text-slate-500" />
                                 Düzenle
                               </button>
                               <button
@@ -1576,9 +1582,9 @@ export default function Admin() {
                                   setActiveDropdownUserId(null);
                                   handleOpenEditUser(u);
                                 }}
-                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50/50 text-slate-700 hover:text-slate-900 font-medium transition-colors flex items-center gap-2"
                               >
-                                <Building size={12} className="text-slate-400" />
+                                <Building size={12} className="text-slate-500" />
                                 Otel Atamaları
                               </button>
                               <button
@@ -1586,9 +1592,9 @@ export default function Admin() {
                                   setActiveDropdownUserId(null);
                                   handleOpenEditUser(u);
                                 }}
-                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50/50 text-slate-700 hover:text-slate-900 font-medium transition-colors flex items-center gap-2"
                               >
-                                <Users size={12} className="text-slate-400" />
+                                <Users size={12} className="text-slate-500" />
                                 Rol Değiştir
                               </button>
                               <button
@@ -1596,9 +1602,9 @@ export default function Admin() {
                                   setActiveDropdownUserId(null);
                                   setResetPasswordUser(u);
                                 }}
-                                className="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors flex items-center gap-2"
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50/50 text-slate-700 hover:text-slate-900 font-medium transition-colors flex items-center gap-2"
                               >
-                                <Key size={12} className="text-amber-400" />
+                                <Key size={12} className="text-amber-500" />
                                 Şifre Sıfırla
                               </button>
                               <button
@@ -1607,8 +1613,8 @@ export default function Admin() {
                                   handleToggleStatus(u);
                                 }}
                                 disabled={u.email === 'cemil.sezgin@ecctur.com'}
-                                className={`w-full text-left px-4 py-2 hover:bg-slate-800 transition-colors flex items-center gap-2 ${
-                                  u.status === 'active' ? 'text-rose-400 hover:text-rose-300' : 'text-emerald-400 hover:text-emerald-300'
+                                className={`w-full text-left px-4 py-2 hover:bg-blue-50/50 transition-colors flex items-center gap-2 font-medium ${
+                                  u.status === 'active' ? 'text-rose-500 hover:text-rose-600' : 'text-emerald-600 hover:text-emerald-550'
                                 } disabled:opacity-30 disabled:cursor-not-allowed`}
                               >
                                 <Power size={12} />
@@ -1621,7 +1627,7 @@ export default function Admin() {
                                     handleDeleteUser(u.id);
                                   }}
                                   disabled={u.email === 'cemil.sezgin@ecctur.com'}
-                                  className="w-full text-left px-4 py-2 hover:bg-slate-800 text-rose-500 transition-colors flex items-center gap-2 border-t border-slate-800/60 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition-colors flex items-center gap-2 border-t border-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                   <Trash2 size={12} />
                                   Kullanıcı Sil
