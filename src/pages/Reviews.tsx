@@ -23,8 +23,11 @@ import {
   Bell,
   Sparkles,
   ShieldAlert,
-  ChevronDown
+  ChevronDown,
+  CheckSquare,
+  X
 } from 'lucide-react';
+import { taskService } from '@/services/taskService';
 
 import { hotelRepository } from '@/repositories/hotelRepository';
 
@@ -83,7 +86,7 @@ const formatImportPopupMessage = (platform: string, res: any) => {
 
 export default function Reviews() {
   const { t } = useTranslation();
-  const { hotelIds, roleKey } = useAuth();
+  const { hotelIds, roleKey, email: currentUserEmail } = useAuth();
   const isSuperAdmin = roleKey === 'super_admin';
   const hasNoAssignedHotels = !isSuperAdmin && (!hotelIds || hotelIds.length === 0);
 
@@ -171,6 +174,116 @@ export default function Reviews() {
     importDetails?: any[];
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Low Rating Review to Task Automation states
+  const [taskCreationReview, setTaskCreationReview] = useState<any | null>(null);
+  const [taskCreationDept, setTaskCreationDept] = useState('');
+  const [taskCreationPriority, setTaskCreationPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+
+  const handleOpenTaskCreationModal = (review: any) => {
+    const text = (review.comment || '').toLowerCase();
+    let department = 'Misafir İlişkileri';
+    
+    const techKeywords = ['klima', 'sıcak', 'soğuk', 'arıza', 'bozuk', 'çalışmıyor', 'elektrik', 'su', 'duş', 'internet', 'wifi'];
+    const hkKeywords = ['temizlik', 'oda temizliği', 'havlu', 'çarşaf', 'housekeeping', 'kirli', 'pis', 'toz', 'banyo'];
+    const fbKeywords = ['yemek', 'restoran', 'kahvaltı', 'servis', 'garson', 'bar', 'içecek', 'lezzetsiz', 'soğuktu'];
+    const foKeywords = ['resepsiyon', 'check-in', 'check out', 'bekleme', 'personel', 'kaba', 'saygısız', 'yavaş', 'ilgisiz'];
+    const spaKeywords = ['spa', 'masaj', 'hamam', 'sauna'];
+
+    if (techKeywords.some(kw => text.includes(kw))) {
+      department = 'Teknik Servis';
+    } else if (hkKeywords.some(kw => text.includes(kw))) {
+      department = 'Housekeeping';
+    } else if (fbKeywords.some(kw => text.includes(kw))) {
+      department = 'Yiyecek & İçecek';
+    } else if (foKeywords.some(kw => text.includes(kw))) {
+      department = 'Ön Büro';
+    } else if (spaKeywords.some(kw => text.includes(kw))) {
+      department = 'Spa';
+    }
+
+    let priority: 'low' | 'medium' | 'high' | 'critical' = 'medium';
+    if (review.rating === 1) {
+      priority = 'critical';
+    } else if (review.rating === 2) {
+      priority = 'high';
+    } else if (review.rating === 3) {
+      priority = 'medium';
+    }
+
+    const criticalKeywords = ['kavga', 'hakaret', 'güvenlik', 'sağlık', 'yangın', 'hırsızlık', 'tehdit'];
+    if (criticalKeywords.some(kw => text.includes(kw))) {
+      priority = 'critical';
+    }
+
+    setTaskCreationReview(review);
+    setTaskCreationDept(department);
+    setTaskCreationPriority(priority);
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskCreationReview) return;
+    setIsCreatingTask(true);
+    try {
+      const { data: existing, error: checkErr } = await supabase
+        .from('tasks')
+        .select('id, metadata')
+        .eq('review_id', taskCreationReview.id);
+
+      if (checkErr) {
+        console.warn('Error checking duplicate task:', checkErr);
+      }
+
+      const duplicateExists = existing?.some((t: any) => {
+        const meta = t.metadata || {};
+        return meta.ai_action_required === true;
+      });
+
+      if (duplicateExists) {
+        alert('Bu yorum için zaten oluşturulmuş bir görev bulunuyor!');
+        setTaskCreationReview(null);
+        setIsCreatingTask(false);
+        return;
+      }
+
+      const aiRecommendedAction = `Misafir ile iletişime geç, ${taskCreationDept.toLowerCase()} ekibiyle konuyu koordine et, çözüm sonrası geri bildirim al.`;
+      const description = `Misafir Yorumu: "${taskCreationReview.comment || ''}"\nPlatform: ${taskCreationReview.source}\nMisafir: ${taskCreationReview.guestName || 'Misafir'}\nPuan: ${taskCreationReview.rating} Yıldız\nYapay Zeka Aksiyon Önerisi: ${aiRecommendedAction}`;
+      const title = taskCreationReview.rating <= 2 ? `Kritik Misafir Şikayeti: ${taskCreationDept}` : `Misafir Yorumu Takip Görevi: ${taskCreationDept}`;
+
+      await taskService.createTask({
+        hotelId: taskCreationReview.hotel_id || currentHotelId,
+        organizationId: taskCreationReview.organization_id || null,
+        reviewId: taskCreationReview.id,
+        title,
+        description,
+        department: taskCreationDept,
+        priority: taskCreationPriority,
+        status: 'open',
+        assignedTo: '',
+        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        createdBy: currentUserEmail || '',
+        sourcePlatform: taskCreationReview.source || 'Google',
+        metadata: {
+          rating: taskCreationReview.rating,
+          guest_name: taskCreationReview.guestName || 'Misafir',
+          platform: taskCreationReview.source || 'Google',
+          review_date: taskCreationReview.review_date,
+          ai_action_required: true,
+          ai_recommended_action: aiRecommendedAction,
+          detected_department: taskCreationDept,
+          detected_keywords: []
+        }
+      });
+
+      setToastMessage('Görevler modülüne eklendi');
+      setTaskCreationReview(null);
+    } catch (e: any) {
+      alert(`Görev oluşturulamadı: ${e.message}`);
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
 
   const [isImportingAggregator, setIsImportingAggregator] = useState(false);
   const [aggregatorResult, setAggregatorResult] = useState<any | null>(null);
@@ -2106,6 +2219,7 @@ export default function Reviews() {
                     onSelect={setSelectedReviewId}
                     onGenerateAiReply={handleGenerateAiReply}
                     onPublishReply={handlePublishGoogleReply}
+                    onGenerateTask={handleOpenTaskCreationModal}
                   />
                 ))}
               </div>
@@ -2637,6 +2751,86 @@ export default function Reviews() {
       )}
 
 
+
+      {/* Manual Task Creation Modal */}
+      {taskCreationReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-blue-500/20 bg-slate-900/95 relative card-glow text-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <CheckSquare size={16} className="text-rose-500" />
+                Düzeltici Aksiyon Görevi Oluştur
+              </h3>
+              <button 
+                onClick={() => setTaskCreationReview(null)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
+                <div className="flex justify-between items-center text-slate-350">
+                  <span className="font-semibold">{taskCreationReview.guestName || 'Misafir'} ({taskCreationReview.source})</span>
+                  <span className="text-[10px] text-amber-400 font-extrabold">{taskCreationReview.rating} Yıldız</span>
+                </div>
+                <p className="italic leading-relaxed">
+                  "{taskCreationReview.comment || 'Yorum metni bulunmuyor'}"
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Görev Departmanı (Önerilen)</label>
+                <select
+                  value={taskCreationDept}
+                  onChange={(e) => setTaskCreationDept(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-300 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="Misafir İlişkileri" className="bg-[#090b16]">Misafir İlişkileri</option>
+                  <option value="Ön Büro" className="bg-[#090b16]">Ön Büro</option>
+                  <option value="Housekeeping" className="bg-[#090b16]">Housekeeping</option>
+                  <option value="Teknik Servis" className="bg-[#090b16]">Teknik Servis</option>
+                  <option value="Yiyecek & İçecek" className="bg-[#090b16]">Yiyecek & İçecek</option>
+                  <option value="Spa" className="bg-[#090b16]">Spa</option>
+                  <option value="Yönetim" className="bg-[#090b16]">Yönetim</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Görev Önceliği (Önerilen)</label>
+                <select
+                  value={taskCreationPriority}
+                  onChange={(e) => setTaskCreationPriority(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-300 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="critical" className="bg-[#090b16]">Kritik</option>
+                  <option value="high" className="bg-[#090b16]">Yüksek</option>
+                  <option value="medium" className="bg-[#090b16]">Orta</option>
+                  <option value="low" className="bg-[#090b16]">Düşük</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/60">
+                <button
+                  onClick={() => setTaskCreationReview(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={handleCreateTask}
+                  disabled={isCreatingTask}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingTask && <RefreshCw size={12} className="animate-spin" />}
+                  Görev Ekle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Premium Toast Notification Overlay */}
       {toastMessage && (

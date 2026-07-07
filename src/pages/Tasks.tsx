@@ -19,7 +19,8 @@ import {
   X, 
   RefreshCw,
   AlertTriangle,
-  Globe
+  Globe,
+  Sparkles
 } from 'lucide-react';
 
 export default function Tasks() {
@@ -300,15 +301,40 @@ export default function Tasks() {
             {activeList.map((task) => {
               // Parse resolution note fallback if it was saved in description
               const descParts = task.description.split('\n\nÇözüm Notu: ');
-              const displayDescription = descParts[0];
+              const mainDesc = descParts[0];
               const resolutionText = task.resolutionNote || descParts[1] || '';
+
+              const { reviewText, aiRecommendedAction } = (() => {
+                const commentMatch = mainDesc.match(/Misafir Yorumu:\s*"([\s\S]*?)"/i);
+                const actionMatch = mainDesc.match(/Yapay Zeka Aksiyon Önerisi:\s*([\s\S]*)/i);
+                
+                let rText = '';
+                let aAction = '';
+                
+                if (commentMatch) {
+                  rText = commentMatch[1];
+                }
+                if (actionMatch) {
+                  aAction = actionMatch[1].trim();
+                }
+                
+                if (!rText) {
+                  rText = mainDesc;
+                }
+                
+                return { reviewText: rText, aiRecommendedAction: aAction };
+              })();
+
+              const guestName = task.metadata?.guest_name || 'Misafir';
+              const rating = task.metadata?.rating;
+              const reviewDate = task.metadata?.review_date;
 
               return (
                 <div 
                   key={task.id} 
                   className="p-5 rounded-2xl border border-white/[0.05] bg-slate-900/10 hover:bg-slate-900/20 hover:border-slate-800 transition-all duration-300 flex flex-col md:flex-row justify-between gap-4 card-glow"
                 >
-                  <div className="space-y-2 flex-1">
+                  <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="text-sm font-semibold text-slate-200">{task.title}</h3>
                       <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase ${getPriorityBadgeClass(task.priority)}`}>
@@ -319,22 +345,44 @@ export default function Tasks() {
                           Ref Yorum: #{task.reviewId.substring(0, 8)}
                         </span>
                       )}
-                      {task.sourcePlatform && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-400">
+                      {(task.sourcePlatform || task.metadata?.platform) && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-400 font-mono">
                           <Globe size={10} />
-                          {task.sourcePlatform}
+                          {task.sourcePlatform || task.metadata?.platform}
+                        </span>
+                      )}
+                      {rating !== undefined && (
+                        <span className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-400 text-[10px] font-extrabold shadow-sm shrink-0">
+                          ★ {rating} Yıldız
                         </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/20 p-3 rounded-xl border border-white/[0.02] italic">
-                      <span className="font-semibold text-slate-400 block not-italic text-[10px] uppercase tracking-wide mb-1">Aksiyon / Yapılacak İş</span>
-                      {displayDescription}
-                    </p>
+                    <div className="bg-slate-955/20 p-3.5 rounded-xl border border-white/[0.02] text-xs">
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-1">
+                        <span>Misafir Yorumu ({guestName})</span>
+                        {reviewDate && <span>Yorum Tarihi: {formatDate(reviewDate)}</span>}
+                      </div>
+                      <p className="text-slate-350 italic leading-relaxed">
+                        "{reviewText}"
+                      </p>
+                    </div>
+
+                    {aiRecommendedAction && (
+                      <div className="p-3.5 rounded-xl bg-blue-500/[0.03] border border-blue-500/10 text-xs">
+                        <div className="flex items-center gap-1.5 text-blue-400 font-semibold mb-1">
+                          <Sparkles size={12} />
+                          <span>Yapay Zeka Aksiyon Önerisi</span>
+                        </div>
+                        <p className="text-slate-300 leading-relaxed">
+                          {aiRecommendedAction}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Resolution Note display */}
                     {activeTab === 'completed' && resolutionText && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/15 text-xs">
+                      <div className="p-3.5 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/15 text-xs">
                         <div className="flex items-center gap-1.5 text-emerald-400 font-bold mb-1">
                           <CheckCircle2 size={12} />
                           <span>Çözüm Notu:</span>

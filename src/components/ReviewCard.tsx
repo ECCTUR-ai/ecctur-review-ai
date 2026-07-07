@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Loader2,
   Check,
-  RefreshCw
+  RefreshCw,
+  CheckSquare
 } from 'lucide-react';
 import { getPlatformLabel } from '@/utils/platform';
 import { matchesCategory } from '@/utils/categoryMappings';
@@ -31,6 +32,7 @@ interface ReviewCardProps {
   onSelect: (id: string) => void;
   onGenerateAiReply?: (id: string) => Promise<string>;
   onPublishReply?: (id: string, replyText: string) => Promise<void>;
+  onGenerateTask?: (review: Review) => void;
 }
 
 export const ReviewCard = React.memo(function ReviewCard({ 
@@ -38,7 +40,8 @@ export const ReviewCard = React.memo(function ReviewCard({
   isSelected, 
   onSelect,
   onGenerateAiReply,
-  onPublishReply
+  onPublishReply,
+  onGenerateTask
 }: ReviewCardProps) {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -561,6 +564,17 @@ export const ReviewCard = React.memo(function ReviewCard({
       <div className="md:col-span-3 flex flex-col justify-between items-end gap-4">
         {/* Buttons row */}
         <div className="flex items-center gap-2">
+          {review.rating <= 3 && onGenerateTask && (
+            <button
+              onClick={() => onGenerateTask(review)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm shadow-rose-500/10"
+              title="Görev Oluştur"
+            >
+              <CheckSquare size={12} />
+              <span>Görev Oluştur</span>
+            </button>
+          )}
+
           <button
             onClick={() => onSelect(review.id)}
             className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer shadow-sm"
