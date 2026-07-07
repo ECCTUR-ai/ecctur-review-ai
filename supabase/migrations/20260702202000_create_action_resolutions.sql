@@ -20,6 +20,11 @@ CREATE INDEX IF NOT EXISTS idx_action_resolutions_source_period ON action_resolu
 -- Enable Row Level Security (RLS)
 ALTER TABLE action_resolutions ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they already exist to ensure idempotency
+DROP POLICY IF EXISTS "Allow select for authenticated users" ON action_resolutions;
+DROP POLICY IF EXISTS "Allow insert for authenticated users" ON action_resolutions;
+DROP POLICY IF EXISTS "Allow update for authenticated users" ON action_resolutions;
+
 -- Enable clean CRUD policies for authenticated roles
 CREATE POLICY "Allow select for authenticated users" ON action_resolutions
   FOR SELECT TO authenticated USING (true);
