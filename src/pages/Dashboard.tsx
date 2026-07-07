@@ -2,8 +2,7 @@ import React, { useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
-import { analyticsService } from '@/services/analyticsService';
-import { reviewService } from '@/services/reviewService';
+import { dashboardService } from '@/services/dashboardService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
@@ -92,40 +91,8 @@ export default function Dashboard() {
 
   const [lastSyncHealth, setLastSyncHealth] = React.useState<any | null>(null);
   const [isExporting, setIsExporting] = React.useState(false);
-  const [dbSyncStates, setDbSyncStates] = React.useState<any[]>([]);
   const [timeFilter, setTimeFilter] = React.useState<string>('30_days');
 
-  const fetchSyncStates = React.useCallback(async () => {
-    if (!activeHotelId) return;
-    try {
-      const { data, error } = await supabase
-        .from('review_sync_states')
-        .select('*')
-        .eq('hotel_id', activeHotelId);
-      if (data && !error) {
-        setDbSyncStates(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch sync states:', err);
-    }
-  }, [activeHotelId]);
-
-  React.useEffect(() => {
-    fetchSyncStates();
-    if (activeHotelId) {
-      try {
-        const stored = localStorage.getItem(`sync_health_${activeHotelId}`);
-        if (stored) {
-          setLastSyncHealth(JSON.parse(stored));
-        } else {
-          setLastSyncHealth(null);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, [activeHotelId, fetchSyncStates]);
-  
   // Strict tenant security check
   const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
   const queriedHotelId = isAuthorized ? activeHotelId : '00000000-0000-0000-0000-000000000000';
@@ -173,93 +140,73 @@ export default function Dashboard() {
     }
   };
 
-  // 1. Load backend metrics
+  // 1. Fetch unified dashboard data (reviews and sync states)
   const {
-    data: metrics,
-    loading: metricsLoading,
-    error: metricsError,
-    refetch: refetchMetrics
-  } = useFetch(() => analyticsService.getMetrics(queriedHotelId), [queriedHotelId]);
+    data: dashboardData,
+    loading: isLoading,
+    error: dashboardError,
+    refetch: refetchDashboard
+  } = useFetch(() => dashboardService.getDashboardData(queriedHotelId, timeFilter), [queriedHotelId, timeFilter]);
 
-  // 2. Load recent reviews
-  const {
-    data: recentReviewsData,
-    loading: reviewsLoading,
-    error: reviewsError,
-    refetch: refetchReviews
-  } = useFetch(() => reviewService.getReviews({ limit: 10, hotelId: queriedHotelId }), [queriedHotelId]);
+  const allReviewsForStats = dashboardData?.reviews || [];
+  const dbSyncStates = dashboardData?.syncStates || [];
 
-  // 3. Load trends
-  const {
-    data: trends,
-    loading: trendsLoading,
-    error: trendsError,
-  } = useFetch(() => analyticsService.getTrends('30d', queriedHotelId), [queriedHotelId]);
-
-  // 4. Load platform share
-  const {
-    data: platformShare,
-    loading: platformLoading,
-    error: platformError,
-  } = useFetch(() => analyticsService.getPlatformShare(queriedHotelId), [queriedHotelId]);
-
-  // 5. Load rating distribution raw values to calculate star rating counts
-  const {
-    data: ratingsDistributionRaw,
-    loading: ratingsLoading,
-    error: ratingsError,
-  } = useFetch(async () => {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('rating')
-      .eq('hotel_id', queriedHotelId);
-    if (error) throw error;
-    return data || [];
-  }, [queriedHotelId]);
-
-  // Load platform stats for Jura Hotels Ada Beach
-  const {
-    data: allReviewsForStats,
-    loading: allReviewsLoading,
-    error: allReviewsError,
-    refetch: refetchAllReviews
-  } = useFetch(async () => {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('platform, rating, review_date, status, review_text, created_at, guest_name')
-      .eq('hotel_id', queriedHotelId);
-    if (error) throw error;
-    return data || [];
-  }, [queriedHotelId]);
-
+  // Exclude archived reviews from all metrics calculations
   const filteredReviewsForStats = React.useMemo(() => {
-    if (!allReviewsForStats) return [];
-    if (timeFilter === 'all') return allReviewsForStats;
+    return (allReviewsForStats || []).filter((r: any) => normalizeReviewStatus(r.status) !== 'archived');
+  }, [allReviewsForStats]);
 
-    const now = new Date();
-    const limitDate = new Date();
+  // Setup Realtime subscriptions for reviews and sync states
+  React.useEffect(() => {
+    if (!queriedHotelId) return;
 
-    if (timeFilter === 'today') {
-      limitDate.setHours(0, 0, 0, 0);
-    } else if (timeFilter === '7_days') {
-      limitDate.setDate(now.getDate() - 7);
-    } else if (timeFilter === '30_days') {
-      limitDate.setDate(now.getDate() - 30);
-    } else if (timeFilter === '3_months') {
-      limitDate.setMonth(now.getMonth() - 3);
-    } else if (timeFilter === '6_months') {
-      limitDate.setMonth(now.getMonth() - 6);
-    } else if (timeFilter === '1_year') {
-      limitDate.setFullYear(now.getFullYear() - 1);
+    const reviewsChannel = supabase
+      .channel('dashboard-reviews-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reviews', filter: `hotel_id=eq.${queriedHotelId}` },
+        (payload) => {
+          console.log('[Dashboard Realtime] reviews table changed:', payload);
+          refetchDashboard();
+        }
+      )
+      .subscribe();
+
+    const syncStatesChannel = supabase
+      .channel('dashboard-sync-states-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'review_sync_states', filter: `hotel_id=eq.${queriedHotelId}` },
+        (payload) => {
+          console.log('[Dashboard Realtime] review_sync_states table changed:', payload);
+          refetchDashboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reviewsChannel);
+      supabase.removeChannel(syncStatesChannel);
+    };
+  }, [queriedHotelId, refetchDashboard]);
+
+  // Load sync health from localStorage fallback
+  React.useEffect(() => {
+    if (activeHotelId) {
+      try {
+        const stored = localStorage.getItem(`sync_health_${activeHotelId}`);
+        if (stored) {
+          setLastSyncHealth(JSON.parse(stored));
+        } else {
+          setLastSyncHealth(null);
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
+  }, [activeHotelId]);
 
-    return (allReviewsForStats as any[] || []).filter((r: any) => {
-      const dateVal = r.review_date || r.created_at;
-      if (!dateVal) return false;
-      return new Date(dateVal) >= limitDate;
-    });
-  }, [allReviewsForStats, timeFilter]);
-
+  const fetchSyncStates = refetchDashboard;
 
   if (hasNoAssignedHotels) {
     return (
@@ -279,48 +226,40 @@ export default function Dashboard() {
 
   // Set API status indicator based on actual connection errors
   useEffect(() => {
-    if (metricsError || reviewsError || trendsError || platformError || ratingsError) {
+    if (dashboardError) {
       setIsApiOnline(false);
     } else {
       setIsApiOnline(true);
     }
-  }, [metricsError, reviewsError, trendsError, platformError, ratingsError, setIsApiOnline]);
+  }, [dashboardError, setIsApiOnline]);
 
-  // Compute metrics with default fallbacks
-  let totalReviews = 0;
-  let avgRating = 0;
-  let aiResponseRate = 0;
-  let draftReviews = 0;
-  let publishedReviews = 0;
+  // Compute metrics dynamically from filtered active reviews
+  const totalReviews = filteredReviewsForStats.length;
+  const avgRating = totalReviews > 0
+    ? Number((filteredReviewsForStats.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews).toFixed(1))
+    : 0.0;
 
-  if (metrics && metrics.length > 0) {
-    const rawTotal = metrics.find(m => m.title === 'Total Reviews')?.value;
-    if (rawTotal !== undefined) totalReviews = Number(rawTotal);
+  const juraRespondedCount = filteredReviewsForStats.filter((r: any) => {
+    const s = normalizeReviewStatus(r.status);
+    return s === 'approved' || s === 'manual_replied';
+  }).length;
+  const aiResponseRate = totalReviews > 0 ? Math.round((juraRespondedCount / totalReviews) * 100) : 0;
 
-    const rawAvg = metrics.find(m => m.title === 'Average Rating')?.value;
-    if (rawAvg) {
-      const parsedAvg = parseFloat(String(rawAvg).split('/')[0]);
-      if (!isNaN(parsedAvg)) avgRating = Number(parsedAvg.toFixed(1));
-    }
+  const draftReviews = filteredReviewsForStats.filter(r => normalizeReviewStatus(r.status) === 'draft').length;
+  const publishedReviews = filteredReviewsForStats.filter(r => {
+    const s = normalizeReviewStatus(r.status);
+    return s === 'approved' || s === 'manual_replied';
+  }).length;
 
-    const rawAi = metrics.find(m => m.title === 'AI Response Rate')?.value;
-    if (rawAi) {
-      const parsedAi = parseInt(String(rawAi).replace('%', ''), 10);
-      if (!isNaN(parsedAi)) aiResponseRate = parsedAi;
-    }
-
-    const rawDraft = metrics.find(m => m.title === 'Draft Reviews')?.value;
-    if (rawDraft !== undefined) draftReviews = Number(rawDraft);
-
-    const rawPub = metrics.find(m => m.title === 'Published Reviews')?.value;
-    if (rawPub !== undefined) publishedReviews = Number(rawPub);
-  }
-
-  // We completely disable demo fallback
   const isDemoData = false;
-
-  const isLoading = metricsLoading || reviewsLoading || ratingsLoading;
   const hasNoReviews = !isLoading && totalReviews === 0;
+
+  const finalTotalReviews = totalReviews;
+  const finalAvgRating = avgRating;
+  const finalAiResponseRate = aiResponseRate;
+  const finalDraftReviews = draftReviews;
+  const finalPublishedReviews = publishedReviews;
+  const trendData: any[] = [];
 
   if (hasNoReviews) {
     return (
@@ -346,76 +285,43 @@ export default function Dashboard() {
     );
   }
 
-  // Hardcoded Demo Values mapping
-  const finalTotalReviews = isDemoData ? 1248 : totalReviews;
-  const finalAvgRating = isDemoData ? 4.6 : avgRating;
-  const finalAiResponseRate = isDemoData ? 78 : aiResponseRate;
-  const finalDraftReviews = isDemoData ? 7 : draftReviews;
-  const finalPublishedReviews = isDemoData ? 942 : publishedReviews;
-
-  // Trend Chart datasets
-  const trendDataMock = [
-    { date: '1 Haz', Google: 42, Tripadvisor: 23 },
-    { date: '4 Haz', Google: 60, Tripadvisor: 28 },
-    { date: '8 Haz', Google: 58, Tripadvisor: 24 },
-    { date: '12 Haz', Google: 82, Tripadvisor: 38 },
-    { date: '15 Haz', Google: 68, Tripadvisor: 34 },
-    { date: '18 Haz', Google: 85, Tripadvisor: 30 },
-    { date: '22 Haz', Google: 90, Tripadvisor: 32 },
-    { date: '25 Haz', Google: 60, Tripadvisor: 20 },
-    { date: '29 Haz', Google: 80, Tripadvisor: 28 },
-  ];
-
-  const trendData = isDemoData ? trendDataMock : (trends || []);
-
-  // Unique platforms for trend lines
-  const trendPlatforms = new Set<string>();
-  if (trends && !isDemoData) {
-    trends.forEach((t: any) => {
-      Object.keys(t).forEach(k => {
-        if (k !== 'date' && k !== 'count' && k !== 'sumRating' && k !== 'positive' && k !== 'neutral' && k !== 'negative') {
-          trendPlatforms.add(k);
-        }
-      });
-    });
-  }
-  const activePlatforms = isDemoData ? ['Google', 'Tripadvisor'] : Array.from(trendPlatforms);
+  const trends: any[] = [];
+  const activePlatforms = isDemoData ? ['Google', 'Tripadvisor'] : [];
 
   // Donut Chart breakdown
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  if (ratingsDistributionRaw && ratingsDistributionRaw.length > 0) {
-    ratingsDistributionRaw.forEach((r: any) => {
-      const val = Math.round(Number(r.rating || 5));
-      const rating = Math.max(1, Math.min(5, val)) as 5 | 4 | 3 | 2 | 1;
-      ratingCounts[rating]++;
-    });
-  }
+  filteredReviewsForStats.forEach((r: any) => {
+    const val = Math.round(Number(r.rating || 5));
+    const rating = Math.max(1, Math.min(5, val)) as 5 | 4 | 3 | 2 | 1;
+    ratingCounts[rating]++;
+  });
 
-  const distributionData = isDemoData
-    ? [
-        { name: 'Mükemmel (5★)', value: 652, percentage: '52.2%', color: '#10b981' },
-        { name: 'İyi (4★)', value: 382, percentage: '30.6%', color: '#3b82f6' },
-        { name: 'Orta (3★)', value: 136, percentage: '10.9%', color: '#f59e0b' },
-        { name: 'Kötü (2★)', value: 48, percentage: '3.8%', color: '#f97316' },
-        { name: 'Çok Kötü (1★)', value: 30, percentage: '2.5%', color: '#ef4444' },
-      ]
-    : [
-        { name: 'Mükemmel (5★)', value: ratingCounts[5], percentage: finalTotalReviews > 0 ? `${((ratingCounts[5] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#10b981' },
-        { name: 'İyi (4★)', value: ratingCounts[4], percentage: finalTotalReviews > 0 ? `${((ratingCounts[4] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#3b82f6' },
-        { name: 'Orta (3★)', value: ratingCounts[3], percentage: finalTotalReviews > 0 ? `${((ratingCounts[3] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#f59e0b' },
-        { name: 'Kötü (2★)', value: ratingCounts[2], percentage: finalTotalReviews > 0 ? `${((ratingCounts[2] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#f97316' },
-        { name: 'Çok Kötü (1★)', value: ratingCounts[1], percentage: finalTotalReviews > 0 ? `${((ratingCounts[1] / finalTotalReviews) * 100).toFixed(1)}%` : '0%', color: '#ef4444' },
-      ];
+  const distributionData = [
+    { name: 'Mükemmel (5★)', value: ratingCounts[5], percentage: totalReviews > 0 ? `${((ratingCounts[5] / totalReviews) * 100).toFixed(1)}%` : '0%', color: '#10b981' },
+    { name: 'İyi (4★)', value: ratingCounts[4], percentage: totalReviews > 0 ? `${((ratingCounts[4] / totalReviews) * 100).toFixed(1)}%` : '0%', color: '#3b82f6' },
+    { name: 'Orta (3★)', value: ratingCounts[3], percentage: totalReviews > 0 ? `${((ratingCounts[3] / totalReviews) * 100).toFixed(1)}%` : '0%', color: '#f59e0b' },
+    { name: 'Kötü (2★)', value: ratingCounts[2], percentage: totalReviews > 0 ? `${((ratingCounts[2] / totalReviews) * 100).toFixed(1)}%` : '0%', color: '#f97316' },
+    { name: 'Çok Kötü (1★)', value: ratingCounts[1], percentage: totalReviews > 0 ? `${((ratingCounts[1] / totalReviews) * 100).toFixed(1)}%` : '0%', color: '#ef4444' },
+  ];
 
   // Platform Share stats
-  let googleShare = isDemoData ? 842 : 0;
-  let tripadvisorShare = isDemoData ? 286 : 0;
-  let bookingShare = isDemoData ? 84 : 0;
+  const platformShare = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredReviewsForStats.forEach(r => {
+      const src = r.platform || 'Other';
+      counts[src] = (counts[src] || 0) + 1;
+    });
+    return Object.entries(counts).map(([source, count]) => ({ source, count }));
+  }, [filteredReviewsForStats]);
+
+  let googleShare = 0;
+  let tripadvisorShare = 0;
+  let bookingShare = 0;
   let holidaycheckShare = 0;
   let hotelscomShare = 0;
   let otherShare = 0;
 
-  if (!isDemoData && platformShare) {
+  if (platformShare) {
     platformShare.forEach((p: any) => {
       const normalized = normalizeReviewPlatform(p.source);
       if (normalized === 'google') googleShare += p.count;
@@ -428,6 +334,28 @@ export default function Dashboard() {
   }
 
   const totalMapped = googleShare + tripadvisorShare + bookingShare + holidaycheckShare + hotelscomShare;
+
+  const recentReviews = React.useMemo(() => {
+    const sorted = [...filteredReviewsForStats]
+      .sort((a, b) => new Date(b.review_date || b.created_at).getTime() - new Date(a.review_date || a.created_at).getTime())
+      .slice(0, 10);
+      
+    return sorted.map((r: any) => ({
+      id: r.id,
+      guestName: r.guest_name,
+      comment: r.review_text,
+      reviewText: r.review_text,
+      rating: r.rating,
+      source: r.platform,
+      platform: r.platform,
+      status: r.status,
+      hotelId: r.hotel_id,
+      review_date: r.review_date,
+      created_at: r.created_at
+    }));
+  }, [filteredReviewsForStats]);
+
+  const recentReviewsData = { reviews: recentReviews };
 
   // Fallback Reviews list
   const fallbackReviews: ScrapedReview[] = [
@@ -534,7 +462,7 @@ export default function Dashboard() {
 
   const visibleReviews = showAllReviews ? displayReviews : displayReviews.slice(0, 3);
 
-  const connectionError = metricsError || reviewsError || trendsError || platformError || ratingsError || (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder') ? 'Supabase credentials are not defined. Please define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' : null);
+  const connectionError = dashboardError || (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder') ? 'Supabase credentials are not defined. Please define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' : null);
 
   const currentHotel = hotels?.find(h => h.id === currentHotelId);
   const isJuraAdaBeach = true;
@@ -835,13 +763,17 @@ export default function Dashboard() {
       ? Number((filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / periodTotalReviews).toFixed(2))
       : 0.0;
     const periodAwaiting = filteredReviewsForStats.filter((r: any) => normalizeReviewStatus(r.status) === 'pending').length;
-    const periodCritical = filteredReviewsForStats.filter((r: any) => (r.rating || 0) <= 2).length;
+    const periodCritical = filteredReviewsForStats.filter((r: any) => {
+      const ratingVal = r.rating || 0;
+      const sentimentStr = (r.sentiment || '').toLowerCase();
+      return ratingVal <= 2 || sentimentStr === 'negative';
+    }).length;
 
     // AI Executive Summary Bullet points calculation
     const avgCurrent = filteredReviewsForStats.length > 0
       ? filteredReviewsForStats.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / filteredReviewsForStats.length
       : 0;
-    const allStatsList = allReviewsForStats || [];
+    const allStatsList = (allReviewsForStats || []).filter((r: any) => normalizeReviewStatus(r.status) !== 'archived');
     const avgAll = allStatsList.length > 0
       ? allStatsList.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / allStatsList.length
       : 0;
@@ -858,7 +790,9 @@ export default function Dashboard() {
 
     const criticalPendingCount = filteredReviewsForStats.filter((r: any) => {
       const isPending = normalizeReviewStatus(r.status) === 'pending';
-      return (r.rating || 0) <= 2 && isPending;
+      const ratingVal = r.rating || 0;
+      const sentimentStr = (r.sentiment || '').toLowerCase();
+      return (ratingVal <= 2 || sentimentStr === 'negative') && isPending;
     }).length;
     const criticalText = criticalPendingCount > 0
       ? `Bugün cevap bekleyen ${criticalPendingCount} kritik yorum bulunuyor.`
@@ -1128,10 +1062,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  refetchMetrics();
-                  refetchReviews();
-                  refetchAllReviews();
-                  fetchSyncStates();
+                  refetchDashboard();
                 }}
                 className="p-2.5 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-full transition-all hover:bg-slate-50 cursor-pointer shadow-sm flex items-center justify-center shrink-0"
                 title="Verileri Yenile"
