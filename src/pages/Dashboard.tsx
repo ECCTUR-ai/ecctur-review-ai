@@ -41,6 +41,25 @@ import {
   Cell
 } from 'recharts';
 
+interface PlatformConfig {
+  id: string;
+  name: string; // Exact platform string stored in database
+  label: string;
+  active: boolean;
+  colorClass: string;
+}
+
+const platformConfigList: PlatformConfig[] = [
+  { id: 'google', name: 'Google', label: 'Google', active: true, colorClass: 'bg-purple-500' },
+  { id: 'booking', name: 'Booking.com', label: 'Booking.com', active: true, colorClass: 'bg-indigo-500' },
+  { id: 'tripadvisor', name: 'TripAdvisor', label: 'TripAdvisor', active: true, colorClass: 'bg-blue-500' },
+  { id: 'hotelscom', name: 'Hotels.com', label: 'Hotels.com', active: true, colorClass: 'bg-violet-600' },
+  { id: 'holidaycheck', name: 'HolidayCheck', label: 'HolidayCheck', active: true, colorClass: 'bg-pink-500' },
+  { id: 'expedia', name: 'Expedia', label: 'Expedia', active: false, colorClass: 'bg-amber-600' },
+  { id: 'airbnb', name: 'Airbnb', label: 'Airbnb', active: false, colorClass: 'bg-rose-500' },
+  { id: 'yelp', name: 'Yelp', label: 'Yelp', active: false, colorClass: 'bg-red-500' }
+];
+
 interface ScrapedReview {
   id: string;
   guestName: string;
@@ -314,26 +333,39 @@ export default function Dashboard() {
     return Object.entries(counts).map(([source, count]) => ({ source, count }));
   }, [filteredReviewsForStats]);
 
-  let googleShare = 0;
-  let tripadvisorShare = 0;
-  let bookingShare = 0;
-  let holidaycheckShare = 0;
-  let hotelscomShare = 0;
-  let otherShare = 0;
+  const dashboardPlatforms = React.useMemo(() => {
+    return platformConfigList.filter(p => p.active);
+  }, []);
 
-  if (platformShare) {
-    platformShare.forEach((p: any) => {
-      const normalized = normalizeReviewPlatform(p.source);
-      if (normalized === 'google') googleShare += p.count;
-      else if (normalized === 'tripadvisor') tripadvisorShare += p.count;
-      else if (normalized === 'booking') bookingShare += p.count;
-      else if (normalized === 'holidaycheck') holidaycheckShare += p.count;
-      else if (normalized === 'hotelscom') hotelscomShare += p.count;
-      else otherShare += p.count;
+  const platformCounts = React.useMemo(() => {
+    const countsMap: Record<string, number> = {};
+    platformConfigList.forEach(p => {
+      countsMap[p.id] = 0;
     });
-  }
+    countsMap['other'] = 0;
 
-  const totalMapped = googleShare + tripadvisorShare + bookingShare + holidaycheckShare + hotelscomShare;
+    if (platformShare) {
+      platformShare.forEach((p: any) => {
+        const normalized = normalizeReviewPlatform(p.source);
+        const conf = platformConfigList.find(c => c.id === normalized);
+        if (conf) {
+          countsMap[conf.id] += p.count;
+        } else {
+          countsMap['other'] += p.count;
+        }
+      });
+    }
+    return countsMap;
+  }, [platformShare]);
+
+  const googleShare = platformCounts['google'] || 0;
+  const bookingShare = platformCounts['booking'] || 0;
+  const tripadvisorShare = platformCounts['tripadvisor'] || 0;
+  const hotelscomShare = platformCounts['hotelscom'] || 0;
+  const holidaycheckShare = platformCounts['holidaycheck'] || 0;
+  const otherShare = platformCounts['other'] || 0;
+
+  const totalMapped = dashboardPlatforms.reduce((sum, p) => sum + (platformCounts[p.id] || 0), 0);
 
   const recentReviews = React.useMemo(() => {
     const sorted = [...filteredReviewsForStats]
@@ -1075,20 +1107,15 @@ export default function Dashboard() {
             
             {/* Sol (%55): Platform Özeti (Inline Pills) */}
             <div className="lg:col-span-6 flex flex-wrap gap-2.5 items-center">
-              {[
-                { name: 'Google', count: googleShare, key: 'google' },
-                { name: 'Booking.com', count: bookingShare, key: 'booking' },
-                { name: 'TripAdvisor', count: tripadvisorShare, key: 'tripadvisor' },
-                { name: 'Hotels.com', count: hotelscomShare, key: 'hotelscom' },
-                { name: 'HolidayCheck', count: holidaycheckShare, key: 'holidaycheck' }
-              ].map(p => {
+              {dashboardPlatforms.map(p => {
+                const count = platformCounts[p.id] || 0;
                 const health = getHealthInfo(p.name);
                 const isOnline = health.status === 'active';
-                const hasReviews = p.count > 0;
+                const hasReviews = count > 0;
                 
                 let statusColor = 'bg-slate-350';
                 if (hasReviews) {
-                  if (isOnline) statusColor = 'bg-emerald-500';
+                  if (isOnline) statusColor = 'bg-emerald-500 animate-pulse';
                   else if (health.status === 'error') statusColor = 'bg-rose-500';
                 }
                 
@@ -1096,17 +1123,16 @@ export default function Dashboard() {
                 
                 return (
                   <div 
-                    key={p.name}
+                    key={p.id}
                     title={tooltipText}
                     className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-100 hover:border-slate-200 rounded-full text-[10.5px] font-semibold text-slate-700 shadow-sm cursor-help transition-all duration-150"
                   >
-                    <span className="font-extrabold text-slate-900">{p.name === 'Booking.com' ? 'Booking' : p.name}</span>
+                    <span className="font-extrabold text-slate-900">{p.label === 'Booking.com' ? 'Booking' : p.label}</span>
                     <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`}></span>
                   </div>
                 );
               })}
             </div>
-
             {/* Sağ (%45): AI Summary & Actions */}
             <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
               
@@ -1195,15 +1221,9 @@ export default function Dashboard() {
         {/* Platform Performansı */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Performansı</h3>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {[
-              { name: 'Google', key: 'google', label: 'Google' },
-              { name: 'Booking.com', key: 'booking', label: 'Booking.com' },
-              { name: 'TripAdvisor', key: 'tripadvisor', label: 'TripAdvisor' },
-              { name: 'Hotels.com', key: 'hotelscom', label: 'Hotels.com' },
-              { name: 'HolidayCheck', key: 'holidaycheck', label: 'HolidayCheck' }
-            ].map(plat => {
-              const stats = getPlatformStats(plat.key);
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {dashboardPlatforms.map(plat => {
+              const stats = getPlatformStats(plat.id);
               const health = getHealthInfo(plat.name);
               
               let trendText = 'Stabil';
@@ -1218,8 +1238,8 @@ export default function Dashboard() {
 
               return (
                 <div 
-                  key={plat.key} 
-                  onClick={() => window.location.href = `/reviews?platform=${plat.key === 'booking' ? 'booking' : plat.key}`}
+                  key={plat.id} 
+                  onClick={() => window.location.href = `/reviews?platform=${plat.id}`}
                   className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between relative overflow-hidden cursor-pointer hover:border-indigo-100 hover:shadow-md transition-all duration-200"
                 >
                   <div className="space-y-1">
@@ -1248,7 +1268,9 @@ export default function Dashboard() {
                     </div>
                     <div className="flex justify-between text-slate-400 text-[9.5px] pt-1">
                       <span>Son Güncelleme:</span>
-                      <span className="font-medium text-slate-650 truncate max-w-[90px]" title={health.lastSync}>{health.lastSync.split(' ')[0]}</span>
+                      <span className="font-bold text-slate-600 truncate max-w-[90px]" title={health.lastSync}>
+                        {health.lastSync}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1256,7 +1278,6 @@ export default function Dashboard() {
             })}
           </div>
         </div>
-
         {/* 2. Platform Sağlık Durumu Bölümü */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Sağlık Durumu</h3>
@@ -1847,87 +1868,29 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Platform Share Progress Bar */}
         <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-5">
+
           <h3 className="text-sm font-bold text-slate-800">Platformlara Göre Dağılım</h3>
           <div className="space-y-4">
-            {/* Google */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-600 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
-                  Google
-                </span>
-                <span className="text-slate-500 font-medium">
-                  {googleShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((googleShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-purple-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (googleShare / finalTotalReviews) * 100 : 0}%` }}></div>
-              </div>
-            </div>
-
-            {/* TripAdvisor */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-600 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-                  Tripadvisor
-                </span>
-                <span className="text-slate-500 font-medium">
-                  {tripadvisorShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((tripadvisorShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (tripadvisorShare / finalTotalReviews) * 100 : 0}%` }}></div>
-              </div>
-            </div>
-
-            {/* Booking.com */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-600 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span>
-                  Booking.com
-                </span>
-                <span className="text-slate-500 font-medium">
-                  {bookingShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((bookingShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (bookingShare / finalTotalReviews) * 100 : 0}%` }}></div>
-              </div>
-            </div>
-
-            {/* HolidayCheck */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-600 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>
-                  HolidayCheck
-                </span>
-                <span className="text-slate-500 font-medium">
-                  {holidaycheckShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((holidaycheckShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-pink-500 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (holidaycheckShare / finalTotalReviews) * 100 : 0}%` }}></div>
-              </div>
-            </div>
-
-            {/* Hotels.com */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-600 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span>
-                  Hotels.com
-                </span>
-                <span className="text-slate-500 font-medium">
-                  {hotelscomShare} <span className="text-slate-400 font-normal">({finalTotalReviews > 0 ? ((hotelscomShare / finalTotalReviews) * 100).toFixed(1) : 0}%)</span>
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-violet-600 h-full rounded-full" style={{ width: `${finalTotalReviews > 0 ? (hotelscomShare / finalTotalReviews) * 100 : 0}%` }}></div>
-              </div>
-            </div>
+            {dashboardPlatforms.map(p => {
+              const count = platformCounts[p.id] || 0;
+              const percent = finalTotalReviews > 0 ? ((count / finalTotalReviews) * 100) : 0;
+              return (
+                <div key={p.id} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-600 flex items-center gap-1.5">
+                      <span className={`w-2.5 h-2.5 rounded-full ${p.colorClass} inline-block`}></span>
+                      {p.label}
+                    </span>
+                    <span className="text-slate-550 font-medium">
+                      {count} <span className="text-slate-400 font-normal">({percent.toFixed(1)}%)</span>
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div className={`${p.colorClass} h-full rounded-full`} style={{ width: `${percent}%` }}></div>
+                  </div>
+                </div>
+              );
+            })}
 
             {/* Diğer */}
             <div className="space-y-1.5">
@@ -1946,7 +1909,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
         {/* Right Column: Recent Reviews (Son Yorumlar Table) */}
         <div className="lg:col-span-2 bg-white border border-slate-100 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
           <div 
