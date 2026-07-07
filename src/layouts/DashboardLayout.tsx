@@ -111,7 +111,11 @@ export default function DashboardLayout() {
         setIsApiOnline(true);
         
         // Ensure currentHotelId is valid
-        if (!currentHotelId || !filteredHotels.find(h => h.id === currentHotelId)) {
+        if (filteredHotels.length === 1) {
+          const singleHotel = filteredHotels[0];
+          setCurrentHotelId(singleHotel.id);
+          localStorage.setItem('saas_selected_hotel_id', singleHotel.id);
+        } else if (!currentHotelId || !filteredHotels.find(h => h.id === currentHotelId)) {
           const firstHotel = filteredHotels[0];
           if (firstHotel) {
             setCurrentHotelId(firstHotel.id);

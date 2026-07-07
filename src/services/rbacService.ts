@@ -124,23 +124,53 @@ export const rbacService = {
       ];
     }
 
-    // Fetch profile status
+    // Fetch profile status, organizationId, and hotelIds
     let status = 'active';
+    let organizationId: string | null = null;
+    let hotelIds: string[] = [];
     try {
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('status')
+        .select('status, organization_id')
         .eq('id', userId)
         .maybeSingle();
       if (profileData?.status) status = profileData.status;
+      if (profileData?.organization_id) organizationId = profileData.organization_id;
+
+      const resolvedRoleKey = roleNameLower.trim().replace(/\s+/g, '_');
+      if (resolvedRoleKey === 'super_admin') {
+        let query = supabase.from('hotels').select('id');
+        if (email !== 'cemil.sezgin@ecctur.com') {
+          if (organizationId) {
+            query = query.eq('organization_id', organizationId);
+          }
+        }
+        const { data: allOrgsHotels } = await query;
+        if (allOrgsHotels) {
+          hotelIds = allOrgsHotels.map((h: any) => h.id);
+        }
+      } else {
+        const { data: userHotels } = await supabase
+          .from('user_hotels')
+          .select('hotel_id')
+          .eq('profile_id', userId);
+        if (userHotels) {
+          hotelIds = userHotels.map((uh: any) => uh.hotel_id);
+        }
+      }
     } catch (err) {
-      console.warn('Could not load profile status:', err);
+      console.warn('Could not load profile status or user hotels in fallback:', err);
     }
+
+    const resolvedRoleKey = roleNameLower.trim().replace(/\s+/g, '_');
 
     return {
       role: roleName,
+      roleKey: resolvedRoleKey,
       permissions,
-      status
+      status,
+      hotelIds,
+      organizationId
     };
   }
 };

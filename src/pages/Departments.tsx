@@ -1,4 +1,5 @@
 import React from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { departmentService } from '@/services/departmentService';
 import { 
@@ -14,12 +15,14 @@ import {
 } from 'lucide-react';
 
 export default function Departments() {
+  const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
+
   const { 
     data: departments, 
     loading, 
     error,
     refetch 
-  } = useFetch(() => departmentService.getDepartments());
+  } = useFetch(() => departmentService.getDepartments(currentHotelId), [currentHotelId]);
 
   const handleToggleAlerts = async (id: string, currentVal: boolean) => {
     try {
