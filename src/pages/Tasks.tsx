@@ -112,13 +112,63 @@ export default function Tasks() {
   const getPriorityBadgeClass = (p: string) => {
     switch (p) {
       case 'critical':
-        return 'bg-rose-500/10 text-rose-400 border border-rose-500/25';
+        return 'bg-red-50 text-red-700 border border-red-200';
       case 'high':
-        return 'bg-amber-500/10 text-amber-400 border border-amber-500/25';
+        return 'bg-orange-50 text-orange-700 border border-orange-200';
       case 'medium':
-        return 'bg-blue-500/10 text-blue-400 border border-blue-500/25';
+        return 'bg-yellow-50 text-yellow-700 border border-yellow-200';
       default:
-        return 'bg-slate-500/10 text-slate-400 border border-slate-500/25';
+        return 'bg-slate-50 text-slate-700 border border-slate-200';
+    }
+  };
+
+  const getDepartmentBadgeClass = (d: string) => {
+    const norm = (d || '').toLowerCase();
+    if (norm.includes('ilişki') || norm.includes('iliskileri')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    }
+    if (norm.includes('housekeeping') || norm.includes('kat hizmetleri')) {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    }
+    if (norm.includes('teknik')) {
+      return 'bg-sky-50 text-sky-700 border-sky-200';
+    }
+    if (norm.includes('yiyecek') || norm.includes('içecek') || norm.includes('restoran')) {
+      return 'bg-orange-50 text-orange-700 border-orange-200';
+    }
+    if (norm.includes('büro') || norm.includes('front office')) {
+      return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    }
+    if (norm.includes('spa')) {
+      return 'bg-pink-50 text-pink-700 border-pink-200';
+    }
+    if (norm.includes('güvenlik')) {
+      return 'bg-red-50 text-red-700 border-red-200';
+    }
+    if (norm.includes('animasyon')) {
+      return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
+    }
+    if (norm.includes('satış')) {
+      return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+    }
+    if (norm.includes('muhasebe')) {
+      return 'bg-teal-50 text-teal-700 border-teal-200';
+    }
+    return 'bg-slate-50 text-slate-700 border-slate-200';
+  };
+
+  const getStatusStyle = (s: string) => {
+    switch (s) {
+      case 'completed':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'in_progress':
+        return 'bg-sky-50 text-sky-700 border-sky-200';
+      case 'waiting':
+      case 'deferred':
+        return 'bg-violet-50 text-violet-700 border-violet-200';
+      case 'open':
+      default:
+        return 'bg-amber-50 text-amber-700 border-amber-200';
     }
   };
 
@@ -136,14 +186,14 @@ export default function Tasks() {
   const getStatusIcon = (s: string) => {
     switch (s) {
       case 'completed':
-        return <CheckCircle2 size={13} className="text-emerald-400" />;
+        return <CheckCircle2 size={13} className="text-emerald-600" />;
       case 'in_progress':
-        return <Hourglass size={13} className="text-blue-400" />;
+        return <Hourglass size={13} className="text-sky-600" />;
       case 'waiting':
       case 'deferred':
-        return <AlertTriangle size={13} className="text-amber-400" />;
+        return <AlertTriangle size={13} className="text-violet-600" />;
       default:
-        return <Clock size={13} className="text-slate-400" />;
+        return <Clock size={13} className="text-amber-600" />;
     }
   };
 
@@ -193,14 +243,14 @@ export default function Tasks() {
     <div className="space-y-6">
       {/* Title Header */}
       <div className="border-b border-slate-200 pb-6">
-        <h1 className="text-xl font-bold text-slate-100 m-0">Misafir İlişkileri Görev Takibi</h1>
-        <p className="text-xs text-slate-400 mt-1.5">
+        <h1 className="text-xl font-bold text-slate-800 m-0">Misafir İlişkileri Görev Takibi</h1>
+        <p className="text-xs text-slate-500 mt-1.5">
           Olumsuz yorumlar, kritik uyarılar ve departman problemleri için aksiyon görevleri oluşturmak, takip etmek ve tamamlananları arşivlemek.
         </p>
       </div>
 
       {/* Filter Bar */}
-      <div className="p-4 rounded-2xl glass-panel grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-slate-900/20 border border-white/[0.05]">
+      <div className="p-4 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-white border border-slate-200/80 shadow-sm">
         {/* Search */}
         <div className="relative">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -248,13 +298,13 @@ export default function Tasks() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex border-b border-slate-800 gap-2 mb-6">
+      <div className="flex border-b border-slate-200 gap-2 mb-6">
         <button
           onClick={() => setActiveTab('active')}
           className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
             activeTab === 'active' 
-              ? 'border-blue-500 text-blue-400' 
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-blue-600 text-blue-600' 
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <Clock size={14} />
@@ -264,8 +314,8 @@ export default function Tasks() {
           onClick={() => setActiveTab('completed')}
           className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
             activeTab === 'completed' 
-              ? 'border-blue-500 text-blue-400' 
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-blue-600 text-blue-600' 
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <CheckSquare size={14} />
@@ -332,38 +382,41 @@ export default function Tasks() {
               return (
                 <div 
                   key={task.id} 
-                  className="p-5 rounded-2xl border border-white/[0.05] bg-slate-900/10 hover:bg-slate-900/20 hover:border-slate-800 transition-all duration-300 flex flex-col md:flex-row justify-between gap-4 card-glow"
+                  className="p-5 rounded-[18px] border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all duration-300 flex flex-col md:flex-row justify-between gap-4"
                 >
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h3 className="text-sm font-semibold text-slate-200">{task.title}</h3>
-                      <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase ${getPriorityBadgeClass(task.priority)}`}>
+                      <h3 className="text-sm font-bold text-slate-800">{task.title}</h3>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase border ${getPriorityBadgeClass(task.priority)}`}>
                         {getPriorityText(task.priority)}
                       </span>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase border ${getDepartmentBadgeClass(task.department)}`}>
+                        {task.department}
+                      </span>
                       {task.reviewId && (
-                        <span className="text-[10px] text-slate-500 font-mono">
+                        <span className="text-[10px] text-slate-400 font-mono">
                           Ref Yorum: #{task.reviewId.substring(0, 8)}
                         </span>
                       )}
                       {(task.sourcePlatform || task.metadata?.platform) && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-400 font-mono">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-bold font-mono">
                           <Globe size={10} />
                           {task.sourcePlatform || task.metadata?.platform}
                         </span>
                       )}
                       {rating !== undefined && (
-                        <span className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-400 text-[10px] font-extrabold shadow-sm shrink-0">
+                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg text-[10px] font-extrabold shadow-sm shrink-0">
                           ★ {rating} Yıldız
                         </span>
                       )}
                     </div>
 
-                    <div className="bg-slate-955/20 p-3.5 rounded-xl border border-white/[0.02] text-xs">
-                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-1">
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/50 text-xs">
+                      <div className="flex justify-between items-center text-[10px] text-slate-450 font-semibold uppercase tracking-wide mb-1">
                         <span>Misafir Yorumu ({guestName})</span>
                         {reviewDate && <span>Yorum Tarihi: {formatDate(reviewDate)}</span>}
                       </div>
-                      <p className="text-slate-350 italic leading-relaxed">
+                      <p className="text-slate-650 italic font-medium leading-relaxed">
                         "{reviewText}"
                       </p>
                     </div>
@@ -393,7 +446,7 @@ export default function Tasks() {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-mono mt-1 pt-1.5 border-t border-white/[0.02]">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-mono mt-1 pt-1.5 border-t border-slate-100">
                       <span className="flex items-center gap-1">
                         <Building size={11} className="text-slate-600" />
                         Departman: {task.department}
@@ -433,18 +486,18 @@ export default function Tasks() {
                   <div className="flex items-center gap-3 self-start md:self-center shrink-0">
                     {activeTab === 'active' ? (
                       <>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800">
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border ${getStatusStyle(task.status)}`}>
                           {getStatusIcon(task.status)}
                           <select
                             value={task.status}
                             disabled={!canManageTasks}
                             onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
-                            className="bg-transparent border-0 text-[10px] font-bold focus:outline-none text-slate-300 capitalize cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="bg-transparent border-0 text-[10px] font-bold focus:outline-none capitalize cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed text-current"
                           >
-                            <option value="open" className="bg-[#090b16]">Açık</option>
-                            <option value="in_progress" className="bg-[#090b16]">Devam Ediyor</option>
-                            <option value="waiting" className="bg-[#090b16]">Ertelendi</option>
-                            <option value="completed" className="bg-[#090b16]">Tamamlandı</option>
+                            <option value="open" className="bg-white text-slate-900">Açık</option>
+                            <option value="in_progress" className="bg-white text-slate-900">Devam Ediyor</option>
+                            <option value="waiting" className="bg-white text-slate-900">Ertelendi</option>
+                            <option value="completed" className="bg-white text-slate-900">Tamamlandı</option>
                           </select>
                         </div>
 
@@ -462,8 +515,8 @@ export default function Tasks() {
                         )}
                       </>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase">
-                        <CheckCircle2 size={12} />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                        <CheckCircle2 size={12} className="text-emerald-600" />
                         {getStatusText(task.status)}
                       </span>
                     )}
@@ -478,15 +531,15 @@ export default function Tasks() {
       {/* Resolution Modal */}
       {resolvingTaskId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-blue-500/20 bg-slate-900/95 relative card-glow text-slate-200">
+          <div className="w-full max-w-md p-6 rounded-2xl border border-slate-200 bg-white relative shadow-2xl text-slate-800 animate-slide-in">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-400" />
+              <h3 className="text-sm font-bold text-slate-850 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-600" />
                 Görevi Kapat & Çözüm Notu Gir
               </h3>
               <button 
                 onClick={() => { setResolvingTaskId(null); setResolutionNote(''); }}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -494,28 +547,28 @@ export default function Tasks() {
 
             <div className="space-y-4">
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 mb-1">Görev Başlığı:</h4>
-                <p className="text-xs text-slate-200 leading-relaxed bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Görev Başlığı:</h4>
+                <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-semibold">
                   {tasks?.find(t => t.id === resolvingTaskId)?.title}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Çözüm Açıklaması / Notu (Önerilir)</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Çözüm Açıklaması / Notu (Zorunlu)</label>
                 <textarea
                   required
                   rows={4}
                   value={resolutionNote}
                   onChange={(e) => setResolutionNote(e.target.value)}
                   placeholder="Misafirin şikayetinin nasıl çözüldüğünü ve alınan önlemleri detaylıca buraya yazın..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-200 placeholder:text-slate-500 resize-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-800 placeholder:text-slate-450 resize-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/60">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => { setResolvingTaskId(null); setResolutionNote(''); }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer border border-slate-200/50"
                 >
                   Vazgeç
                 </button>
