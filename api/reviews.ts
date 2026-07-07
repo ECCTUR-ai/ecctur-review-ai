@@ -119,7 +119,7 @@ async function checkIsDuplicate(
     const { data: existing, error } = await supabaseAdmin
       .from('reviews')
       .select('id')
-      .eq('platform', platform)
+      .ilike('platform', platform)
       .eq('platform_review_id', platformReviewId)
       .limit(1);
     if (!error && existing && existing.length > 0) {
@@ -131,7 +131,7 @@ async function checkIsDuplicate(
     .from('reviews')
     .select('id')
     .eq('hotel_id', hotelId)
-    .eq('platform', platform)
+    .ilike('platform', platform)
     .eq('guest_name', guestName)
     .eq('rating', rating);
 
@@ -1607,7 +1607,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             const { data: existing, error } = await supabaseAdmin
               .from('reviews')
               .select('id, review_text, review_date, metadata, travel_date, owner_response_text, owner_response_date')
-              .eq('platform', 'booking')
+              .ilike('platform', 'booking')
               .eq('platform_review_id', r.externalId)
               .limit(1)
               .maybeSingle();
@@ -1621,7 +1621,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
               .from('reviews')
               .select('id, review_text, review_date, metadata, travel_date, owner_response_text, owner_response_date')
               .eq('hotel_id', hotelId)
-              .eq('platform', 'booking')
+              .ilike('platform', 'booking')
               .eq('guest_name', r.guestName)
               .eq('rating', r.rating)
               .eq('review_text', r.reviewText)
@@ -1756,7 +1756,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             guest_name: r.guestName || 'Booking Guest',
             rating: r.rating,
             review_text: r.reviewText || 'No comment review.',
-            platform: 'booking',
+            platform: 'Booking',
             sentiment: r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative',
             status: 'draft',
             published: 'No',
@@ -1783,7 +1783,7 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             comment_text: r.reviewText,
             create_update_time: r.reviewDate || null,
             reply: null,
-            platform: 'booking',
+            platform: 'Booking',
             hotel_id: hotelId,
             organization_id: orgId
           });
