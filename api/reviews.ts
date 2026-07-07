@@ -2043,19 +2043,37 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       const googleState = (existingStates || []).find(s => s.platform === 'Google');
       const bookingState = (existingStates || []).find(s => s.platform === 'Booking');
 
-      let googleSyncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
-      if (googleSyncMode !== 'manual_full_resync') {
+      let googleSyncMode = 'incremental_sync';
+      let googleBufferDate: Date | null = null;
+      if (req.body.syncMode === 'manual_full_resync' || req.query.syncMode === 'manual_full_resync') {
+        googleSyncMode = 'manual_full_resync';
+      } else {
         const hasSuccessfulGoogleSync = googleState && googleState.last_successful_sync_at;
         if (!hasSuccessfulGoogleSync) {
           googleSyncMode = 'initial_full_sync';
+        } else {
+          googleSyncMode = 'incremental_sync';
+          const baseDateStr = googleState.last_review_date || googleState.last_successful_sync_at;
+          if (baseDateStr) {
+            googleBufferDate = new Date(new Date(baseDateStr).getTime() - (2 * 24 * 60 * 60 * 1000));
+          }
         }
       }
 
-      let bookingSyncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
-      if (bookingSyncMode !== 'manual_full_resync') {
+      let bookingSyncMode = 'incremental_sync';
+      let bookingBufferDate: Date | null = null;
+      if (req.body.syncMode === 'manual_full_resync' || req.query.syncMode === 'manual_full_resync') {
+        bookingSyncMode = 'manual_full_resync';
+      } else {
         const hasSuccessfulBookingSync = bookingState && bookingState.last_successful_sync_at;
         if (!hasSuccessfulBookingSync) {
           bookingSyncMode = 'initial_full_sync';
+        } else {
+          bookingSyncMode = 'incremental_sync';
+          const baseDateStr = bookingState.last_review_date || bookingState.last_successful_sync_at;
+          if (baseDateStr) {
+            bookingBufferDate = new Date(new Date(baseDateStr).getTime() - (2 * 24 * 60 * 60 * 1000));
+          }
         }
       }
 
@@ -2064,21 +2082,16 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
       let scrapeFromDate: string | undefined = undefined;
       let estimatedCostSavingMessage = '';
       if (googleSyncMode === 'incremental_sync' && bookingSyncMode === 'incremental_sync') {
-        const gDate = googleState?.last_review_date ? new Date(googleState.last_review_date) : null;
-        const bDate = bookingState?.last_review_date ? new Date(bookingState.last_review_date) : null;
-
         let baseDate: Date | null = null;
-        if (gDate && bDate) {
-          baseDate = gDate.getTime() < bDate.getTime() ? gDate : bDate;
+        if (googleBufferDate && bookingBufferDate) {
+          baseDate = googleBufferDate.getTime() < bookingBufferDate.getTime() ? googleBufferDate : bookingBufferDate;
         } else {
-          baseDate = gDate || bDate;
+          baseDate = googleBufferDate || bookingBufferDate;
         }
 
         if (baseDate) {
-          // Date safety buffer: subtract 2 days
-          const bufferDate = new Date(baseDate.getTime() - (2 * 24 * 60 * 60 * 1000));
-          scrapeFromDate = bufferDate.toISOString().split('T')[0]; // YYYY-MM-DD
-          estimatedCostSavingMessage = `Tam tarama yerine son ${Math.ceil((Date.now() - bufferDate.getTime()) / (24 * 60 * 60 * 1000))} günden veri çekildi.`;
+          scrapeFromDate = baseDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          estimatedCostSavingMessage = `Tam tarama yerine son ${Math.ceil((Date.now() - baseDate.getTime()) / (24 * 60 * 60 * 1000))} günden veri çekildi.`;
         }
       }
 

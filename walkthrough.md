@@ -160,5 +160,23 @@ Veri transfer maliyetlerini düşürmek ve API limitlerini verimli yönetmek iç
 - **Arayüz Bildirimi**: Yorumlar sayfasında senkronizasyon raporu gösterilirken, limite ulaşılan platformlar için `⚠️ Daha fazla yeni yorum olabilir` uyarısı verilir.
 - **Super Admin Kontrolü**: Giriş yapan kullanıcı `Super Admin` yetkisine sahipse, bu uyarının hemen altında **"Devam Sync Çalıştır (Kalan Geçmişi Çek - Full Sync)"** butonu görüntülenir. Bu buton tetiklendiğinde sistem otomatik olarak tam geçmiş tarama (`manual_full_resync`) modunda kalan tüm yorumları çeker.
 
+---
+
+## 10. Platform Bazlı Kurulum ve Kademeli Tarih Çözümleme Mantığı
+
+Senkronizasyon modunun ve zaman kısıtlamalarının (scrapeFromDate) tespiti her platform için tamamen bağımsız ve dinamik hale getirilmiştir:
+
+### 1. Platform Bazlı Durum Tespiti
+- `review_sync_states` tablosunda ilgili `hotel_id` ve `platform` (Google, Booking) için özel arama yapılır:
+  - İlgili platform için başarılı bir sync kaydı yoksa veya `last_successful_sync_at` kolonu boşsa, platform modu `initial_full_sync` (full/historical import) olarak ayarlanır.
+  - Başarılı sync kaydı varsa, platform modu `incremental_sync` (kademeli tarama) olarak ayarlanır.
+
+### 2. Bağımsız Tarih Çözümleme Mantığı
+- Kademeli tarama (`incremental_sync`) modunda olan her platform için güvenlik aralığı (`safety buffer`) bağımsız hesaplanır:
+  - Eğer `last_review_date` değeri mevcutsa, `last_review_date - 2 gün` güvenlik aralığı kullanılır.
+  - Eğer `last_review_date` değeri boşsa, `last_successful_sync_at - 2 gün` güvenlik aralığı kullanılır.
+- İki platform da kademeli taramadaysa, iki platformun hesaplanan güvenlik tarihlerinden **daha eski olanı** genel veri çekme başlangıç tarihi (`scrapeFromDate`) olarak seçilir ve Apify Aggregator'a iletilir. Platformlardan biri bile `initial_full_sync` modundaysa herhangi bir tarih filtresi uygulanmayarak tam tarama yapılır.
+
+
 
 
