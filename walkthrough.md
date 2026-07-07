@@ -93,22 +93,19 @@ Her iki ekran da doğrudan Supabase üzerindeki **`reviews`** tablosunu temel al
 
 ---
 
-## 6. Dashboard Hero Alanı Yeniden Tasarımı
+## 6. Dashboard Hero Alanı UX Yeniden Tasarımı (Executive SaaS)
 
-### Tasarım İyileştirmeleri ve Yerleşim Düzeni
-Dashboard Hero bölümü dikeydeki gereksiz boşluklar kaldırılarak yükseklik olarak **%40 oranında daraltılmış** ve SaaS standartlarına uygun bilgi-yoğun bir düzene kavuşturulmuştur:
+Dashboard üst Hero bölümü dikeydeki gereksiz boşluklar ve karmaşa kaldırılarak toplam yüksekliği **%50 oranında daraltılmış** ve ReviewPro/Stripe seviyesinde temiz bir arayüze kavuşturulmuştur:
 
-1. Sol Sütun (%35)
-   - AI Hotel Command Center etiketi ve seçili otel adı.
-   - En son başarılı platform senkronizasyon zamanı.
-   - Entegre **AI Yönetici Özeti** (Puan trendi, kritik yorumlar ve en çok şikayet alanları bullet-point olarak).
-   - Küçük KPI Özeti (Toplam Yorum, Ortalama Puan ve Cevap Bekleyen sayıları küçük rozetler halinde).
+### 1. Üst Bar (Tek Satır)
+- **Sol Taraf**: Otel adı (`🏨 Jura Hotels Ada Beach`), ortalama puan (`★★★★★ 4.62 / 5`), toplam yorum sayısı ve en son başarılı senkronizasyon zamanı yan yana sade bir metadata şeridi olarak listelenmiştir.
+- **Sağ Taraf**: Herhangi bir "Tarih Filtresi" başlığı barındırmayan, sade ve şık zaman filtresi hap butonları (Bugün, 7 Gün, 30 Gün, vb.) yer almaktadır.
 
-2. Sağ Sütun (%65)
-   - **Üst Kısım**: Zaman filtresi hap butonları (Tarih filtreleri).
-   - **Sol-Alt Kısım**: Her bir platform (Google, Booking, TripAdvisor, Hotels.com, HolidayCheck) için durum, son sync zamanı, yeni yorum ve duplicate sayılarını içeren küçük performans kartları.
-   - **Sağ-Alt Kısım (Premium Action Bar)**: Platform bazlı hızlı sync (Google Sync, Booking Sync), tüm platformları senkronize etme ve CSV veri dışa aktarım butonları.
+### 2. İkinci Satır
+- **Platform Özet Bölümü (Sol - %55)**: Platform bazlı detaylı sync kutuları yerine inline rozet tasarımı (Google: 21 yorum 🟢, Booking: 20 yorum 🟢, vb.) getirilmiştir. Karmaşık detaylar (yeni, mükerrer, sync tarihleri) kaldırılarak sadece en kritik bilgi gösterilmektedir.
+- **AI Summary Bölümü (Sağ-Orta - %30)**: Maksimum 90px yükseklikte, puan trendi, kritik yorumlar ve en çok şikayet alanlarını 3 kısa madde halinde listeleyen kompakt bir AI Özet kartı yer almaktadır.
+- **Aksiyon Butonları (Sağ-Uç - %15)**: Karmaşık Google/Booking Sync butonları kaldırılarak sadece "🟣 Tüm Platformları Senkronize Et" ve "⬇️ Export" butonları yan yana konumlandırılmıştır.
 
-3. Dikey Sıkıştırma ve KPI Konumlandırma
-   - Eski hantal "AI Yönetici Özeti Kartı" tamamen kaldırılmış, bilgileri sol sütuna yedirilmiştir.
-   - Ana **KPI Kartları** (Toplam Yorum, Ortalama Puan vb.) sayfa üzerinde mümkün olduğunca yukarı taşınarak Hero alanının hemen altına yerleştirilmiştir.
+### 3. Bilgi Çiftlemesinin Önlenmesi & KPI Kartları
+- Hero alanında önceden yer alan mükerrer KPI verileri (Yorum, Puan, Bekleyen sayıları) tamamen temizlenmiştir.
+- Dashboard ana **KPI Kartları** tek bir yerde, Hero alanının hemen altında görsel olarak daha belirgin şekilde listelenmektedir. Bu sayede bilgi karmaşası engellenmiş ve odaklanma kolaylaştırılmıştır.

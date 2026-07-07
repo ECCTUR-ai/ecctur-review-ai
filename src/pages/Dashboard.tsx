@@ -1021,159 +1021,137 @@ export default function Dashboard() {
         )}
 
         {/* Redesigned Executive Hero Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 border-b border-slate-100 pb-5 items-stretch">
-          {/* SOL (%35) -> 4 columns in lg */}
-          <div className="lg:col-span-4 flex flex-col justify-between space-y-3 pr-4 border-r border-slate-100/50">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-purple-600 font-extrabold text-[10px] uppercase tracking-wider">
-                <Sparkles size={11} className="text-purple-500 animate-pulse" />
-                AI Hotel Command Center
+        {/* Redesigned Premium Executive SaaS Hero Section */}
+        <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4">
+          
+          {/* ÜST BAR: Otel Detayları (Sol) ve Tarih Filtreleri (Sağ) */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-50 pb-3.5">
+            {/* Sol: Otel Bilgileri & Metrikler */}
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600">
+              <div className="flex items-center gap-2">
+                <span className="text-base select-none">🏨</span>
+                <span className="font-black text-slate-900 text-sm tracking-tight">{currentHotel?.name || 'Seçili Otel'}</span>
               </div>
-              <h1 className="text-base font-black text-slate-900 leading-tight">
-                {currentHotel?.name || 'Seçili Otel'}
-              </h1>
-              <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
-                <Clock size={10} />
-                Son Senkronizasyon: {lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(lastSyncTimeVal).toLocaleDateString('tr-TR') : 'Bekliyor'}
+              <div className="h-4 w-px bg-slate-200/60 hidden sm:block"></div>
+              <div className="flex items-center gap-1">
+                <Star size={12} className="fill-amber-400 text-amber-400" />
+                <span className="text-slate-800 font-extrabold">{periodAvgRating} / 5</span>
               </div>
-            </div>
-            
-            <div className="bg-purple-50/50 border border-purple-100/30 p-2.5 rounded-2xl space-y-1.5 shadow-sm">
-              <div className="text-[10px] text-slate-700 font-bold leading-relaxed flex items-start gap-1">
-                <span className="shrink-0">{scoreTrendIcon}</span>
-                <span>{scoreTrendText}</span>
+              <div className="h-4 w-px bg-slate-200/60 hidden sm:block"></div>
+              <div className="flex items-center gap-1">
+                <MessageSquare size={12} className="text-slate-400" />
+                <span className="text-slate-800 font-extrabold">{periodTotalReviews} Yorum</span>
               </div>
-              <div className="text-[10px] text-slate-700 font-bold leading-relaxed flex items-start gap-1">
-                <span className="shrink-0">{criticalIcon}</span>
-                <span>{criticalText}</span>
-              </div>
-              <div className="text-[10px] text-slate-700 font-bold leading-relaxed flex items-start gap-1">
-                <span className="shrink-0">{complaintIcon}</span>
-                <span>{complaintText}</span>
+              <div className="h-4 w-px bg-slate-200/60 hidden sm:block"></div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-455">
+                <Clock size={11} />
+                <span>Son Sync: <span className="font-extrabold text-slate-500">{lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Bekliyor'}</span></span>
               </div>
             </div>
 
-            {/* Küçük KPI Özeti */}
-            <div className="flex items-center gap-2.5 text-[9.5px] text-slate-500 font-extrabold">
-              <span className="flex items-center gap-1 bg-blue-50/60 px-2 py-0.5 rounded-full border border-blue-100/50">
-                <MessageSquare size={9} /> {periodTotalReviews} Yorum
-              </span>
-              <span className="flex items-center gap-1 bg-amber-50/60 px-2 py-0.5 rounded-full border border-amber-100/50">
-                <Star size={9} className="fill-amber-400 text-amber-400" /> {periodAvgRating} / 5
-              </span>
-              <span className="flex items-center gap-1 bg-purple-50/60 px-2 py-0.5 rounded-full border border-purple-100/50">
-                <Clock size={9} /> {periodAwaiting} Bekleyen
-              </span>
+            {/* Sağ: Tarih Filtreleri */}
+            <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-full border border-slate-200/40 shadow-inner shrink-0 self-start lg:self-center">
+              {[
+                { id: 'today', label: 'Bugün' },
+                { id: '7_days', label: '7 Gün' },
+                { id: '30_days', label: '30 Gün' },
+                { id: '3_months', label: '3 Ay' },
+                { id: '6_months', label: '6 Ay' },
+                { id: '1_year', label: '1 Yıl' },
+                { id: 'all', label: 'Tüm Zamanlar' }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setTimeFilter(f.id)}
+                  className={`px-3 py-1.5 text-[10px] font-extrabold rounded-full transition-all cursor-pointer ${
+                    timeFilter === f.id
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm'
+                      : 'text-slate-555 hover:text-slate-855'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* SAĞ (%65) -> 8 columns in lg */}
-          <div className="lg:col-span-8 flex flex-col justify-between gap-4">
-            {/* Üst Satır: Tarih Filtreleri */}
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tarih Filtresi</span>
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-full border border-slate-200/50 shadow-inner shrink-0">
-                {[
-                  { id: 'today', label: 'Bugün' },
-                  { id: '7_days', label: '7 Gün' },
-                  { id: '30_days', label: '30 Gün' },
-                  { id: '3_months', label: '3 Ay' },
-                  { id: '6_months', label: '6 Ay' },
-                  { id: '1_year', label: '1 Yıl' },
-                  { id: 'all', label: 'Tüm Zamanlar' }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setTimeFilter(f.id)}
-                    className={`px-2.5 py-1 text-[9px] font-extrabold rounded-full transition-all cursor-pointer ${
-                      timeFilter === f.id
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+          {/* İKİNCİ SATIR: Platform Özeti (Sol) ve AI Summary / Actions (Sağ) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            
+            {/* Sol (%55): Platform Özeti (Inline Pills) */}
+            <div className="lg:col-span-6 flex flex-wrap gap-2.5 items-center">
+              {[
+                { name: 'Google', count: googleShare, key: 'google' },
+                { name: 'Booking.com', count: bookingShare, key: 'booking' },
+                { name: 'TripAdvisor', count: tripadvisorShare, key: 'tripadvisor' },
+                { name: 'Hotels.com', count: hotelscomShare, key: 'hotelscom' },
+                { name: 'HolidayCheck', count: holidaycheckShare, key: 'holidaycheck' }
+              ].map(p => {
+                const health = getHealthInfo(p.name);
+                const isOnline = health.status === 'active';
+                const hasReviews = p.count > 0;
+                
+                return (
+                  <div 
+                    key={p.name}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full text-[10.5px] font-semibold text-slate-700 shadow-sm"
                   >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+                    <span className="font-extrabold text-slate-900">{p.name === 'Booking.com' ? 'Booking' : p.name}</span>
+                    <span className="w-1 h-3 bg-slate-200/85"></span>
+                    <span className="text-slate-500 font-bold">{p.count} yorum</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${hasReviews ? (isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500') : 'bg-slate-300'}`}></span>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Alt Satır: Platform Sync Durumu ve Action Bar */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
-              {/* Platform Sync List -> 8 cols in xl */}
-              <div className="xl:col-span-8 grid grid-cols-5 gap-2">
-                {[
-                  { name: 'Google', label: 'Google' },
-                  { name: 'Booking.com', label: 'Booking' },
-                  { name: 'TripAdvisor', label: 'TripAdvisor' },
-                  { name: 'Hotels.com', label: 'Hotels' },
-                  { name: 'HolidayCheck', label: 'HolidayCheck' }
-                ].map(p => {
-                  const health = getHealthInfo(p.name);
-                  
-                  return (
-                    <div key={p.name} className="bg-slate-50/50 border border-slate-100 p-2.5 rounded-2xl flex flex-col justify-between min-h-[78px] shadow-sm hover:border-slate-250 transition-all">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold text-slate-800 truncate pr-1" title={p.name}>{p.label}</span>
-                        <span className={`w-1.5 h-1.5 rounded-full ${health.status === 'active' ? 'bg-emerald-500 animate-pulse' : health.status === 'error' ? 'bg-rose-500' : 'bg-slate-300'}`}></span>
-                      </div>
-                      <div className="space-y-0.5 mt-2">
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400">
-                          <span>Yeni:</span>
-                          <span className="text-slate-700 font-extrabold">{health.newCount}</span>
-                        </div>
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400">
-                          <span>Mükerrer:</span>
-                          <span className="text-slate-650 font-extrabold">{health.dupCount}</span>
-                        </div>
-                        <div className="flex justify-between text-[8px] font-bold text-slate-450 pt-0.5 border-t border-slate-100/50 mt-0.5">
-                          <span>Sync:</span>
-                          <span className="text-slate-600 truncate max-w-[32px] font-extrabold" title={health.lastSync}>{health.lastSync.split(' ')[0]}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Sağ (%45): AI Summary & Actions */}
+            <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+              
+              {/* AI Summary: 3 Bullet points (Col span 7) */}
+              <div className="sm:col-span-7 bg-purple-50/40 border border-purple-100/30 p-2.5 rounded-2xl max-h-[92px] overflow-hidden flex flex-col justify-center space-y-1 shadow-sm">
+                <div className="flex items-center gap-1 text-[9.5px] font-extrabold text-purple-700 uppercase tracking-wider mb-0.5">
+                  <Sparkles size={10} className="animate-pulse" />
+                  AI Özet
+                </div>
+                <div className="text-[10px] text-slate-650 font-bold leading-normal truncate">
+                  • {scoreTrendText.replace(/Seçilen dönemde |Son dönemde /g, '')}
+                </div>
+                <div className="text-[10px] text-slate-650 font-bold leading-normal truncate">
+                  • {criticalText.replace('Bugün ', '')}
+                </div>
+                <div className="text-[10px] text-slate-650 font-bold leading-normal truncate">
+                  • {complaintText}
+                </div>
               </div>
 
-              {/* Action Bar -> 4 cols in xl */}
-              <div className="xl:col-span-4 flex flex-col gap-1.5 pl-1.5 border-l border-slate-100/40">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() => window.location.href = `/reviews?platform=google&triggerSync=true`}
-                    className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-black text-[9px] rounded-xl hover:bg-slate-100 cursor-pointer transition-all shadow-sm"
-                  >
-                    <Database size={10} />
-                    <span>Google Sync</span>
-                  </button>
-                  <button
-                    onClick={() => window.location.href = `/reviews?platform=booking&triggerSync=true`}
-                    className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-black text-[9px] rounded-xl hover:bg-slate-100 cursor-pointer transition-all shadow-sm"
-                  >
-                    <Database size={10} />
-                    <span>Booking Sync</span>
-                  </button>
-                </div>
+              {/* Actions: Sync All & Export (Col span 5) */}
+              <div className="sm:col-span-5 flex flex-col gap-1.5 shrink-0">
                 <button
                   onClick={() => window.location.href = '/reviews?triggerSync=true'}
-                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-[9px] rounded-xl transition-all shadow-sm shadow-blue-500/10 cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-[10px] rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer animate-none"
                 >
-                  <RefreshCw size={9} className={isLoading ? 'animate-spin' : ''} />
+                  <RefreshCw size={10} className={isLoading ? 'animate-spin' : ''} />
                   <span>Senkronize Et</span>
                 </button>
                 <button
                   onClick={handleExportReviews}
                   disabled={isExporting}
-                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[9px] rounded-xl transition-all shadow-sm cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[10px] rounded-xl transition-all shadow-sm cursor-pointer"
                 >
-                  <Download size={9} className={isExporting ? 'animate-spin' : ''} />
+                  <Download size={10} className={isExporting ? 'animate-spin' : ''} />
                   <span>Dışa Aktar</span>
                 </button>
               </div>
+
             </div>
+
           </div>
+
         </div>
 
-        {/* KPI Kartları - Moved up immediately below Hero */}
+
+                {/* KPI Kartları - Moved up immediately below Hero */}
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           {[
             { title: 'Toplam Yorum', val: periodTotalReviews, colorBg: 'bg-blue-50 text-blue-600', icon: <MessageSquare size={16} /> },
