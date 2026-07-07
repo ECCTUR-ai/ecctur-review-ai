@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,9 @@ import {
   Calendar,
   CheckCircle2,
   Hourglass,
-  HelpCircle
+  HelpCircle,
+  X,
+  RefreshCw
 } from 'lucide-react';
 
 export default function Tasks() {
@@ -24,12 +26,21 @@ export default function Tasks() {
   const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
   const { hasPermission } = useAuth();
   const canManageTasks = hasPermission('manage:tasks');
+
+  // Filter States
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
   const [department, setDepartment] = useState('');
-  const [status, setStatus] = useState('');
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
-  // Fetch tasks with filters
+  // Resolution Modal States
+  const [resolvingTaskId, setResolvingTaskId] = useState<string | null>(null);
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [isSubmittingResolution, setIsSubmittingResolution] = useState(false);
+
+  // Fetch tasks with search and filters (excluding completed state filter from backend to fetch all and split in tabs)
   const {
     data: tasks,
     loading,
@@ -37,18 +48,54 @@ export default function Tasks() {
     refetch
   } = useFetch(() => taskService.getTasks({
     hotelId: currentHotelId || undefined,
-    status: status || undefined,
     priority: priority || undefined,
     department: department || undefined,
     search: search || undefined
-  }), [currentHotelId, status, priority, department, search]);
+  }), [currentHotelId, priority, department, search]);
+
+  // Frontend split for tabs
+  const activeTasksList = useMemo(() => {
+    if (!tasks) return [];
+    return tasks.filter(t => t.status !== 'completed');
+  }, [tasks]);
+
+  const completedTasksList = useMemo(() => {
+    if (!tasks) return [];
+    return tasks.filter(t => t.status === 'completed');
+  }, [tasks]);
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
+    if (newStatus === 'completed') {
+      setResolvingTaskId(id);
+      setResolutionNote('');
+      return;
+    }
     try {
       await taskService.updateTaskStatus(id, newStatus);
       refetch();
     } catch (e: any) {
-      alert(`Could not update task status: ${e.message}`);
+      alert(`Görev durumu güncellenemedi: ${e.message}`);
+    }
+  };
+
+  const handleSubmitResolution = async () => {
+    if (!resolvingTaskId || !resolutionNote.trim()) return;
+    setIsSubmittingResolution(true);
+    try {
+      const task = tasks?.find(t => t.id === resolvingTaskId);
+      if (!task) throw new Error('Görev bulunamadı.');
+
+      const cleanOrigDescription = task.description.split('\n\nÇözüm Notu: ')[0];
+      const newDesc = `${cleanOrigDescription}\n\nÇözüm Notu: ${resolutionNote.trim()}`;
+
+      await taskService.completeTask(resolvingTaskId, 'completed', newDesc);
+      setResolvingTaskId(null);
+      setResolutionNote('');
+      refetch();
+    } catch (e: any) {
+      alert(`Görev tamamlanırken hata oluştu: ${e.message}`);
+    } finally {
+      setIsSubmittingResolution(false);
     }
   };
 
@@ -80,18 +127,20 @@ export default function Tasks() {
     }
   };
 
+  const activeList = activeTab === 'active' ? activeTasksList : completedTasksList;
+
   return (
     <div className="space-y-6">
       {/* Title Header */}
       <div className="border-b border-slate-200 pb-6">
-        <h1 className="text-xl font-bold text-slate-100 m-0">{t('tasks.title')}</h1>
+        <h1 className="text-xl font-bold text-slate-100 m-0">Misafir İlişkileri Görev Takip Modülü</h1>
         <p className="text-xs text-slate-400 mt-1.5">
-          {t('tasks.subtitle')}
+          Misafir şikayet ve yorumlarına dayalı olarak oluşturulan düzeltici faaliyet ve görevlerin takibi.
         </p>
       </div>
 
       {/* Filter Bar */}
-      <div className="p-4 rounded-2xl glass-panel grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      <div className="p-4 rounded-2xl glass-panel grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-slate-900/20 border border-white/[0.05]">
         {/* Search */}
         <div className="relative">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -99,8 +148,8 @@ export default function Tasks() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('tasks.search')}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-500"
+            placeholder="Görev adı veya açıklama ile ara..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
 
@@ -109,13 +158,13 @@ export default function Tasks() {
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">All Priorities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="">Tüm Öncelikler</option>
+            <option value="low">Düşük</option>
+            <option value="medium">Orta</option>
+            <option value="high">Yüksek</option>
+            <option value="critical">Kritik</option>
           </select>
         </div>
 
@@ -124,114 +173,231 @@ export default function Tasks() {
           <select
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-700 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">All Departments</option>
-            <option value="Front Office">Front Office</option>
-            <option value="Housekeeping">Housekeeping</option>
-            <option value="Food & Beverage">Food & Beverage</option>
+            <option value="">Tüm Departmanlar</option>
+            <option value="Front Office">Ön Büro (Front Office)</option>
+            <option value="Housekeeping">Kat Hizmetleri (Housekeeping)</option>
+            <option value="Food & Beverage">Yiyecek & İçecek (F&B)</option>
             <option value="Spa & Wellness">Spa & Wellness</option>
-            <option value="Technical Service">Technical Service</option>
+            <option value="Technical Service">Teknik Servis (Technical Service)</option>
           </select>
         </div>
+      </div>
 
-        {/* Status */}
-        <div>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
-          >
-            <option value="">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In Progress</option>
-            <option value="waiting">Waiting</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
+      {/* Tabs Menu */}
+      <div className="flex border-b border-slate-800 gap-2 mb-6">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeTab === 'active' 
+              ? 'border-blue-500 text-blue-400' 
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Clock size={14} />
+          Aktif Görevler ({activeTasksList.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeTab === 'completed' 
+              ? 'border-blue-500 text-blue-400' 
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <CheckSquare size={14} />
+          Tamamlanan Görevler ({completedTasksList.length})
+        </button>
       </div>
 
       {/* Tasks Listing */}
       <div className="space-y-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-white/[0.01] border border-slate-200 animate-pulse" />
+            <div key={i} className="h-28 rounded-2xl bg-white/[0.01] border border-white/[0.05] animate-pulse" />
           ))
         ) : error ? (
           <div className="glass-panel p-6 rounded-2xl border-l-4 border-rose-500 text-rose-400 bg-rose-950/10 flex items-center gap-3">
             <AlertCircle size={20} />
             <span>{error}</span>
           </div>
-        ) : !tasks || tasks.length === 0 ? (
-          <div className="glass-panel rounded-2xl p-12 text-center space-y-4">
+        ) : activeList.length === 0 ? (
+          <div className="glass-panel rounded-2xl p-12 text-center space-y-4 border border-white/[0.05]">
             <CheckSquare className="mx-auto text-slate-600" size={40} />
-            <h3 className="text-sm font-semibold text-slate-400">{t('tasks.empty')}</h3>
+            <h3 className="text-sm font-semibold text-slate-400">
+              {activeTab === 'active' ? 'Aktif görev bulunmuyor' : 'Tamamlanan görev bulunmuyor'}
+            </h3>
             <p className="text-xs text-slate-500 max-w-[280px] mx-auto">
-              There are currently no internal action tasks logged.
+              {activeTab === 'active' 
+                ? 'Şu anda takip edilmesi gereken aktif bir aksiyon görevi bulunmamaktadır.'
+                : 'Tamamlanarak arşive taşınmış bir görev kaydı bulunmamaktadır.'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {tasks.map((task) => (
-              <div 
-                key={task.id} 
-                className="p-5 rounded-2xl border border-slate-200 bg-[#090b16] hover:bg-white/40 hover:border-slate-200 transition-all duration-300 flex flex-col md:flex-row justify-between gap-4"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <h3 className="text-sm font-semibold text-slate-200">{task.title}</h3>
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-semibold uppercase ${getPriorityBadgeClass(task.priority)}`}>
-                      {task.priority}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      Ref: #{task.reviewId.substring(0, 8)}
-                    </span>
+            {activeList.map((task) => {
+              // Parse resolution note if available
+              const descParts = task.description.split('\n\nÇözüm Notu: ');
+              const displayDescription = descParts[0];
+              const resolutionText = descParts[1] || '';
+
+              return (
+                <div 
+                  key={task.id} 
+                  className="p-5 rounded-2xl border border-white/[0.05] bg-slate-900/10 hover:bg-slate-900/20 hover:border-slate-800 transition-all duration-300 flex flex-col md:flex-row justify-between gap-4 card-glow"
+                >
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="text-sm font-semibold text-slate-200">{task.title}</h3>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase ${getPriorityBadgeClass(task.priority)}`}>
+                        {task.priority === 'low' ? 'Düşük' : task.priority === 'medium' ? 'Orta' : task.priority === 'high' ? 'Yüksek' : 'Kritik'}
+                      </span>
+                      {task.reviewId && (
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Ref Yorum: #{task.reviewId.substring(0, 8)}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {displayDescription}
+                    </p>
+
+                    {/* Resolution Note display (completed tab only) */}
+                    {activeTab === 'completed' && resolutionText && (
+                      <div className="mt-3 p-3.5 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/15 text-xs">
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold mb-1">
+                          <CheckCircle2 size={12} />
+                          <span>Çözüm Notu:</span>
+                        </div>
+                        <p className="text-slate-300 leading-relaxed italic">
+                          "{resolutionText}"
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-mono mt-1 pt-1.5 border-t border-white/[0.02]">
+                      <span className="flex items-center gap-1">
+                        <Building size={11} className="text-slate-600" />
+                        {task.department}
+                      </span>
+                      <span>&bull;</span>
+                      <span className="flex items-center gap-1">
+                        <User size={11} className="text-slate-600" />
+                        Atanan Kişi: {task.assignedTo || 'Atanmamış'}
+                      </span>
+                      <span>&bull;</span>
+                      <span className="flex items-center gap-1">
+                        <Calendar size={11} className="text-slate-600" />
+                        Termin Tarihi: {task.dueDate}
+                      </span>
+                    </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                    {task.description}
-                  </p>
+                  {/* Right side actions */}
+                  <div className="flex items-center gap-3 self-start md:self-center shrink-0">
+                    {activeTab === 'active' ? (
+                      <>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800">
+                          {getStatusIcon(task.status)}
+                          <select
+                            value={task.status}
+                            disabled={!canManageTasks}
+                            onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
+                            className="bg-transparent border-0 text-[10px] font-bold focus:outline-none text-slate-300 capitalize cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            <option value="open" className="bg-[#090b16]">Açık</option>
+                            <option value="in_progress" className="bg-[#090b16]">İşlemde</option>
+                            <option value="waiting" className="bg-[#090b16]">Beklemede</option>
+                            <option value="completed" className="bg-[#090b16]">Tamamlandı</option>
+                          </select>
+                        </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-mono mt-1">
-                    <span className="flex items-center gap-1">
-                      <Building size={11} className="text-slate-600" />
-                      {task.department}
-                    </span>
-                    <span>&bull;</span>
-                    <span className="flex items-center gap-1">
-                      <User size={11} className="text-slate-600" />
-                      Assigned to: {task.assignedTo || 'Unassigned'}
-                    </span>
-                    <span>&bull;</span>
-                    <span className="flex items-center gap-1">
-                      <Calendar size={11} className="text-slate-600" />
-                      Due Date: {task.dueDate}
-                    </span>
+                        {canManageTasks && (
+                          <button
+                            onClick={() => {
+                              setResolvingTaskId(task.id);
+                              setResolutionNote('');
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 transition-colors text-white font-semibold text-xs rounded-xl shadow-md cursor-pointer"
+                          >
+                            <CheckCircle2 size={13} />
+                            Tamamlandı
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase">
+                        <CheckCircle2 size={12} />
+                        Tamamlandı
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                {/* Inline Status Controller */}
-                <div className="flex items-center gap-3 self-start md:self-center shrink-0">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200">
-                    {getStatusIcon(task.status)}
-                    <select
-                      value={task.status}
-                      disabled={!canManageTasks}
-                      onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
-                      className="bg-transparent border-0 text-[10px] font-semibold focus:outline-none text-slate-300 capitalize cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <option value="open">Open</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="waiting">Waiting</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Resolution Modal */}
+      {resolvingTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-blue-500/20 bg-slate-900/95 relative card-glow text-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400" />
+                Görevi Tamamla & Çözüm Notu Gir
+              </h3>
+              <button 
+                onClick={() => { setResolvingTaskId(null); setResolutionNote(''); }}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-xs font-semibold text-slate-400 mb-1">Görev Başlığı:</h4>
+                <p className="text-xs text-slate-200 leading-relaxed bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                  {tasks?.find(t => t.id === resolvingTaskId)?.title}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Çözüm Açıklaması / Notu</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={resolutionNote}
+                  onChange={(e) => setResolutionNote(e.target.value)}
+                  placeholder="Misafirin şikayetinin nasıl çözüldüğünü ve alınan önlemleri detaylıca buraya yazın..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-200 placeholder:text-slate-500 resize-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/60">
+                <button
+                  onClick={() => { setResolvingTaskId(null); setResolutionNote(''); }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={handleSubmitResolution}
+                  disabled={isSubmittingResolution || !resolutionNote.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingResolution && <RefreshCw size={12} className="animate-spin" />}
+                  Görevi Tamamla
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

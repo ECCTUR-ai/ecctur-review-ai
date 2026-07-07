@@ -55,6 +55,24 @@ export const taskService = {
     return updatedTask;
   },
 
+  async completeTask(id: string, status: string, description: string): Promise<Task> {
+    const updatedTask = await taskRepository.completeTask(id, status, description);
+
+    try {
+      const { notificationService } = await import('./notificationService');
+      await notificationService.createNotification({
+        type: 'task_completed',
+        title: 'Task Completed',
+        message: `Task "${updatedTask.title}" has been completed by ${updatedTask.assignedTo || 'staff'}.`,
+        hotelId: updatedTask.hotelId
+      });
+    } catch (e) {
+      console.warn('Realtime notification trigger failed:', e);
+    }
+
+    return updatedTask;
+  },
+
   async getDashboardTasks(hotelId?: string): Promise<{ openTasks: Task[]; overdueTasks: Task[] }> {
     return await taskRepository.getDashboardTasks(hotelId);
   }

@@ -108,6 +108,18 @@ export const taskRepository = {
     return mapTaskRecord(data);
   },
 
+  async completeTask(id: string, status: string, description: string): Promise<Task> {
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({ status, description })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    return mapTaskRecord(data);
+  },
+
   async getDashboardTasks(hotelId?: string): Promise<{ openTasks: Task[]; overdueTasks: Task[] }> {
     if (!hotelId) {
       console.warn('[taskRepository] Warning: getDashboardTasks called without hotelId parameter. Enforcing tenant isolation.');
