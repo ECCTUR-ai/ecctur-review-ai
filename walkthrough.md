@@ -98,14 +98,15 @@ Her iki ekran da doğrudan Supabase üzerindeki **`reviews`** tablosunu temel al
 Dashboard üst Hero bölümü dikeydeki gereksiz boşluklar ve karmaşa kaldırılarak toplam yüksekliği **%50 oranında daraltılmış** ve ReviewPro/Stripe seviyesinde temiz bir arayüze kavuşturulmuştur:
 
 ### 1. Üst Bar (Tek Satır)
-- **Sol Taraf**: Otel adı (`🏨 Jura Hotels Ada Beach`), ortalama puan (`★★★★★ 4.62 / 5`), toplam yorum sayısı ve en son başarılı senkronizasyon zamanı yan yana sade bir metadata şeridi olarak listelenmiştir.
+- **Sol Taraf**: Otel adı (`🏨 Jura Hotels Ada Beach`), ortalama puan (`★★★★★ 4.62 / 5`) ve en son başarılı senkronizasyon zamanı yan yana sade bir metadata şeridi olarak listelenmiştir. Bilgi tekrarını önlemek için "Yorum Sayısı" bu bölümden kaldırılmış, yalnızca aşağıdaki KPI kartlarında gösterilmektedir.
 - **Sağ Taraf**: Herhangi bir "Tarih Filtresi" başlığı barındırmayan, sade ve şık zaman filtresi hap butonları (Bugün, 7 Gün, 30 Gün, vb.) yer almaktadır.
 
 ### 2. İkinci Satır
-- **Platform Özet Bölümü (Sol - %55)**: Platform bazlı detaylı sync kutuları yerine inline rozet tasarımı (Google: 21 yorum 🟢, Booking: 20 yorum 🟢, vb.) getirilmiştir. Karmaşık detaylar (yeni, mükerrer, sync tarihleri) kaldırılarak sadece en kritik bilgi gösterilmektedir.
+- **Platform Özet Bölümü (Sol - %55)**: Platform bazlı detaylı sync kutuları ve yorum sayıları kaldırılarak sadece platform ismi ve durumu (🟢 / 🟡 / 🔴) gösteren inline rozet tasarımı getirilmiştir. Rozetlerin üzerine gelindiğinde (hover) durum, yeni yorum, mükerrer yorum ve son senkronizasyon tarihi gibi detaylı platform verileri premium bir tooltip içinde gösterilmektedir.
 - **AI Summary Bölümü (Sağ-Orta - %30)**: Maksimum 90px yükseklikte, puan trendi, kritik yorumlar ve en çok şikayet alanlarını 3 kısa madde halinde listeleyen kompakt bir AI Özet kartı yer almaktadır.
-- **Aksiyon Butonları (Sağ-Uç - %15)**: Karmaşık Google/Booking Sync butonları kaldırılarak sadece "🟣 Tüm Platformları Senkronize Et" ve "⬇️ Export" butonları yan yana konumlandırılmıştır.
+- **Aksiyon Butonları (Sağ-Uç - %15)**: Sadece "🟣 Tüm Platformları Senkronize Et" ve "⬇️ Export" aksiyon butonları yan yana konumlandırılmıştır.
 
 ### 3. Bilgi Çiftlemesinin Önlenmesi & KPI Kartları
+- Son Senkronizasyon alanı "Bekliyor" yerine eğer başarılı bir sync varsa son başarılı senkronizasyonun tarihini ve saatini gösterecek şekilde güncellenmiştir.
 - Hero alanında önceden yer alan mükerrer KPI verileri (Yorum, Puan, Bekleyen sayıları) tamamen temizlenmiştir.
 - Dashboard ana **KPI Kartları** tek bir yerde, Hero alanının hemen altında görsel olarak daha belirgin şekilde listelenmektedir. Bu sayede bilgi karmaşası engellenmiş ve odaklanma kolaylaştırılmıştır.

@@ -1038,14 +1038,9 @@ export default function Dashboard() {
                 <span className="text-slate-800 font-extrabold">{periodAvgRating} / 5</span>
               </div>
               <div className="h-4 w-px bg-slate-200/60 hidden sm:block"></div>
-              <div className="flex items-center gap-1">
-                <MessageSquare size={12} className="text-slate-400" />
-                <span className="text-slate-800 font-extrabold">{periodTotalReviews} Yorum</span>
-              </div>
-              <div className="h-4 w-px bg-slate-200/60 hidden sm:block"></div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-455">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-450">
                 <Clock size={11} />
-                <span>Son Sync: <span className="font-extrabold text-slate-500">{lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Bekliyor'}</span></span>
+                <span>Son Sync: <span className="font-extrabold text-slate-500">{lastSyncTimeVal ? new Date(lastSyncTimeVal).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Bekliyor'}</span></span>
               </div>
             </div>
 
@@ -1091,15 +1086,22 @@ export default function Dashboard() {
                 const isOnline = health.status === 'active';
                 const hasReviews = p.count > 0;
                 
+                let statusColor = 'bg-slate-350';
+                if (hasReviews) {
+                  if (isOnline) statusColor = 'bg-emerald-500';
+                  else if (health.status === 'error') statusColor = 'bg-rose-500';
+                }
+                
+                const tooltipText = `Durum: ${health.status === 'active' ? 'Aktif' : health.status === 'error' ? 'Sorun Var' : 'Bekliyor'}\nYeni Yorum: ${health.newCount}\nMükerrer: ${health.dupCount}\nSon Sync: ${health.lastSync}`;
+                
                 return (
                   <div 
                     key={p.name}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full text-[10.5px] font-semibold text-slate-700 shadow-sm"
+                    title={tooltipText}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-100 hover:border-slate-200 rounded-full text-[10.5px] font-semibold text-slate-700 shadow-sm cursor-help transition-all duration-150"
                   >
                     <span className="font-extrabold text-slate-900">{p.name === 'Booking.com' ? 'Booking' : p.name}</span>
-                    <span className="w-1 h-3 bg-slate-200/85"></span>
-                    <span className="text-slate-500 font-bold">{p.count} yorum</span>
-                    <span className={`w-1.5 h-1.5 rounded-full ${hasReviews ? (isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500') : 'bg-slate-300'}`}></span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`}></span>
                   </div>
                 );
               })}
@@ -1129,7 +1131,7 @@ export default function Dashboard() {
               <div className="sm:col-span-5 flex flex-col gap-1.5 shrink-0">
                 <button
                   onClick={() => window.location.href = '/reviews?triggerSync=true'}
-                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-[10px] rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer animate-none"
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-extrabold text-[10px] rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer"
                 >
                   <RefreshCw size={10} className={isLoading ? 'animate-spin' : ''} />
                   <span>Senkronize Et</span>
@@ -1148,10 +1150,7 @@ export default function Dashboard() {
 
           </div>
 
-        </div>
-
-
-                {/* KPI Kartları - Moved up immediately below Hero */}
+        </div>\n\n                {/* KPI Kartları - Moved up immediately below Hero */}
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           {[
             { title: 'Toplam Yorum', val: periodTotalReviews, colorBg: 'bg-blue-50 text-blue-600', icon: <MessageSquare size={16} /> },
