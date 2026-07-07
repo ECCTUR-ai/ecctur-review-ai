@@ -141,7 +141,7 @@ export default function Dashboard() {
   const handleSyncAllPlatforms = async () => {
     if (!queriedHotelId) return;
     setIsSyncingAll(true);
-    setToastMessage('Senkronizasyon başlatıldı...');
+    setToastMessage(t('dashboard.sync.toastStarted'));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -160,16 +160,68 @@ export default function Dashboard() {
         throw new Error('Sync endpoint response error');
       }
 
-      setToastMessage('Senkronizasyon başarıyla tamamlandı.');
+      setToastMessage(t('dashboard.sync.toastCompleted'));
       refetchDashboard();
       refetchTasks();
     } catch (e: any) {
       console.error(e);
-      setToastMessage('Hata: Senkronizasyon başarısız oldu.');
+      setToastMessage(t('dashboard.sync.toastFailed'));
     } finally {
       setIsSyncingAll(false);
       setTimeout(() => setToastMessage(null), 3000);
     }
+  };
+
+  // Conversions & formatting helpers
+  const formatNumberTurkish = (num: number, fractionDigits = 0) => {
+    return num.toLocaleString('tr-TR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+  };
+
+  const formatLongDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatRelativeTimeTurkish = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const diff = Date.now() - d.getTime();
+      const mins = Math.floor(diff / (1000 * 60));
+      if (mins < 1) return 'şimdi';
+      if (mins < 65) return `${mins} dakika önce`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs} saat önce`;
+      const days = Math.floor(hrs / 24);
+      if (days === 1) return 'Dün';
+      if (days < 7) return `${days} gün önce`;
+      return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getTranslatedDepartment = (name: string) => {
+    const norm = (name || '').toLowerCase();
+    if (norm === 'housekeeping') return 'Kat Hizmetleri (Housekeeping)';
+    if (norm === 'front office' || norm === 'ön büro') return 'Ön Büro';
+    if (norm === 'restaurant' || norm === 'restoran') return 'Restoran';
+    if (norm === 'technical service' || norm === 'teknik servis') return 'Teknik Servis';
+    if (norm === 'guest relations' || norm === 'misafir ilişkileri') return 'Misafir İlişkileri';
+    if (norm === 'spa' || norm === 'spa & havuz') return 'Spa & Havuz';
+    if (norm === 'animation' || norm === 'animasyon') return 'Animasyon';
+    if (norm === 'security' || norm === 'güvenlik') return 'Güvenlik';
+    if (norm === 'maintenance' || norm === 'bakım') return 'Bakım';
+    if (norm === 'accounting' || norm === 'muhasebe') return 'Muhasebe';
+    if (norm === 'sales' || norm === 'satış') return 'Satış';
+    return name;
   };
 
   // KPI metrics Calculations
@@ -274,17 +326,17 @@ export default function Dashboard() {
   // Department performance details calculator
   const departmentPerformanceData = useMemo(() => {
     const depts = [
-      { key: 'housekeeping', label: 'Housekeeping', seed: 92 },
+      { key: 'housekeeping', label: 'Kat Hizmetleri (Housekeeping)', seed: 92 },
       { key: 'front_office', label: 'Ön Büro', seed: 81 },
-      { key: 'restaurant', label: 'Restaurant', seed: 68 },
-      { key: 'technical', label: 'Technical Service', seed: 96 },
-      { key: 'relations', label: 'Guest Relations', seed: 89 },
-      { key: 'spa', label: 'Spa', seed: 72 },
-      { key: 'animation', label: 'Animation', seed: 85 },
-      { key: 'security', label: 'Security', seed: 90 },
-      { key: 'maintenance', label: 'Maintenance', seed: 88 },
-      { key: 'accounting', label: 'Accounting', seed: 95 },
-      { key: 'sales', label: 'Sales', seed: 84 }
+      { key: 'restaurant', label: 'Restoran', seed: 68 },
+      { key: 'technical', label: 'Teknik Servis', seed: 96 },
+      { key: 'relations', label: 'Misafir İlişkileri', seed: 89 },
+      { key: 'spa', label: 'Spa & Havuz', seed: 72 },
+      { key: 'animation', label: 'Animasyon', seed: 85 },
+      { key: 'security', label: 'Güvenlik', seed: 90 },
+      { key: 'maintenance', label: 'Bakım', seed: 88 },
+      { key: 'accounting', label: 'Muhasebe', seed: 95 },
+      { key: 'sales', label: 'Satış', seed: 84 }
     ];
 
     const keywords: Record<string, string[]> = {
@@ -333,56 +385,56 @@ export default function Dashboard() {
     return [
       {
         icon: '📈',
-        title: 'Restaurant complaints increased 18%',
+        title: 'Restoran Şikayetlerinde Artış',
         desc: 'Yemek kalitesi, servis hızı ve restoran hijyeni konularında şikayetlerde artış var.',
         priority: 'high',
-        priorityLabel: 'Yüksek Risk',
+        priorityLabel: t('dashboard.riskCenter.high'),
         color: 'text-rose-700 bg-rose-50 border-rose-200'
       },
       {
         icon: '✨',
-        title: 'Housekeeping performance improved',
+        title: 'Kat Hizmetleri Performans Artışı',
         desc: 'Oda düzeni ve çarşaf temizliği konularında memnuniyet puanları olumlu yönde gelişiyor.',
         priority: 'low',
-        priorityLabel: 'Gelişme',
+        priorityLabel: t('dashboard.actions.lowBadge'),
         color: 'text-emerald-700 bg-emerald-50 border-emerald-200'
       },
       {
         icon: '⏳',
-        title: 'Reception waiting time increased',
+        title: 'Resepsiyon Bekleme Süresi Şikayetleri',
         desc: 'Resepsiyonda check-in ve check-out sırasında yavaşlık şikayetleri bekleme süresini artırdı.',
         priority: 'medium',
-        priorityLabel: 'Orta Öncelik',
+        priorityLabel: t('dashboard.actions.mediumBadge'),
         color: 'text-amber-700 bg-amber-50 border-amber-200'
       },
       {
         icon: '🍳',
-        title: 'Breakfast quality decreased',
+        title: 'Kahvaltı Kalitesi Düşüşü',
         desc: 'Açık büfe kahvaltı çeşitliliği ve sıcak ürünlerin sunumu memnuniyet seviyesinde düşüşe sebep oldu.',
         priority: 'high',
-        priorityLabel: 'Kritik',
+        priorityLabel: t('dashboard.actions.highBadge'),
         color: 'text-rose-700 bg-rose-50 border-rose-200'
       },
       {
         icon: '🎉',
-        title: 'Animation satisfaction increased',
+        title: 'Eğlence Memnuniyet Artışı',
         desc: 'Mini club aktiviteleri ve akşam şovları memnuniyeti geçen haftaya göre olumlu yönde yükseldi.',
         priority: 'info',
-        priorityLabel: 'Bilgi',
+        priorityLabel: t('dashboard.sync.waiting'),
         color: 'text-blue-700 bg-blue-50 border-blue-200'
       }
     ];
-  }, []);
+  }, [t]);
 
   // Donut chart status mapping
   const pieData = useMemo(() => {
     return [
-      { name: 'Açık', value: taskStats.open, color: '#f59e0b', percent: taskStats.total > 0 ? Math.round((taskStats.open / taskStats.total) * 100) : 0 },
-      { name: 'Devam Ediyor', value: taskStats.inProgress, color: '#3b82f6', percent: taskStats.total > 0 ? Math.round((taskStats.inProgress / taskStats.total) * 100) : 0 },
-      { name: 'Beklemede', value: taskStats.waiting, color: '#a78bfa', percent: taskStats.total > 0 ? Math.round((taskStats.waiting / taskStats.total) * 100) : 0 },
-      { name: 'Tamamlandı', value: taskStats.completed, color: '#10b981', percent: taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0 }
+      { name: t('dashboard.taskState.open'), value: taskStats.open, color: '#f59e0b', percent: taskStats.total > 0 ? Math.round((taskStats.open / taskStats.total) * 100) : 0 },
+      { name: t('dashboard.taskState.inProgress'), value: taskStats.inProgress, color: '#3b82f6', percent: taskStats.total > 0 ? Math.round((taskStats.inProgress / taskStats.total) * 100) : 0 },
+      { name: t('dashboard.taskState.waiting'), value: taskStats.waiting, color: '#a78bfa', percent: taskStats.total > 0 ? Math.round((taskStats.waiting / taskStats.total) * 100) : 0 },
+      { name: t('dashboard.taskState.completed'), value: taskStats.completed, color: '#10b981', percent: taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0 }
     ].filter(d => d.value > 0);
-  }, [taskStats]);
+  }, [taskStats, t]);
 
   // Satisfaction Trend over days
   const satisfactionTrendData = useMemo(() => {
@@ -399,7 +451,7 @@ export default function Dashboard() {
       });
       const avg = matching.length > 0 
         ? Math.round((matching.reduce((sum, r) => sum + r.rating, 0) / matching.length) * 20)
-        : 90 + Math.floor(Math.random() * 5) - 2; // Realistic trend points
+        : 90 + Math.floor(Math.random() * 5) - 2;
 
       return {
         date: new Date(date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
@@ -428,9 +480,9 @@ export default function Dashboard() {
 
       return {
         name: pName,
-        rating: avg,
+        rating: formatNumberTurkish(avg, 1),
         logo: renderPlatformLogo(pName),
-        change: '+0.2'
+        change: '+0,2'
       };
     });
   }, [filteredReviewsForStats]);
@@ -438,20 +490,20 @@ export default function Dashboard() {
   // AI Risk Center calculation
   const aiRiskCenterData = useMemo(() => {
     return [
-      { dept: 'Restaurant', count: 18, risk: 'High Risk', riskClass: 'bg-red-50 text-red-700 border-red-200', icon: '🍔' },
-      { dept: 'Spa', count: 11, risk: 'Medium Risk', riskClass: 'bg-orange-50 text-orange-700 border-orange-200', icon: '🏊' },
-      { dept: 'Technical', count: 6, risk: 'Low Risk', riskClass: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: '🧹' }
+      { dept: 'Restoran', count: 18, risk: t('dashboard.riskCenter.high'), riskClass: 'bg-red-50 text-red-700 border-red-200', icon: '🍔' },
+      { dept: 'Havuz & Spa', count: 11, risk: t('dashboard.riskCenter.medium'), riskClass: 'bg-orange-50 text-orange-700 border-orange-200', icon: '🏊' },
+      { dept: 'Teknik Servis', count: 6, risk: t('dashboard.riskCenter.low'), riskClass: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: '🧹' }
     ];
-  }, []);
+  }, [t]);
 
   // Competitor analysis seed rating
   const competitorsData = useMemo(() => {
     return [
-      { name: 'Siz (Juju Premier Palace)', rating: avgRating > 0 ? avgRating * 2 : 8.7, isSelf: true, change: '+0.2' },
-      { name: 'Competitor A', rating: 9.1, isSelf: false, change: '+0.1' },
-      { name: 'Competitor B', rating: 8.9, isSelf: false, change: '-0.1' },
-      { name: 'Competitor C', rating: 8.5, isSelf: false, change: '+0.3' },
-      { name: 'Competitor D', rating: 8.2, isSelf: false, change: '-0.2' }
+      { name: 'Siz (Juju Premier Palace)', rating: avgRating > 0 ? avgRating * 2 : 8.7, isSelf: true, change: '+0,2' },
+      { name: 'Competitor A', rating: 9.1, isSelf: false, change: '+0,1' },
+      { name: 'Competitor B', rating: 8.9, isSelf: false, change: '-0,1' },
+      { name: 'Competitor C', rating: 8.5, isSelf: false, change: '+0,3' },
+      { name: 'Competitor D', rating: 8.2, isSelf: false, change: '-0,2' }
     ];
   }, [avgRating]);
 
@@ -514,23 +566,6 @@ export default function Dashboard() {
     return <span className="text-[12px] shrink-0">🌐</span>;
   }
 
-  function formatRelativeTime(dateStr?: string) {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      const diff = Date.now() - d.getTime();
-      const mins = Math.floor(diff / (1000 * 60));
-      if (mins < 60) return `${mins} dk önce`;
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return `${hrs} saat önce`;
-      const days = Math.floor(hrs / 24);
-      return `${days} gün önce`;
-    } catch {
-      return dateStr;
-    }
-  }
-
   if (hasNoAssignedHotels) {
     return (
       <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
@@ -552,14 +587,14 @@ export default function Dashboard() {
       {/* Title Header */}
       <div className="border-b border-slate-200 pb-6 flex justify-between items-center flex-wrap gap-4">
         <div className="space-y-1">
-          <h1 className="text-xl font-bold text-slate-850 m-0">Kontrol Paneli</h1>
-          <p className="text-xs text-slate-550">Otelinizin operasyonel durumu, yapay zeka analizleri ve performans raporları.</p>
+          <h1 className="text-xl font-bold text-slate-850 m-0">{t('dashboard.title')}</h1>
+          <p className="text-xs text-slate-550">{t('dashboard.subtitle')}</p>
         </div>
         
         {/* API Connection status */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-55 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-700 border border-emerald-200">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          API Connected
+          {t('dashboard.apiConnectedLabel')}
         </div>
       </div>
 
@@ -568,15 +603,15 @@ export default function Dashboard() {
         {/* 1. Satisfaction Score */}
         <div className="bg-white border border-slate-200 p-4 rounded-[20px] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[125px]">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Guest Satisfaction Score</span>
+            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">{t('dashboard.kpi.satisfactionScore')}</span>
             <span className="text-emerald-600 text-[10px] font-bold flex items-center gap-0.5">▲ +3</span>
           </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <h2 className="text-2xl font-black text-slate-900 leading-none">{guestSatisfactionScore}</h2>
+            <h2 className="text-2xl font-black text-slate-900 leading-none">{formatNumberTurkish(guestSatisfactionScore)}</h2>
             <span className="text-[10px] text-slate-400 font-bold">/100</span>
           </div>
           <div className="flex justify-between items-center mt-2 border-t border-slate-100 pt-2 text-[9px] text-slate-400">
-            <span>Geçen haftaya göre</span>
+            <span>{t('dashboard.kpi.lastWeek')}</span>
             {renderSparkline(getSatisfactionSparklinePoints, '#10b981')}
           </div>
         </div>
@@ -584,14 +619,14 @@ export default function Dashboard() {
         {/* 2. Total Reviews */}
         <div className="bg-white border border-slate-200 p-4 rounded-[20px] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[125px]">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Total Reviews</span>
+            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">{t('dashboard.kpi.totalReviews')}</span>
             <span className="text-emerald-600 text-[10px] font-bold flex items-center gap-0.5">▲ +18%</span>
           </div>
           <div className="mt-1">
-            <h2 className="text-2xl font-black text-slate-900 leading-none">{totalReviews.toLocaleString('tr-TR')}</h2>
+            <h2 className="text-2xl font-black text-slate-900 leading-none">{formatNumberTurkish(totalReviews)}</h2>
           </div>
           <div className="flex justify-between items-center mt-2 border-t border-slate-100 pt-2 text-[9px] text-slate-400">
-            <span>Son 30 gün</span>
+            <span>{t('dashboard.kpi.last30Days')}</span>
             {renderSparkline(getReviewsSparklinePoints, '#2563eb')}
           </div>
         </div>
@@ -599,15 +634,15 @@ export default function Dashboard() {
         {/* 3. Average Rating */}
         <div className="bg-white border border-slate-200 p-4 rounded-[20px] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[125px]">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Average Rating</span>
-            <span className="text-amber-600 text-[10px] font-bold flex items-center gap-0.5">★ 4.3</span>
+            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">{t('dashboard.kpi.averageRating')}</span>
+            <span className="text-amber-600 text-[10px] font-bold flex items-center gap-0.5">★ 4,3</span>
           </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <h2 className="text-2xl font-black text-slate-900 leading-none">{avgRating}</h2>
+            <h2 className="text-2xl font-black text-slate-900 leading-none">{formatNumberTurkish(avgRating, 1)}</h2>
             <span className="text-[10px] text-slate-400 font-bold">/5</span>
           </div>
           <div className="flex justify-between items-center mt-2 border-t border-slate-100 pt-2 text-[9px] text-slate-400">
-            <span>Tüm platformlar</span>
+            <span>{t('dashboard.kpi.allPlatforms')}</span>
             {renderSparkline(getRatingSparklinePoints, '#f59e0b')}
           </div>
         </div>
@@ -615,14 +650,14 @@ export default function Dashboard() {
         {/* 4. Open Tasks */}
         <div className="bg-white border border-slate-200 p-4 rounded-[20px] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[125px]">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Open Tasks</span>
-            <span className="text-rose-500 text-[10px] font-bold">🚨 {activeTasksCount} Aktif</span>
+            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">{t('dashboard.kpi.openTasks')}</span>
+            <span className="text-rose-500 text-[10px] font-bold">🚨 {formatNumberTurkish(activeTasksCount)} {t('dashboard.sync.active')}</span>
           </div>
           <div className="mt-1">
-            <h2 className="text-2xl font-black text-slate-900 leading-none">{activeTasksCount}</h2>
+            <h2 className="text-2xl font-black text-slate-900 leading-none">{formatNumberTurkish(activeTasksCount)}</h2>
           </div>
           <div className="flex justify-between items-center mt-2 border-t border-slate-100 pt-2 text-[9px] text-slate-400">
-            <span>Aksiyon bekleyen</span>
+            <span>{t('dashboard.kpi.pendingActions')}</span>
             <span className="text-[10px]">📋</span>
           </div>
         </div>
@@ -630,14 +665,14 @@ export default function Dashboard() {
         {/* 5. Response Rate */}
         <div className="bg-white border border-slate-200 p-4 rounded-[20px] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[125px]">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Response Rate</span>
+            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">{t('dashboard.kpi.responseRate')}</span>
             <span className="text-emerald-500 text-[10px] font-bold">▲ +6%</span>
           </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <h2 className="text-2xl font-black text-slate-900 leading-none">{aiResponseRate}%</h2>
+            <h2 className="text-2xl font-black text-slate-900 leading-none">{formatNumberTurkish(aiResponseRate)}%</h2>
           </div>
           <div className="flex justify-between items-center mt-2 border-t border-slate-100 pt-2 text-[9px] text-slate-400">
-            <span>Tüm yorumlarda</span>
+            <span>{t('dashboard.kpi.allReviews')}</span>
             <span className="text-[10px]">✉️</span>
           </div>
         </div>
@@ -645,14 +680,14 @@ export default function Dashboard() {
         {/* 6. AI Draft Replies */}
         <div className="bg-white border border-slate-200 p-4 rounded-[20px] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[125px]">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">AI Draft Replies</span>
-            <span className="text-indigo-500 text-[10px] font-bold">✨ Taslak</span>
+            <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">{t('dashboard.kpi.aiDraftReplies')}</span>
+            <span className="text-indigo-500 text-[10px] font-bold">✨ {t('dashboard.taskState.deferred')}</span>
           </div>
           <div className="mt-1">
-            <h2 className="text-2xl font-black text-slate-900 leading-none">{draftReviews}</h2>
+            <h2 className="text-2xl font-black text-slate-900 leading-none">{formatNumberTurkish(draftReviews)}</h2>
           </div>
           <div className="flex justify-between items-center mt-2 border-t border-slate-100 pt-2 text-[9px] text-slate-400">
-            <span>Onay bekleyen</span>
+            <span>{t('dashboard.kpi.waitingApproval')}</span>
             <span className="text-[10px]">🪄</span>
           </div>
         </div>
@@ -665,11 +700,11 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="text-rose-500">🔥</span> Bugün Acil Aksiyonlar
+                <span className="text-rose-500">🔥</span> {t('dashboard.actions.title')}
               </h3>
               {criticalTasks.length > 0 && (
                 <span className="px-2.5 py-0.5 bg-rose-50 border border-rose-200 rounded-full text-[9px] font-black text-rose-700">
-                  {criticalTasks.length} Kritik
+                  {criticalTasks.length} {t('dashboard.actions.criticalBadge')}
                 </span>
               )}
             </div>
@@ -681,7 +716,7 @@ export default function Dashboard() {
                 ))
               ) : criticalTasks.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 text-xs font-semibold">
-                  Bugün çözüm bekleyen yüksek öncelikli veya kritik görev bulunmuyor. 🎉
+                  {t('dashboard.actions.empty')}
                 </div>
               ) : (
                 criticalTasks.map(task => {
@@ -701,9 +736,9 @@ export default function Dashboard() {
                               ? 'bg-red-50 text-red-700 border-red-200' 
                               : 'bg-orange-50 text-orange-700 border-orange-200'
                           }`}>
-                            {task.priority === 'critical' ? 'Kritik' : 'Yüksek'}
+                            {task.priority === 'critical' ? t('dashboard.actions.criticalBadge') : t('dashboard.actions.highBadge')}
                           </span>
-                          <span className="text-xs font-bold text-slate-850 truncate block max-w-[280px]" title={task.title}>
+                          <span className="text-xs font-bold text-slate-855 truncate block max-w-[280px]" title={task.title}>
                             {task.title}
                           </span>
                           {stars && (
@@ -713,13 +748,13 @@ export default function Dashboard() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold">
-                          <span>{task.department}</span>
+                          <span>{getTranslatedDepartment(task.department)}</span>
                           <span>&bull;</span>
                           <span>{task.sourcePlatform || 'Google'}</span>
                         </div>
                       </div>
                       <span className="text-[9px] text-slate-450 font-bold shrink-0">
-                        🕒 {formatRelativeTime(task.createdAt)}
+                        🕒 {formatRelativeTimeTurkish(task.createdAt)}
                       </span>
                     </div>
                   );
@@ -731,7 +766,7 @@ export default function Dashboard() {
             onClick={() => navigate('/tasks')}
             className="w-full mt-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
           >
-            Tüm görevlere git &rarr;
+            {t('dashboard.actions.viewAll')} &rarr;
           </button>
         </div>
 
@@ -739,18 +774,18 @@ export default function Dashboard() {
         <div className="bg-white border border-slate-200 p-6 rounded-[20px] shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <span>📊</span> Departman Performansı
+              <span>📊</span> {t('dashboard.performance.title')}
             </h3>
-            <span className="text-[9.5px] text-slate-450 font-bold">Son 30 Gün</span>
+            <span className="text-[9.5px] text-slate-450 font-bold">{t('dashboard.performance.period')}</span>
           </div>
 
           <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
             {departmentPerformanceData.map(dept => (
               <div key={dept.name} className="space-y-1">
                 <div className="flex justify-between text-[11px] font-bold text-slate-700">
-                  <span>{dept.name}</span>
+                  <span>{getTranslatedDepartment(dept.name)}</span>
                   <div className="flex items-center gap-1.5 font-extrabold">
-                    <span>{dept.percentage}%</span>
+                    <span>{formatNumberTurkish(dept.percentage)}%</span>
                     <span className={dept.trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}>
                       {dept.trend === 'up' ? '▲' : '▼'}
                     </span>
@@ -774,10 +809,10 @@ export default function Dashboard() {
         <div className="bg-white border border-slate-200 p-6 rounded-[20px] shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <span>🧠</span> AI Operasyon Özeti
+              <span>🧠</span> {t('dashboard.summary.title')}
             </h3>
-            <span className="text-[9.5px] text-indigo-600 font-bold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Yapay Zeka
+            <span className="text-[9.5px] text-indigo-650 font-bold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              {t('dashboard.summary.badge')}
             </span>
           </div>
 
@@ -808,32 +843,32 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span>📋</span> Görev Durumu
+                <span>📋</span> {t('dashboard.taskState.title')}
               </h3>
-              <span className="text-[9.5px] text-slate-450 font-bold">Dağılım</span>
+              <span className="text-[9.5px] text-slate-450 font-bold">{t('dashboard.taskState.distribution')}</span>
             </div>
 
             {/* Metric widgets inside Görev Durumu */}
             <div className="grid grid-cols-5 gap-2 text-center mb-6">
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150">
-                <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Toplam</span>
-                <span className="text-base font-black text-slate-850 block mt-0.5">{taskStats.total}</span>
+                <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">{t('dashboard.taskState.total')}</span>
+                <span className="text-base font-black text-slate-855 block mt-0.5">{formatNumberTurkish(taskStats.total)}</span>
               </div>
               <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-150">
-                <span className="text-[9px] text-amber-600 font-bold block uppercase tracking-wider">Açık</span>
-                <span className="text-base font-black text-amber-700 block mt-0.5">{taskStats.open}</span>
+                <span className="text-[9px] text-amber-600 font-bold block uppercase tracking-wider">{t('dashboard.taskState.open')}</span>
+                <span className="text-base font-black text-amber-700 block mt-0.5">{formatNumberTurkish(taskStats.open)}</span>
               </div>
               <div className="bg-blue-50 p-2.5 rounded-xl border border-blue-150">
-                <span className="text-[9px] text-blue-600 font-bold block uppercase tracking-wider">İlerleme</span>
-                <span className="text-base font-black text-blue-700 block mt-0.5">{taskStats.inProgress}</span>
+                <span className="text-[9px] text-blue-600 font-bold block uppercase tracking-wider">{t('dashboard.taskState.inProgress')}</span>
+                <span className="text-base font-black text-blue-700 block mt-0.5">{formatNumberTurkish(taskStats.inProgress)}</span>
               </div>
               <div className="bg-violet-50 p-2.5 rounded-xl border border-violet-150">
-                <span className="text-[9px] text-violet-600 font-bold block uppercase tracking-wider">Ertele</span>
-                <span className="text-base font-black text-violet-700 block mt-0.5">{taskStats.waiting}</span>
+                <span className="text-[9px] text-violet-600 font-bold block uppercase tracking-wider">{t('dashboard.taskState.waiting')}</span>
+                <span className="text-base font-black text-violet-700 block mt-0.5">{formatNumberTurkish(taskStats.waiting)}</span>
               </div>
               <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-150">
-                <span className="text-[9px] text-emerald-600 font-bold block uppercase tracking-wider">Bitti</span>
-                <span className="text-base font-black text-emerald-700 block mt-0.5">{taskStats.completed}</span>
+                <span className="text-[9px] text-emerald-600 font-bold block uppercase tracking-wider">{t('dashboard.taskState.completed')}</span>
+                <span className="text-base font-black text-emerald-700 block mt-0.5">{formatNumberTurkish(taskStats.completed)}</span>
               </div>
             </div>
 
@@ -858,8 +893,8 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-black text-slate-855 leading-none">{taskStats.total}</span>
-                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-1">Görev</span>
+                  <span className="text-xl font-black text-slate-855 leading-none">{formatNumberTurkish(taskStats.total)}</span>
+                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-1">{t('dashboard.taskState.label')}</span>
                 </div>
               </div>
 
@@ -871,7 +906,7 @@ export default function Dashboard() {
                       {entry.name}
                     </span>
                     <span className="font-bold text-slate-800">
-                      {entry.value} adet <span className="text-slate-400 font-normal">({entry.percent}%)</span>
+                      {formatNumberTurkish(entry.value)} {t('dashboard.taskState.unit')} <span className="text-slate-400 font-normal">({formatNumberTurkish(entry.percent)}%)</span>
                     </span>
                   </div>
                 ))}
@@ -883,7 +918,7 @@ export default function Dashboard() {
             onClick={() => navigate('/tasks')}
             className="w-full mt-6 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
           >
-            Görevlere git &rarr;
+            {t('dashboard.taskState.button')} &rarr;
           </button>
         </div>
       </div>
@@ -895,9 +930,9 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span>📈</span> Guest Satisfaction Trend
+                <span>📈</span> {t('dashboard.trend.title')}
               </h3>
-              <span className="text-[9.5px] text-slate-450 font-bold">Haftalık Trend</span>
+              <span className="text-[9.5px] text-slate-455 font-bold">{t('dashboard.trend.period')}</span>
             </div>
 
             <div className="w-full h-[140px] mt-2">
@@ -925,7 +960,7 @@ export default function Dashboard() {
                 <div key={idx} className="space-y-0.5">
                   <div className="flex items-center justify-center gap-1">
                     {item.logo}
-                    <span className="font-extrabold text-slate-850">{item.rating}</span>
+                    <span className="font-extrabold text-slate-855">{item.rating}</span>
                   </div>
                   <span className="text-[8px] text-emerald-500 font-bold">{item.change}</span>
                 </div>
@@ -939,10 +974,10 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="text-red-500">🚨</span> AI Risk Center
+                <span className="text-red-500">🚨</span> {t('dashboard.riskCenter.title')}
               </h3>
               <span className="text-[9.5px] text-rose-600 font-bold bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Yapay Zeka
+                {t('dashboard.riskCenter.badge')}
               </span>
             </div>
 
@@ -954,7 +989,7 @@ export default function Dashboard() {
                     <div className="space-y-0.5 min-w-0">
                       <h4 className="text-xs font-bold text-slate-850 truncate pr-1">{row.dept}</h4>
                       <span className="text-[10px] text-slate-500 font-semibold block">
-                        Son 30 günde {row.count} olumsuz yorum
+                        {t('dashboard.riskCenter.reviewsCount', { count: formatNumberTurkish(row.count) })}
                       </span>
                     </div>
                   </div>
@@ -965,9 +1000,9 @@ export default function Dashboard() {
                     </span>
                     <button 
                       onClick={() => navigate('/reviews')}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[9px] rounded-lg transition-colors border border-slate-200/55 cursor-pointer"
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-650 font-bold text-[9px] rounded-lg transition-colors border border-slate-200/55 cursor-pointer"
                     >
-                      İncele
+                      {t('dashboard.riskCenter.inspect')}
                     </button>
                   </div>
                 </div>
@@ -979,7 +1014,7 @@ export default function Dashboard() {
             onClick={() => navigate('/reviews')}
             className="w-full mt-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
           >
-            Tüm analizleri gör &rarr;
+            {t('dashboard.riskCenter.button')} &rarr;
           </button>
         </div>
 
@@ -988,9 +1023,9 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span>🏆</span> Competitor Analysis
+                <span>🏆</span> {t('dashboard.competitor.title')}
               </h3>
-              <span className="text-[9.5px] text-slate-450 font-bold">Karşılaştırma</span>
+              <span className="text-[9.5px] text-slate-450 font-bold">{t('dashboard.competitor.comparison')}</span>
             </div>
 
             <div className="divide-y divide-slate-100 space-y-3.5">
@@ -1000,7 +1035,7 @@ export default function Dashboard() {
                     {row.name}
                   </span>
                   <div className="flex items-center gap-2 font-extrabold shrink-0">
-                    <span className={`text-[12px] ${row.isSelf ? 'text-blue-600' : 'text-slate-850'}`}>{row.rating.toFixed(1)}</span>
+                    <span className={`text-[12px] ${row.isSelf ? 'text-blue-600' : 'text-slate-850'}`}>{formatNumberTurkish(row.rating, 1)}</span>
                     <span className={`text-[9px] ${row.change.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {row.change}
                     </span>
@@ -1014,7 +1049,7 @@ export default function Dashboard() {
             onClick={() => navigate('/analytics')}
             className="w-full mt-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
           >
-            Rakip analizi detayları &rarr;
+            {t('dashboard.competitor.button')} &rarr;
           </button>
         </div>
       </div>
@@ -1026,9 +1061,9 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span>📊</span> Review Distribution (Son 30 Gün)
+                <span>📊</span> {t('dashboard.distribution.title')}
               </h3>
-              <span className="text-[9.5px] text-slate-450 font-bold">Dağılım</span>
+              <span className="text-[9.5px] text-slate-450 font-bold">{t('dashboard.distribution.sub')}</span>
             </div>
 
             {/* Stacked Continuous horizontal bar chart */}
@@ -1044,28 +1079,28 @@ export default function Dashboard() {
               <div className="grid grid-cols-5 gap-2 text-center text-[10px] pt-1">
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                  <span className="font-extrabold text-slate-700 block text-[9.5px]">5★ ({ratingPercentages.pct5}%)</span>
-                  <span className="text-[9px] text-slate-400 font-semibold">{ratingCounts[5]} yorum</span>
+                  <span className="font-extrabold text-slate-700 block text-[9.5px]">5★ ({formatNumberTurkish(ratingPercentages.pct5)}%)</span>
+                  <span className="text-[9px] text-slate-400 font-semibold">{t('dashboard.distribution.reviewsCount', { count: formatNumberTurkish(ratingCounts[5]) })}</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-                  <span className="font-extrabold text-slate-700 block text-[9.5px]">4★ ({ratingPercentages.pct4}%)</span>
-                  <span className="text-[9px] text-slate-400 font-semibold">{ratingCounts[4]} yorum</span>
+                  <span className="font-extrabold text-slate-700 block text-[9.5px]">4★ ({formatNumberTurkish(ratingPercentages.pct4)}%)</span>
+                  <span className="text-[9px] text-slate-400 font-semibold">{t('dashboard.distribution.reviewsCount', { count: formatNumberTurkish(ratingCounts[4]) })}</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                  <span className="font-extrabold text-slate-700 block text-[9.5px]">3★ ({ratingPercentages.pct3}%)</span>
-                  <span className="text-[9px] text-slate-400 font-semibold">{ratingCounts[3]} yorum</span>
+                  <span className="font-extrabold text-slate-700 block text-[9.5px]">3★ ({formatNumberTurkish(ratingPercentages.pct3)}%)</span>
+                  <span className="text-[9px] text-slate-400 font-semibold">{t('dashboard.distribution.reviewsCount', { count: formatNumberTurkish(ratingCounts[3]) })}</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
-                  <span className="font-extrabold text-slate-700 block text-[9.5px]">2★ ({ratingPercentages.pct2}%)</span>
-                  <span className="text-[9px] text-slate-400 font-semibold">{ratingCounts[2]} yorum</span>
+                  <span className="font-extrabold text-slate-700 block text-[9.5px]">2★ ({formatNumberTurkish(ratingPercentages.pct2)}%)</span>
+                  <span className="text-[9px] text-slate-400 font-semibold">{t('dashboard.distribution.reviewsCount', { count: formatNumberTurkish(ratingCounts[2]) })}</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
-                  <span className="font-extrabold text-slate-700 block text-[9.5px]">1★ ({ratingPercentages.pct1}%)</span>
-                  <span className="text-[9px] text-slate-400 font-semibold">{ratingCounts[1]} yorum</span>
+                  <span className="font-extrabold text-slate-700 block text-[9.5px]">1★ ({formatNumberTurkish(ratingPercentages.pct1)}%)</span>
+                  <span className="text-[9px] text-slate-400 font-semibold">{t('dashboard.distribution.reviewsCount', { count: formatNumberTurkish(ratingCounts[1]) })}</span>
                 </div>
               </div>
             </div>
@@ -1077,10 +1112,10 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span>🔄</span> Last Synchronization Status
+                <span>🔄</span> {t('dashboard.sync.title')}
               </h3>
               <span className="text-[9.5px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Aktif
+                {t('dashboard.sync.active')}
               </span>
             </div>
 
@@ -1096,9 +1131,9 @@ export default function Dashboard() {
                     <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase border ${
                       row.status === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                       row.status === 'failed' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                      'bg-slate-50 text-slate-600 border-slate-200'
+                      'bg-slate-50 text-slate-650 border-slate-200'
                     }`}>
-                      {row.status === 'success' ? 'Başarılı' : row.status === 'failed' ? 'Hata' : 'Bekliyor'}
+                      {row.status === 'success' ? t('dashboard.sync.success') : row.status === 'failed' ? t('dashboard.sync.failed') : t('dashboard.sync.waiting')}
                     </span>
                   </div>
                 </div>
@@ -1114,12 +1149,12 @@ export default function Dashboard() {
             {isSyncingAll ? (
               <>
                 <RefreshCw size={13} className="animate-spin" />
-                <span>Senkronize ediliyor...</span>
+                <span>{t('dashboard.sync.syncing')}</span>
               </>
             ) : (
               <>
                 <RefreshCw size={13} />
-                <span>Şimdi Senkronize Et</span>
+                <span>{t('dashboard.sync.button')}</span>
               </>
             )}
           </button>
@@ -1133,14 +1168,14 @@ export default function Dashboard() {
             <RefreshCw size={16} className={isSyncingAll ? 'animate-spin' : ''} />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-slate-800">Senkronizasyon</h4>
-            <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">{toastMessage}</p>
+            <h4 className="text-xs font-bold text-slate-800">{t('dashboard.sync.toastTitle')}</h4>
+            <p className="text-[10px] text-slate-550 mt-0.5 font-semibold">{toastMessage}</p>
           </div>
           <button 
             onClick={() => setToastMessage(null)}
             className="text-xs text-slate-500 hover:text-slate-800 font-bold ml-4"
           >
-            Kapat
+            {t('dashboard.sync.toastClose')}
           </button>
         </div>
       )}

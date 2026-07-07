@@ -19,25 +19,101 @@ const resources = {
         logout: 'Sign Out'
       },
       dashboard: {
-        title: 'Dashboard Overview',
-        subtitle: 'SaaS Multi-Hotel Feedback & Operational Workspace Manager',
-        recentReviews: 'Recent Live Reviews',
-        operationalTasks: 'Operational Tasks',
-        openTasks: 'Open Tasks',
-        overdueTasks: 'Overdue Tasks',
-        pending: 'pending',
-        delayed: 'delayed',
-        viewAll: 'View All',
-        open: 'open',
-        integrationChannels: 'Integration Channels',
-        integrationNotice: 'Integrations require OAuth client setup in GCP / TripAdvisor Portal.',
-        metrics: {
+        title: 'Executive Dashboard',
+        subtitle: 'Overview of hotel operations, AI insights, and platform sync reports.',
+        apiConnectedLabel: 'API Connected',
+        kpi: {
+          satisfactionScore: 'Guest Satisfaction Score',
           totalReviews: 'Total Reviews',
           averageRating: 'Average Rating',
-          draftReviews: 'Draft Reviews',
-          publishedReviews: 'Published Reviews',
-          highPriority: 'High Priority Reviews',
-          aiResponseRate: 'AI Response Rate'
+          openTasks: 'Open Tasks',
+          responseRate: 'Response Rate',
+          aiDraftReplies: 'AI Draft Replies',
+          lastWeek: 'Compared to Last Week',
+          last30Days: 'Last 30 Days',
+          allPlatforms: 'All Platforms',
+          pendingActions: 'Pending Actions',
+          allReviews: 'All Reviews',
+          waitingApproval: 'Waiting Approval'
+        },
+        actions: {
+          title: "Today's Critical Actions",
+          criticalBadge: 'Critical',
+          highBadge: 'High',
+          mediumBadge: 'Medium',
+          lowBadge: 'Low',
+          empty: 'No critical or high priority tasks waiting for resolution today.',
+          viewAll: 'View All Tasks'
+        },
+        performance: {
+          title: 'Department Performance',
+          period: 'Last 30 Days'
+        },
+        summary: {
+          title: 'AI Operation Summary',
+          badge: 'AI Engine'
+        },
+        taskState: {
+          title: 'Task Overview',
+          distribution: 'Distribution',
+          total: 'Total',
+          open: 'Open',
+          inProgress: 'In Progress',
+          waiting: 'Waiting',
+          completed: 'Completed',
+          deferred: 'Deferred',
+          overdue: 'Overdue',
+          unit: 'tasks',
+          label: 'Tasks',
+          button: 'Go to Tasks'
+        },
+        trend: {
+          title: 'Guest Satisfaction Trend',
+          period: 'Weekly Trend',
+          google: 'Google',
+          booking: 'Booking.com',
+          tripadvisor: 'TripAdvisor',
+          holidaycheck: 'HolidayCheck',
+          hotels: 'Hotels.com'
+        },
+        riskCenter: {
+          title: 'AI Risk Center',
+          badge: 'AI Engine',
+          reviewsCount: '{{count}} negative reviews in 30 days',
+          high: 'High Risk',
+          medium: 'Medium Risk',
+          low: 'Low Risk',
+          inspect: 'Inspect',
+          button: 'All Insights'
+        },
+        competitor: {
+          title: 'Competitor Analysis',
+          comparison: 'Comparison',
+          button: 'Open Competitor Analysis'
+        },
+        distribution: {
+          title: 'Review Distribution (Last 30 Days)',
+          sub: 'Rating Distribution',
+          reviewsCount: '{{count}} reviews'
+        },
+        sync: {
+          title: 'Last Synchronization Status',
+          active: 'Active',
+          success: 'Success',
+          failed: 'Failed',
+          waiting: 'Waiting',
+          button: 'Sync Now',
+          syncing: 'Syncing...',
+          toastTitle: 'Synchronization',
+          toastStarted: 'Synchronization started...',
+          toastCompleted: 'Synchronization completed successfully.',
+          toastFailed: 'Error: Synchronization failed.',
+          toastClose: 'Close'
+        },
+        trends: {
+          increasing: 'Increasing',
+          stable: 'Stable',
+          decreasing: 'Decreasing'
         }
       },
       reviews: {
@@ -140,25 +216,101 @@ const resources = {
         logout: 'Çıkış Yap'
       },
       dashboard: {
-        title: 'Kontrol Paneline Genel Bakış',
-        subtitle: 'SaaS Çoklu Otel Geri Bildirim ve Operasyonel Çalışma Alanı Yöneticisi',
-        recentReviews: 'Son Canlı Yorumlar',
-        operationalTasks: 'Operasyonel Görevler',
-        openTasks: 'Açık Görevler',
-        overdueTasks: 'Geciken Görevler',
-        pending: 'bekleyen',
-        delayed: 'gecikmiş',
-        viewAll: 'Tümünü Gör',
-        open: 'açık',
-        integrationChannels: 'Entegrasyon Kanalları',
-        integrationNotice: 'Entegrasyonlar GCP / TripAdvisor Portalı üzerinden OAuth kurulumu gerektirir.',
-        metrics: {
+        title: 'Kontrol Paneli',
+        subtitle: 'Otelinizin operasyonel durumu, yapay zeka analizleri ve performans raporları.',
+        apiConnectedLabel: 'API Bağlantısı Etkin',
+        kpi: {
+          satisfactionScore: 'Misafir Memnuniyet Puanı',
           totalReviews: 'Toplam Yorum',
           averageRating: 'Ortalama Puan',
-          draftReviews: 'Taslak Yorumlar',
-          publishedReviews: 'Yayınlanan Yorumlar',
-          highPriority: 'Yüksek Öncelikli Yorumlar',
-          aiResponseRate: 'Yapay Zeka Yanıt Oranı'
+          openTasks: 'Açık Görevler',
+          responseRate: 'Yanıtlanma Oranı',
+          aiDraftReplies: 'Yapay Zeka Taslakları',
+          lastWeek: 'Geçen Haftaya Göre',
+          last30Days: 'Son 30 Gün',
+          allPlatforms: 'Tüm Platformlar',
+          pendingActions: 'Aksiyon Bekleyen',
+          allReviews: 'Tüm yorumlarda',
+          waitingApproval: 'Onay Bekleyen'
+        },
+        actions: {
+          title: 'Bugün Acil Aksiyonlar',
+          criticalBadge: 'Kritik',
+          highBadge: 'Yüksek',
+          mediumBadge: 'Orta',
+          lowBadge: 'Düşük',
+          empty: 'Bugün çözüm bekleyen yüksek öncelikli veya kritik görev bulunmuyor.',
+          viewAll: 'Tüm görevlere git'
+        },
+        performance: {
+          title: 'Departman Performansı',
+          period: 'Son 30 Gün'
+        },
+        summary: {
+          title: 'AI Operasyon Özeti',
+          badge: 'Yapay Zeka'
+        },
+        taskState: {
+          title: 'Görev Durumu',
+          distribution: 'Dağılım',
+          total: 'Toplam',
+          open: 'Açık',
+          inProgress: 'Devam Ediyor',
+          waiting: 'Beklemede',
+          completed: 'Tamamlandı',
+          deferred: 'Ertelendi',
+          overdue: 'Geciken',
+          unit: 'adet',
+          label: 'Görev',
+          button: 'Görevlere git'
+        },
+        trend: {
+          title: 'Misafir Memnuniyet Trendi',
+          period: 'Haftalık Trend',
+          google: 'Google',
+          booking: 'Booking.com',
+          tripadvisor: 'TripAdvisor',
+          holidaycheck: 'HolidayCheck',
+          hotels: 'Hotels.com'
+        },
+        riskCenter: {
+          title: 'Yapay Zeka Risk Merkezi',
+          badge: 'Yapay Zeka',
+          reviewsCount: 'Son 30 günde {{count}} olumsuz yorum',
+          high: 'Yüksek Risk',
+          medium: 'Orta Risk',
+          low: 'Düşük Risk',
+          inspect: 'İncele',
+          button: 'Tüm analizleri gör'
+        },
+        competitor: {
+          title: 'Rakip Analizi',
+          comparison: 'Karşılaştırma',
+          button: 'Rakip analizi detayları'
+        },
+        distribution: {
+          title: 'Yorum Dağılımı (Son 30 Gün)',
+          sub: 'Rating Dağılımı',
+          reviewsCount: '{{count}} yorum'
+        },
+        sync: {
+          title: 'Son Senkronizasyon Bilgileri',
+          active: 'Aktif',
+          success: 'Başarılı',
+          failed: 'Başarısız',
+          waiting: 'Bekliyor',
+          button: 'Şimdi Senkronize Et',
+          syncing: 'Senkronize ediliyor...',
+          toastTitle: 'Senkronizasyon',
+          toastStarted: 'Senkronizasyon başlatıldı...',
+          toastCompleted: 'Senkronizasyon başarıyla tamamlandı.',
+          toastFailed: 'Hata: Senkronizasyon başarısız oldu.',
+          toastClose: 'Kapat'
+        },
+        trends: {
+          increasing: 'Yükseliyor',
+          stable: 'Sabit',
+          decreasing: 'Düşüyor'
         }
       },
       reviews: {
@@ -254,31 +406,108 @@ const resources = {
         tasks: 'Задачи',
         departments: 'Отделы',
         analytics: 'Аналитика',
+        reports: 'Отчеты',
         whatsapp: 'WhatsApp',
         settings: 'Настройки',
         admin: 'Панель администратора',
         logout: 'Выйти'
       },
       dashboard: {
-        title: 'Обзор панели управления',
-        subtitle: 'SaaS Менеджер отзывов отелей и операционного рабочего пространства',
-        recentReviews: 'Последние отзывы в реальном времени',
-        operationalTasks: 'Операционные задачи',
-        openTasks: 'Открытые задачи',
-        overdueTasks: 'Просроченные задачи',
-        pending: 'ожидает',
-        delayed: 'просрочено',
-        viewAll: 'Показать все',
-        open: 'открыто',
-        integrationChannels: 'Интеграционные каналы',
-        integrationNotice: 'Для интеграции требуется настройка клиента OAuth на портале GCP / TripAdvisor.',
-        metrics: {
+        title: 'Панель управления',
+        subtitle: 'Операционное состояние вашего отеля, анализ ИИ и отчеты о синхронизации платформ.',
+        apiConnectedLabel: 'API подключено',
+        kpi: {
+          satisfactionScore: 'Индекс удовлетворенности',
           totalReviews: 'Всего отзывов',
-          averageRating: 'Средняя оценка',
-          draftReviews: 'Черновики ответов',
-          publishedReviews: 'Опубликованные ответы',
-          highPriority: 'Важные отзывы',
-          aiResponseRate: 'Индекс ИИ-ответов'
+          averageRating: 'Средний балл',
+          openTasks: 'Открытые задачи',
+          responseRate: 'Индекс ответов',
+          aiDraftReplies: 'Черновики ответов ИИ',
+          lastWeek: 'По сравнению с прошлой неделей',
+          last30Days: 'За последние 30 дней',
+          allPlatforms: 'Все платформы',
+          pendingActions: 'Ожидают действий',
+          allReviews: 'Всего ответов',
+          waitingApproval: 'Ожидают подтверждения'
+        },
+        actions: {
+          title: 'Срочные действия на сегодня',
+          criticalBadge: 'Критический',
+          highBadge: 'Высокий',
+          mediumBadge: 'Средний',
+          lowBadge: 'Низкий',
+          empty: 'Сегодня нет нерешенных критических или высокоприоритетных задач.',
+          viewAll: 'Перейти к задачам'
+        },
+        performance: {
+          title: 'Эффективность отделов',
+          period: 'За последние 30 дней'
+        },
+        summary: {
+          title: 'Сводка работы ИИ',
+          badge: 'Искусственный интеллект'
+        },
+        taskState: {
+          title: 'Статус задач',
+          distribution: 'Распределение',
+          total: 'Всего',
+          open: 'Открыто',
+          inProgress: 'В работе',
+          waiting: 'Ожидание',
+          completed: 'Завершено',
+          deferred: 'Отложено',
+          overdue: 'Просрочено',
+          unit: 'задач',
+          label: 'Задачи',
+          button: 'Перейти к задачам'
+        },
+        trend: {
+          title: 'Тренд удовлетворенности гостей',
+          period: 'Еженедельный тренд',
+          google: 'Google',
+          booking: 'Booking.com',
+          tripadvisor: 'TripAdvisor',
+          holidaycheck: 'HolidayCheck',
+          hotels: 'Hotels.com'
+        },
+        riskCenter: {
+          title: 'Центр ИИ-рисков',
+          badge: 'ИИ-анализ',
+          reviewsCount: '{{count}} негативных отзывов за 30 дней',
+          high: 'Высокий риск',
+          medium: 'Средний риск',
+          low: 'Низкий риск',
+          inspect: 'Проверить',
+          button: 'Посмотреть все инсайты'
+        },
+        competitor: {
+          title: 'Анализ конкурентов',
+          comparison: 'Сравнение',
+          button: 'Подробнее об анализе конкурентов'
+        },
+        distribution: {
+          title: 'Распределение отзывов (30 дней)',
+          sub: 'Распределение рейтинга',
+          reviewsCount: '{{count}} отзывов'
+        },
+        sync: {
+          title: 'Статус синхронизации',
+          active: 'Активно',
+          success: 'Успешно',
+          failed: 'Ошибка',
+          waiting: 'Ожидание',
+          button: 'Синхронизировать сейчас',
+          syncing: 'Идет синхронизация...',
+          toastTitle: 'Синхронизация',
+          toastStarted: 'Синхронизация запущена...',
+          toastCompleted: 'Синхронизация успешно завершена.',
+          toastFailed: 'Ошибка синхронизации.',
+          toastClose: 'Закрыть'
+        },
+        trends: {
+          increasing: 'Растет',
+          stable: 'Стабильно',
+          decreasing: 'Падает'
         }
       },
       reviews: {
