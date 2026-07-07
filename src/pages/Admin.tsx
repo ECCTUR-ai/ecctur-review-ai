@@ -24,6 +24,7 @@ import {
   UserCheck,
   Power,
   Trash2,
+  Key,
   Sparkles,
   MapPin
 } from 'lucide-react';
@@ -491,6 +492,12 @@ export default function Admin() {
   const [userLanguage, setUserLanguage] = useState('tr');
   const [userTimezone, setUserTimezone] = useState('Europe/Istanbul');
 
+  // Form States - Password Reset
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserProfile | null>(null);
+  const [tempPassword, setTempPassword] = useState('');
+  const [resetMethod, setResetMethod] = useState<'email' | 'temp'>('email');
+  const [isResetting, setIsResetting] = useState(false);
+
   // Form States - Hotel
   const [isAddingHotel, setIsAddingHotel] = useState(false);
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
@@ -637,6 +644,10 @@ export default function Admin() {
   };
 
   const handleDeleteUser = async (id: string) => {
+    if (users?.find(u => u.id === id)?.email === 'cemil.sezgin@ecctur.com') {
+      triggerToast('Super Admin kullanıcısı silinemez!');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this user profile and revoke their login?')) return;
     try {
       await adminService.deleteUser(id);
@@ -646,6 +657,101 @@ export default function Admin() {
       console.error(err);
       triggerToast(`Error: ${err.message || 'Failed to delete user'}`);
     }
+  };
+
+  const handleToggleStatus = async (user: UserProfile) => {
+    if (user.email === 'cemil.sezgin@ecctur.com') {
+      triggerToast('Super Admin kullanıcısı pasifleştirilemez!');
+      return;
+    }
+    const nextStatus = user.status === 'active' ? 'inactive' : 'active';
+    try {
+      await adminService.editUser(user.id, {
+        ...user,
+        status: nextStatus
+      });
+      triggerToast(`Kullanıcı durumu '${nextStatus === 'active' ? 'Aktif' : 'Pasif'}' olarak güncellendi.`);
+      refetchUsers();
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Hata: ${err.message || 'Durum değiştirilemedi'}`);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser) return;
+    setIsResetting(true);
+    try {
+      if (resetMethod === 'email') {
+        await adminService.resetPasswordEmail(resetPasswordUser.id, resetPasswordUser.email);
+        triggerToast('Şifre sıfırlama e-postası başarıyla gönderildi.');
+      } else {
+        if (!tempPassword || tempPassword.length < 8) {
+          triggerToast('Şifre en az 8 karakter olmalıdır.');
+          setIsResetting(false);
+          return;
+        }
+        await adminService.setTemporaryPassword(resetPasswordUser.id, tempPassword);
+        triggerToast('Geçici şifre başarıyla tanımlandı.');
+      }
+      setResetPasswordUser(null);
+      setTempPassword('');
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Hata: ${err.message || 'İşlem başarısız'}`);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  function formatRelativeTime(dateString?: string) {
+    if (!dateString) return 'Hiç giriş yapmadı';
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      if (diffMs < 0) return 'Az önce';
+
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return 'Az önce';
+      if (diffMins < 60) return `${diffMins} dakika önce`;
+
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours} saat önce`;
+
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays < 30) return `${diffDays} gün önce`;
+
+      const diffMonths = Math.floor(diffDays / 30);
+      return `${diffMonths} ay önce`;
+    } catch (e) {
+      return 'Hiç giriş yapmadı';
+    }
+  }
+
+  const renderStatusBadge = (displayStatus?: string) => {
+    if (displayStatus === 'inactive') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-semibold uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          Pasif
+        </span>
+      );
+    }
+    if (displayStatus === 'invited') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          Davet Edildi
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold uppercase">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        Aktif
+      </span>
+    );
   };
 
   const handleToggleHotelAccess = (hotelId: string) => {
@@ -879,7 +985,9 @@ export default function Admin() {
         {activeTab === 'users' && (
           <div className="space-y-6">
             {/* User Form Panel (Add / Edit) */}
-            {(isAddingUser || editingUser) && (
+            {(isAddingUser || editingUser) && (() => {
+              const isEditingSuperAdmin = editingUser?.email === 'cemil.sezgin@ecctur.com';
+              return (
               <div className="glass-panel p-6 rounded-2xl border border-blue-500/20 bg-slate-50/40 relative card-glow">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
@@ -904,7 +1012,8 @@ export default function Admin() {
                         value={userEmail}
                         onChange={(e) => setUserEmail(e.target.value)}
                         placeholder="email@guestreview.ai"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
+                        disabled={isEditingSuperAdmin}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -972,7 +1081,8 @@ export default function Admin() {
                       <select
                         value={userRoleId}
                         onChange={(e) => setUserRoleId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        disabled={isEditingSuperAdmin}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {filteredRoles?.map((r) => (
                           <option key={r.id} value={r.id} className="bg-[#090b16] text-slate-300">
@@ -987,7 +1097,8 @@ export default function Admin() {
                       <select
                         value={userStatus}
                         onChange={(e) => setUserStatus(e.target.value as any)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                        disabled={isEditingSuperAdmin}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="active" className="bg-[#090b16] text-slate-300">Active (Grant platform access)</option>
                         <option value="inactive" className="bg-[#090b16] text-slate-300">Inactive (Revoke platform access)</option>
@@ -1000,7 +1111,8 @@ export default function Admin() {
                         <select
                           value={userOrgId}
                           onChange={(e) => setUserOrgId(e.target.value)}
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                          disabled={isEditingSuperAdmin}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {orgs?.map((o) => (
                             <option key={o.id} value={o.id} className="bg-[#090b16] text-slate-300">
@@ -1097,7 +1209,8 @@ export default function Admin() {
                             key={h.id}
                             type="button"
                             onClick={() => handleToggleHotelAccess(h.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                            disabled={isEditingSuperAdmin}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                               hasAccess 
                                 ? 'bg-blue-600/10 border-blue-500/30 text-blue-400' 
                                 : 'bg-white border-slate-200 text-slate-400 hover:text-slate-200'
@@ -1140,7 +1253,7 @@ export default function Admin() {
                   </div>
                 </form>
               </div>
-            )}
+            );})()}
 
             {/* Users List Card */}
             <div className="glass-panel rounded-2xl relative overflow-hidden card-glow">
@@ -1169,7 +1282,8 @@ export default function Admin() {
                       <th className="p-4">{t('admin.users.phone')}</th>
                       <th className="p-4">{t('admin.users.title')}</th>
                       <th className="p-4">{t('admin.users.assignedRole')}</th>
-                      <th className="p-4">{t('admin.users.clearanceStatus')}</th>
+                      <th className="p-4">Durum</th>
+                      <th className="p-4">Son Giriş</th>
                       <th className="p-4">{t('admin.users.assignedHotels')}</th>
                       <th className="p-4 pr-6 text-right">{t('admin.users.actions')}</th>
                     </tr>
@@ -1215,13 +1329,10 @@ export default function Admin() {
                             </span>
                           </td>
                           <td className="p-4">
-                            <span className={`px-2 py-0.5 rounded font-semibold text-[10px] uppercase border ${
-                              u.status === 'active' 
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                            }`}>
-                              {u.status}
-                            </span>
+                            {renderStatusBadge(u.displayStatus)}
+                          </td>
+                          <td className="p-4 text-slate-400">
+                            {formatRelativeTime(u.lastSignInAt)}
                           </td>
                           <td className="p-4 max-w-xs truncate">
                             {u.hotelIds && u.hotelIds.length > 0 ? (
@@ -1244,18 +1355,42 @@ export default function Admin() {
                               <>
                                 <button
                                   onClick={() => handleOpenEditUser(u)}
-                                  className="p-1 rounded hover:bg-slate-50 text-slate-400 hover:text-slate-200 transition-colors"
-                                  title="Edit User"
+                                  className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                                  title="Düzenle / Otel & Rol Atama"
                                 >
                                   <Edit3 size={14} />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteUser(u.id)}
-                                  className="p-1 rounded hover:bg-slate-50 text-rose-400 hover:text-rose-300 transition-colors"
-                                  title="Delete User"
+                                  onClick={() => setResetPasswordUser(u)}
+                                  className="p-1 rounded hover:bg-slate-800 text-amber-400 hover:text-amber-300 transition-colors"
+                                  title="Şifre Sıfırla"
                                 >
-                                  <Trash2 size={14} />
+                                  <Key size={14} />
                                 </button>
+                                <button
+                                  onClick={() => handleToggleStatus(u)}
+                                  disabled={u.email === 'cemil.sezgin@ecctur.com'}
+                                  className={`p-1 rounded hover:bg-slate-800 transition-colors ${
+                                    u.status === 'active' 
+                                      ? 'text-rose-400 hover:text-rose-300' 
+                                      : 'text-emerald-400 hover:text-emerald-300'
+                                  } ${u.email === 'cemil.sezgin@ecctur.com' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                  title={u.status === 'active' ? 'Pasifleştir' : 'Aktifleştir'}
+                                >
+                                  <Power size={14} />
+                                </button>
+                                {isTrueSuperAdmin && (
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    disabled={u.email === 'cemil.sezgin@ecctur.com'}
+                                    className={`p-1 rounded hover:bg-slate-800 text-rose-500 hover:text-rose-400 transition-colors ${
+                                      u.email === 'cemil.sezgin@ecctur.com' ? 'opacity-30 cursor-not-allowed' : ''
+                                    }`}
+                                    title="Kullanıcı Sil"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
                               </>
                             ) : (
                               <span className="text-slate-500">Read Only</span>
@@ -1404,13 +1539,46 @@ export default function Admin() {
                   <Building size={16} className="text-blue-400" />
                   Hotels List ({filteredHotelsList?.length || 0})
                 </h3>
-                <button
-                  onClick={handleOpenAddHotel}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
-                >
-                  <Plus size={14} />
-                  Add Hotel
-                </button>
+                <div className="flex gap-2">
+                  {isTrueSuperAdmin && (
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm('Fahri ve Montana test otelleri ile ilişkili tüm verileri silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) return;
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const token = session?.access_token;
+                          if (!token) throw new Error('Oturum bulunamadı.');
+                          const response = await fetch('/api/admin?action=execute-delete-test-hotels', {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          if (!response.ok) {
+                            const errRes = await response.json();
+                            throw new Error(errRes.error || 'Temizlik başarısız oldu');
+                          }
+                          const result = await response.json();
+                          alert(result.message || 'Başarıyla silindi.');
+                          window.location.reload();
+                        } catch (err: any) {
+                          alert(`Hata: ${err.message}`);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 transition-colors text-white font-medium text-xs rounded-xl"
+                    >
+                      <Trash2 size={14} />
+                      Test Otellerini Temizle
+                    </button>
+                  )}
+                  <button
+                    onClick={handleOpenAddHotel}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
+                  >
+                    <Plus size={14} />
+                    Add Hotel
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -2532,6 +2700,92 @@ export default function Admin() {
       {toast && (
         <div className="fixed bottom-6 right-6 px-4 py-3 rounded-xl bg-[#0c0f22] border border-blue-500/20 text-blue-400 text-xs font-semibold shadow-2xl z-50 animate-bounce">
           {toast}
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {resetPasswordUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-blue-500/20 bg-slate-900/95 relative card-glow text-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <Key size={16} className="text-blue-400" />
+                Şifre Sıfırla: {resetPasswordUser.firstName} {resetPasswordUser.lastName}
+              </h3>
+              <button 
+                onClick={() => { setResetPasswordUser(null); setTempPassword(''); }}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-slate-400">
+                Kullanıcının şifresini sıfırlamak için bir yöntem seçin. Şifreler kesinlikle plain-text olarak kaydedilmez.
+              </p>
+
+              <div className="flex gap-4 border-b border-slate-850 pb-3">
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="resetMethod"
+                    checked={resetMethod === 'email'}
+                    onChange={() => setResetMethod('email')}
+                    className="text-blue-500 focus:ring-0 bg-slate-800 border-slate-700"
+                  />
+                  Sıfırlama E-postası Gönder
+                </label>
+                {isTrueSuperAdmin && (
+                  <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-300">
+                    <input
+                      type="radio"
+                      name="resetMethod"
+                      checked={resetMethod === 'temp'}
+                      onChange={() => setResetMethod('temp')}
+                      className="text-blue-500 focus:ring-0 bg-slate-800 border-slate-700"
+                    />
+                    Geçici Şifre Belirle
+                  </label>
+                )}
+              </div>
+
+              {resetMethod === 'email' ? (
+                <div className="bg-slate-950/40 border border-slate-850 rounded-xl p-3 text-xs text-slate-400 space-y-1">
+                  <span className="font-semibold text-slate-300 block">E-posta Gönderimi:</span>
+                  Kullanıcının <strong>{resetPasswordUser.email}</strong> adresine şifre sıfırlama bağlantısı içeren resmi bir e-posta gönderilecektir.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Yeni Geçici Şifre</label>
+                  <input
+                    type="text"
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                    placeholder="En az 8 karakter şifre girin"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs focus:outline-none focus:border-blue-500 text-slate-300"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-850">
+                <button
+                  onClick={() => { setResetPasswordUser(null); setTempPassword(''); }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={isResetting}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-1.5"
+                >
+                  {isResetting && <RefreshCw size={12} className="animate-spin" />}
+                  {resetMethod === 'email' ? 'E-posta Gönder' : 'Şifreyi Güncelle'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

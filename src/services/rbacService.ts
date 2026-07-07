@@ -7,6 +7,7 @@ export interface UserRoleInfo {
   hotelIds?: string[];
   organizationId?: string | null;
   roleKey?: string;
+  status?: string;
 }
 
 export const rbacService = {
@@ -28,7 +29,8 @@ export const rbacService = {
             permissions: result.user.permissions || [],
             hotelIds: result.user.hotelIds || [],
             organizationId: result.user.organizationId || null,
-            roleKey: result.user.roleKey || ''
+            roleKey: result.user.roleKey || '',
+            status: result.user.status || 'active'
           };
         }
       }
@@ -122,9 +124,23 @@ export const rbacService = {
       ];
     }
 
+    // Fetch profile status
+    let status = 'active';
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('id', userId)
+        .maybeSingle();
+      if (profileData?.status) status = profileData.status;
+    } catch (err) {
+      console.warn('Could not load profile status:', err);
+    }
+
     return {
       role: roleName,
-      permissions
+      permissions,
+      status
     };
   }
 };

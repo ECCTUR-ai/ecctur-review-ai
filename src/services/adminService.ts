@@ -25,6 +25,14 @@ export const adminService = {
     return await userRepository.deleteUser(id);
   },
 
+  async resetPasswordEmail(id: string, email: string): Promise<void> {
+    return await userRepository.resetPasswordEmail(id, email);
+  },
+
+  async setTemporaryPassword(id: string, password: string): Promise<void> {
+    return await userRepository.setTemporaryPassword(id, password);
+  },
+
   // Roles
   async getRoles(): Promise<Role[]> {
     console.log('[Admin Service] getRoles: Calling roleRepository.getAllRoles...');

@@ -52,7 +52,9 @@ export const userRepository = {
         department: item.department || '',
         avatarUrl: item.avatar_url || '',
         language: item.language || 'tr',
-        timezone: item.timezone || 'Europe/Istanbul'
+        timezone: item.timezone || 'Europe/Istanbul',
+        lastSignInAt: item.last_sign_in_at || undefined,
+        displayStatus: item.display_status || undefined
       };
     });
 
@@ -160,16 +162,63 @@ export const userRepository = {
   },
 
   async deleteUser(id: string): Promise<void> {
-    // Delete profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', id);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
 
-    if (profileError) throw profileError;
+    const response = await fetch('/api/admin?action=delete-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ id })
+    });
 
-    // Stubbed: Auth deletion requires service role key, which is managed via backend triggers or Edge Functions
-    console.info('User removed from profiles table. Auth user deletion requires backend placeholder.');
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to delete user');
+    }
+  },
+
+  async resetPasswordEmail(id: string, email: string): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=reset-password-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ id, email })
+    });
+
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to send password reset email');
+    }
+  },
+
+  async setTemporaryPassword(id: string, password: string): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=set-temporary-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ id, password })
+    });
+
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to set temporary password');
+    }
   },
 
   async getUserById(id: string): Promise<UserProfile> {
@@ -206,7 +255,9 @@ export const userRepository = {
       department: data.department || '',
       avatarUrl: data.avatar_url || '',
       language: data.language || 'tr',
-      timezone: data.timezone || 'Europe/Istanbul'
+      timezone: data.timezone || 'Europe/Istanbul',
+      lastSignInAt: data.last_sign_in_at || undefined,
+      displayStatus: data.display_status || undefined
     };
   }
 };

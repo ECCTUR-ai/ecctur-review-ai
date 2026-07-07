@@ -51,6 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setEmail(session.user.email || null);
           const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
           
+          if (rbac.status === 'inactive') {
+            console.warn('[AuthGuard] User profile is inactive, signing out.');
+            await supabase.auth.signOut();
+            setUserId(null);
+            setEmail(null);
+            setRole(null);
+            setRoleKey(null);
+            setPermissions([]);
+            setHotelIds([]);
+            setOrganizationId(null);
+            setLoading(false);
+            return;
+          }
+          
           // Enforce Super Admin email-based clearance downgrade
           const isTrueSuperAdmin = session.user.email === 'cemil.sezgin@ecctur.com';
           const resolvedRoleKey = (rbac.roleKey === 'super_admin' && !isTrueSuperAdmin) ? 'admin' : (rbac.roleKey || null);
@@ -86,6 +100,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserId(session.user.id);
         setEmail(session.user.email || null);
         const rbac = await rbacService.getUserRoleAndPermissions(session.user.id);
+
+        if (rbac.status === 'inactive') {
+          console.warn('[AuthGuard] User profile is inactive, signing out.');
+          await supabase.auth.signOut();
+          setUserId(null);
+          setEmail(null);
+          setRole(null);
+          setRoleKey(null);
+          setPermissions([]);
+          setHotelIds([]);
+          setOrganizationId(null);
+          setLoading(false);
+          return;
+        }
 
         // Enforce Super Admin email-based clearance downgrade
         const isTrueSuperAdmin = session.user.email === 'cemil.sezgin@ecctur.com';

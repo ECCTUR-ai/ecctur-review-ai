@@ -186,6 +186,8 @@ export interface UserProfile {
   avatarUrl?: string;
   language?: string;
   timezone?: string;
+  lastSignInAt?: string;
+  displayStatus?: 'active' | 'inactive' | 'invited';
 }
 
 export interface Role {

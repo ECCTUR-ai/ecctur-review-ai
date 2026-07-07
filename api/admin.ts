@@ -92,6 +92,29 @@ function cleanBookingUrl(url: string | null | undefined): string | null {
   }
 }
 
+async function checkCanManageTargetUser(supabaseAdmin: any, callerId: string, targetUserId: string, callerRole: string, isTrueSuperAdmin: boolean) {
+  if (isTrueSuperAdmin) return true;
+  if (callerId === targetUserId) return true;
+
+  const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', callerId).maybeSingle();
+  const { data: targetProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', targetUserId).maybeSingle();
+
+  if (!callerProfile || !targetProfile) return false;
+  if (callerProfile.organization_id !== targetProfile.organization_id) return false;
+
+  if (callerRole.toLowerCase() === 'super admin') return true;
+
+  const { data: callerHotels } = await supabaseAdmin.from('user_hotels').select('hotel_id').eq('profile_id', callerId);
+  const { data: targetHotels } = await supabaseAdmin.from('user_hotels').select('hotel_id').eq('profile_id', targetUserId);
+
+  const callerHotelIds = (callerHotels || []).map((uh: any) => uh.hotel_id);
+  const targetHotelIds = (targetHotels || []).map((uh: any) => uh.hotel_id);
+
+  if (targetHotelIds.length === 0) return true;
+
+  return targetHotelIds.some((hId: string) => callerHotelIds.includes(hId));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS handling
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -560,7 +583,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // -------------------------------------------------------------
+
   // Action: list-users
   // -------------------------------------------------------------
   if (action === 'list-users') {
@@ -579,17 +602,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (queryError) throw queryError;
 
-      let returnedProfiles = profiles || [];
+      let authUsers: any[] = [];
+      try {
+        const { data: authUsersData } = await supabaseAdmin.auth.admin.listUsers();
+        if (authUsersData && authUsersData.users) {
+          authUsers = authUsersData.users;
+        }
+      } catch (authErr) {
+        console.warn('[API list-users] Failed to fetch auth users list:', authErr);
+      }
+
+      let returnedProfiles = (profiles || []).map((p: any) => {
+        const authUser = authUsers.find((au: any) => au.id === p.id);
+        const lastSignIn = authUser?.last_sign_in_at || null;
+        
+        let displayStatus = p.status || 'active';
+        if (displayStatus === 'active' && !lastSignIn) {
+          displayStatus = 'invited';
+        }
+
+        return {
+          ...p,
+          last_sign_in_at: lastSignIn,
+          display_status: displayStatus
+        };
+      });
+
       if (!isTrueSuperAdmin) {
         // Load caller profile organization
         const { data: callerProfile } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
         const callerOrgId = callerProfile?.organization_id;
         
         // Filter users by organization
-        returnedProfiles = (profiles || []).filter((p: any) => p.organization_id === callerOrgId);
+        returnedProfiles = returnedProfiles.filter((p: any) => p.organization_id === callerOrgId);
         
         // And if caller is a hotel manager, filter further by hotel clearances
-        if (roleNameLower === 'hotel manager') {
+        if (roleNameLower === 'hotel manager' || roleNameLower === 'admin') {
           returnedProfiles = returnedProfiles.filter((p: any) => {
             const profileHotels = (p.user_hotels || []).map((uh: any) => uh.hotel_id);
             return profileHotels.some((hId: string) => assignedHotelIds.includes(hId));
@@ -606,7 +654,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: err.message });
     }
   }
-
   // -------------------------------------------------------------
   // Action: create-user
   // -------------------------------------------------------------
@@ -826,6 +873,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      // Super Admin protection policies
+      const { data: targetProfile } = await supabaseAdmin.from('profiles').select('email').eq('id', id).maybeSingle();
+      if (targetProfile && targetProfile.email === 'cemil.sezgin@ecctur.com') {
+        if (status && status === 'inactive') {
+          return res.status(400).json({ error: 'Super Admin user cannot be deactivated' });
+        }
+        if (roleId) {
+          let resolvedRoleId = roleId;
+          if (roleId.length < 30) {
+            const { data: dbRole } = await supabaseAdmin.from('roles').select('id').ilike('name', roleId.replace('_', ' ')).maybeSingle();
+            if (dbRole) resolvedRoleId = dbRole.id;
+          }
+          const { data: targetRole } = await supabaseAdmin.from('roles').select('name').eq('id', resolvedRoleId).maybeSingle();
+          if (targetRole && targetRole.name.toLowerCase() !== 'super admin') {
+            return res.status(400).json({ error: 'Super Admin role cannot be downgraded' });
+          }
+        }
+      }
+
+      // Check caller's permission to edit target user
+      const canManage = await checkCanManageTargetUser(supabaseAdmin, user.id, id, finalUserRole || 'staff', isTrueSuperAdmin);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to edit this user profile.' });
+      }
+
       console.log('[API Admin Update User] Payload received:', { id, email, firstName, lastName, roleId, hotelIds, organizationId: finalOrgId });
 
       // Check if profile exists
@@ -881,6 +953,148 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, userId: id });
     } catch (err: any) {
       console.error('[API Admin Update User Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: execute-delete-test-hotels (Super Admin Only)
+  // -------------------------------------------------------------
+  if (action === 'execute-delete-test-hotels') {
+    if (!isTrueSuperAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required' });
+    }
+
+    try {
+      const targetHotelIds = [
+        '00c00000-0000-0000-0000-000000000002', // Montana 2543
+        '00c00000-0000-0000-0000-000000000003'  // Fahri Heritage Hotel
+      ];
+
+      // Deletions order (child dependency records first)
+      await supabaseAdmin.from('review_action_logs').delete().in('hotel_id', targetHotelIds);
+
+      const { data: reviews } = await supabaseAdmin.from('reviews').select('id').in('hotel_id', targetHotelIds);
+      const reviewIds = (reviews || []).map(r => r.id);
+      if (reviewIds.length > 0) {
+        await supabaseAdmin.from('action_resolutions').delete().in('review_id', reviewIds);
+      }
+
+      await supabaseAdmin.from('reviews').delete().in('hotel_id', targetHotelIds);
+      await supabaseAdmin.from('tasks').delete().in('hotel_id', targetHotelIds);
+      await supabaseAdmin.from('notifications').delete().in('hotel_id', targetHotelIds);
+      await supabaseAdmin.from('review_sync_states').delete().in('hotel_id', targetHotelIds);
+      await supabaseAdmin.from('user_hotels').delete().in('hotel_id', targetHotelIds);
+      await supabaseAdmin.from('integration_settings').delete().in('hotel_id', targetHotelIds);
+      
+      const { error: hotelErr } = await supabaseAdmin.from('hotels').delete().in('id', targetHotelIds);
+      if (hotelErr) throw hotelErr;
+
+      return res.status(200).json({ success: true, message: 'Fahri and Montana test hotels deleted successfully.' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: reset-password-email
+  // -------------------------------------------------------------
+  if (action === 'reset-password-email') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+    }
+
+    try {
+      const { email, id } = req.body;
+      if (!email || !id) {
+        return res.status(400).json({ error: 'Email and user ID are required' });
+      }
+
+      const canManage = await checkCanManageTargetUser(supabaseAdmin, user.id, id, finalUserRole || 'staff', isTrueSuperAdmin);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to manage this user.' });
+      }
+
+      const origin = req.headers.origin || 'https://ecctur-review-ai.vercel.app';
+      const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/reset-password`
+      });
+
+      if (error) throw error;
+
+      return res.status(200).json({ success: true, message: 'Password reset email sent successfully.' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: set-temporary-password (Super Admin Only)
+  // -------------------------------------------------------------
+  if (action === 'set-temporary-password') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required' });
+    }
+
+    try {
+      const { id, password } = req.body;
+      if (!id || !password) {
+        return res.status(400).json({ error: 'User ID and password are required' });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        password: password
+      });
+
+      if (error) throw error;
+
+      return res.status(200).json({ success: true, message: 'Temporary password set successfully.' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: delete-user (Super Admin Only)
+  // -------------------------------------------------------------
+  if (action === 'delete-user') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    if (roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required' });
+    }
+
+    try {
+      const { id } = req.body;
+      if (!id) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+
+      // Prevent deleting Super Admin
+      const { data: targetProfile } = await supabaseAdmin.from('profiles').select('email').eq('id', id).maybeSingle();
+      if (targetProfile && targetProfile.email === 'cemil.sezgin@ecctur.com') {
+        return res.status(400).json({ error: 'Super Admin user cannot be deleted' });
+      }
+
+      await supabaseAdmin.from('user_roles').delete().eq('profile_id', id);
+      await supabaseAdmin.from('user_hotels').delete().eq('profile_id', id);
+      await supabaseAdmin.from('profiles').delete().eq('id', id);
+
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
+      if (authError) throw authError;
+
+      return res.status(200).json({ success: true, message: 'User deleted successfully.' });
+    } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
   }
