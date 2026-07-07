@@ -28,6 +28,7 @@ import {
   X
 } from 'lucide-react';
 import { taskService } from '@/services/taskService';
+import { generateTaskMetadata } from '@/utils/taskMetadata';
 
 import { hotelRepository } from '@/repositories/hotelRepository';
 
@@ -247,16 +248,23 @@ export default function Reviews() {
         return;
       }
 
-      const aiRecommendedAction = `Misafir ile iletişime geç, ${taskCreationDept.toLowerCase()} ekibiyle konuyu koordine et, çözüm sonrası geri bildirim al.`;
-      const description = `Misafir Yorumu: "${taskCreationReview.comment || ''}"\nPlatform: ${taskCreationReview.source}\nMisafir: ${taskCreationReview.guestName || 'Misafir'}\nPuan: ${taskCreationReview.rating} Yıldız\nYapay Zeka Aksiyon Önerisi: ${aiRecommendedAction}`;
+      const description = `Misafir Yorumu: "${taskCreationReview.comment || ''}"\nPlatform: ${taskCreationReview.source}\nMisafir: ${taskCreationReview.guestName || 'Misafir'}\nPuan: ${taskCreationReview.rating} Yıldız`;
       const title = taskCreationReview.rating <= 2 ? `Kritik Misafir Şikayeti: ${taskCreationDept}` : `Misafir Yorumu Takip Görevi: ${taskCreationDept}`;
+
+      const metadataPayload = generateTaskMetadata(
+        taskCreationReview.comment || '',
+        taskCreationReview.rating,
+        taskCreationReview.guestName || 'Misafir',
+        taskCreationReview.source || 'Google',
+        taskCreationReview.review_date || new Date().toISOString()
+      );
 
       await taskService.createTask({
         hotelId: taskCreationReview.hotel_id || currentHotelId,
         organizationId: taskCreationReview.organization_id || null,
         reviewId: taskCreationReview.id,
         title,
-        description,
+        description: description + `\nYapay Zeka Aksiyon Önerisi: ${metadataPayload.ai_recommended_action}`,
         department: taskCreationDept,
         priority: taskCreationPriority,
         status: 'open',
@@ -264,16 +272,7 @@ export default function Reviews() {
         dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         createdBy: currentUserEmail || '',
         sourcePlatform: taskCreationReview.source || 'Google',
-        metadata: {
-          rating: taskCreationReview.rating,
-          guest_name: taskCreationReview.guestName || 'Misafir',
-          platform: taskCreationReview.source || 'Google',
-          review_date: taskCreationReview.review_date,
-          ai_action_required: true,
-          ai_recommended_action: aiRecommendedAction,
-          detected_department: taskCreationDept,
-          detected_keywords: []
-        }
+        metadata: metadataPayload
       });
 
       setToastMessage('Görevler modülüne eklendi');

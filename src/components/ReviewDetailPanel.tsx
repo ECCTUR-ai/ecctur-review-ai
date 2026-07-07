@@ -4,6 +4,7 @@ import { StarRating } from './StarRating';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
 import { taskService } from '@/services/taskService';
+import { generateTaskMetadata } from '@/utils/taskMetadata';
 import { 
   Sparkles, 
   Send, 
@@ -240,17 +241,26 @@ export function ReviewDetailPanel({
     setIsSubmittingTask(true);
     setTimeout(async () => {
       try {
+        const metadataPayload = generateTaskMetadata(
+          review.comment || '',
+          review.rating,
+          review.guestName || 'Misafir',
+          review.source || 'Google',
+          review.date || new Date().toISOString()
+        );
+
         await taskService.createTask({
           reviewId: review.id,
           title: taskTitle,
-          description: taskDescription,
+          description: taskDescription + `\nYapay Zeka Aksiyon Önerisi: ${metadataPayload.ai_recommended_action}`,
           department: taskDept,
           assignedTo: taskAssigned,
           dueDate: taskDueDate,
           priority: taskPriority,
           status: 'open',
           hotelId: review.hotelId,
-          organizationId: review.organizationId
+          organizationId: review.organizationId,
+          metadata: metadataPayload
         });
         setShowTaskForm(false);
         setTaskCreatedToast(true);

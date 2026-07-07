@@ -92,36 +92,53 @@ export default function DashboardLayout() {
         const userHotelsClearance = authHotelIds || [];
         const userOrgId = authOrgId || null;
 
+        console.log('[Tenant Step 1] authHotelIds from useAuth:', userHotelsClearance);
+        console.log('[Tenant Step 2] authOrgId from useAuth:', userOrgId);
+
         // 1. Fetch organizations dynamically
         const orgs = await hotelService.getOrganizations();
         
         // 2. Find active organization
         const activeOrg = orgs.find(o => o.id === userOrgId) || orgs[0];
+        console.log('[Tenant Step 3] Active Org:', activeOrg?.name, 'ID:', activeOrg?.id);
         if (activeOrg) {
           setCurrentOrg(activeOrg);
         }
 
         // 3. Fetch hotels for that organization (fetch all if true super admin)
         const allHotels = await hotelService.getHotels(isTrueSuperAdmin ? undefined : activeOrg?.id);
-        const filteredHotels = (isTrueSuperAdmin || roleKey === 'super_admin' || !authHotelIds)
+        console.log('[Tenant Step 4] allHotels in organization:', allHotels.map(h => ({ id: h.id, name: h.name, orgId: h.organizationId })));
+        
+        const filteredHotels = (isTrueSuperAdmin || roleKey === 'super_admin')
           ? allHotels
           : allHotels.filter(h => userHotelsClearance.includes(h.id));
+        console.log('[Tenant Step 5] filteredHotels for user:', filteredHotels.map(h => ({ id: h.id, name: h.name })));
         
         setHotels(filteredHotels);
         setIsApiOnline(true);
         
         // Ensure currentHotelId is valid
+        let targetHotelId = currentHotelId;
         if (filteredHotels.length === 1) {
           const singleHotel = filteredHotels[0];
+          targetHotelId = singleHotel.id;
           setCurrentHotelId(singleHotel.id);
           localStorage.setItem('saas_selected_hotel_id', singleHotel.id);
         } else if (!currentHotelId || !filteredHotels.find(h => h.id === currentHotelId)) {
           const firstHotel = filteredHotels[0];
           if (firstHotel) {
+            targetHotelId = firstHotel.id;
             setCurrentHotelId(firstHotel.id);
             localStorage.setItem('saas_selected_hotel_id', firstHotel.id);
           }
         }
+
+        console.log('[Tenant Summary Output]');
+        console.log('  - currentUser:', email || userId);
+        console.log('  - organizationId:', userOrgId);
+        console.log('  - hotelIds:', userHotelsClearance);
+        console.log('  - currentHotelId:', targetHotelId);
+        console.log('  - availableHotels:', filteredHotels.map(h => ({ id: h.id, name: h.name })));
       } catch (err) {
         console.error('Error loading organization context:', err);
         setIsApiOnline(false);

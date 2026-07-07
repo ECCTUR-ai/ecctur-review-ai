@@ -33,6 +33,183 @@ import {
   MessageSquare
 } from 'lucide-react';
 
+const resolveAiAnalysis = (task: any, displayLang: 'TR' | 'EN' | 'RU' | 'DE') => {
+  const meta = task.metadata || {};
+  
+  let reviewSummary = meta.review_summary || '';
+  let category = meta.complaint_category || '';
+  let focus = meta.complaint_focus || '';
+  let sentiment = meta.guest_sentiment || '';
+  let risk = meta.risk_level || '';
+  let language = meta.detected_language || 'Türkçe';
+  let actions = Array.isArray(meta.recommended_actions) ? meta.recommended_actions : [];
+
+  if (!reviewSummary) {
+    const dept = (task.department || '').toLowerCase();
+    if (dept.includes('house') || dept.includes('temizlik')) {
+      category = 'Temizlik';
+    } else if (dept.includes('teknik') || dept.includes('technical')) {
+      category = 'Teknik Arıza';
+    } else if (dept.includes('yiyecek') || dept.includes('food') || dept.includes('restoran')) {
+      category = 'Yiyecek & İçecek';
+    } else if (dept.includes('ön') || dept.includes('front') || dept.includes('resepsiyon')) {
+      category = 'Ön Büro';
+    } else if (dept.includes('güvenlik') || dept.includes('security')) {
+      category = 'Güvenlik';
+    } else if (dept.includes('satış') || dept.includes('sales') || dept.includes('fiyat')) {
+      category = 'Fiyat/Değer';
+    } else {
+      category = 'Genel Memnuniyetsizlik';
+    }
+
+    if (task.priority === 'critical') {
+      sentiment = 'Çok kızgın';
+      risk = 'Kritik';
+    } else if (task.priority === 'high') {
+      sentiment = 'Hayal kırıklığı';
+      risk = 'Yüksek';
+    } else if (task.priority === 'medium') {
+      sentiment = 'Nötr';
+      risk = 'Orta';
+    } else {
+      sentiment = 'Memnun ama eleştirili';
+      risk = 'Düşük';
+    }
+
+    const descLower = (task.description || '').toLowerCase();
+    if (/the|check-in|check out|hotel|room|stay|breakfast|nice|clean|bad|service|friendly|staff/i.test(descLower)) {
+      language = 'İngilizce';
+    } else if (/отель|комната|уборка|завтрак|персонал|плохо|грязный|хорошо/i.test(descLower)) {
+      language = 'Rusça';
+    } else if (/das|ist|zimmer|sauber|schmutzig|fruhstuck|personal/i.test(descLower)) {
+      language = 'Almanca';
+    } else {
+      language = 'Türkçe';
+    }
+
+    reviewSummary = `Misafir ${category.toLowerCase()} alanındaki şikayetini iletmiştir.`;
+    focus = `Bu yorum ağırlıklı olarak ${category} problemi içeriyor.`;
+
+    actions = [
+      'Misafir ilişkileri misafirle en kısa sürede iletişime geçsin.',
+      `${category} ekibi ilgili problemi kontrol etsin.`,
+      'İşlem sonrasında misafirden geri bildirim alınsın.'
+    ];
+  }
+
+  // category translation maps
+  const mapCat = (cat: string, lang: string) => {
+    const c = cat.toLowerCase();
+    if (lang === 'EN') {
+      if (c.includes('temizlik')) return 'Cleanliness';
+      if (c.includes('teknik') || c.includes('arıza')) return 'Technical Issue';
+      if (c.includes('yiyecek')) return 'Food & Beverage';
+      if (c.includes('personel') || c.includes('davranış')) return 'Staff Behavior';
+      if (c.includes('güvenlik')) return 'Security';
+      if (c.includes('fiyat') || c.includes('değer')) return 'Value for Money';
+      return 'General Dissatisfaction';
+    }
+    if (lang === 'RU') {
+      if (c.includes('temizlik')) return 'Уборка';
+      if (c.includes('teknik') || c.includes('arıza')) return 'Технические неполадки';
+      if (c.includes('yiyecek')) return 'Еда и напитки';
+      if (c.includes('personel') || c.includes('davranış')) return 'Поведение персонала';
+      if (c.includes('güvenlik')) return 'Безопасность';
+      if (c.includes('fiyat') || c.includes('değer')) return 'Соотношение цена/качество';
+      return 'Общее недовольство';
+    }
+    if (lang === 'DE') {
+      if (c.includes('temizlik')) return 'Sauberkeit';
+      if (c.includes('teknik') || c.includes('arıza')) return 'Technische Störung';
+      if (c.includes('yiyecek')) return 'Essen & Trinken';
+      if (c.includes('personel') || c.includes('davranış')) return 'Verhalten des Personals';
+      if (c.includes('güvenlik')) return 'Sicherheit';
+      if (c.includes('fiyat') || c.includes('değer')) return 'Preis-Leistungs-Verhältnis';
+      return 'Allgemeine Unzufriedenheit';
+    }
+    return cat;
+  };
+
+  const mapFocus = (cat: string, lang: string) => {
+    if (lang === 'EN') return `This review primarily concerns ${mapCat(cat, 'EN')} issues.`;
+    if (lang === 'RU') return `Этот отзыв в основном касается проблем с ${mapCat(cat, 'RU')}.`;
+    if (lang === 'DE') return `Diese Bewertung betrifft hauptsächlich Fragen der ${mapCat(cat, 'DE')}.`;
+    return `Bu yorum ağırlıklı olarak ${cat} problemi içeriyor.`;
+  };
+
+  const mapSummary = (cat: string, lang: string) => {
+    if (lang === 'EN') return `The guest expresses dissatisfaction regarding ${mapCat(cat, 'EN').toLowerCase()} issues.`;
+    if (lang === 'RU') return `Гость выражает недовольство по поводу проблем с ${mapCat(cat, 'RU').toLowerCase()}.`;
+    if (lang === 'DE') return `Der Gast äußert Unzufriedenheit bezüglich ${mapCat(cat, 'DE').toLowerCase()}-Problemen.`;
+    return `Misafir, ${cat.toLowerCase()} konusundaki aksaklıklardan dolayı memnuniyetsizliğini dile getiriyor.`;
+  };
+
+  const mapActions = (cat: string, lang: string) => {
+    const cEn = mapCat(cat, 'EN');
+    const cRu = mapCat(cat, 'RU');
+    const cDe = mapCat(cat, 'DE');
+    if (lang === 'EN') return [
+      'Guest relations should contact the guest.',
+      `The ${cEn} team should inspect and resolve the reported issue.`,
+      'Follow up with the guest after resolving the issue.'
+    ];
+    if (lang === 'RU') return [
+      'Службе по работе с гостями связаться с гостем.',
+      `Команде ${cRu} проверить и устранить проблему.`,
+      'Предоставить обратную связь после разрешения ситуации.'
+    ];
+    if (lang === 'DE') return [
+      'Gästebetreuung sollte den Gast kontaktieren.',
+      `Das Team für ${cDe} sollte das gemeldete Problem prüfen.`,
+      'Nach Behebung Feedback beim Gast einholen.'
+    ];
+    return [
+      'Misafir ilişkileri misafirle iletişime geçsin.',
+      `${cat} ekibi ilgili şikayet kaydını inceleyip düzeltsin.`,
+      'Çözüm sonrasında misafire bilgi verilip geri bildirim alınsın.'
+    ];
+  };
+
+  const translations = meta.translations || {
+    TR: {
+      review_summary: reviewSummary,
+      complaint_category: category,
+      complaint_focus: focus,
+      recommended_actions: actions
+    },
+    EN: {
+      review_summary: mapSummary(category, 'EN'),
+      complaint_category: mapCat(category, 'EN'),
+      complaint_focus: mapFocus(category, 'EN'),
+      recommended_actions: mapActions(category, 'EN')
+    },
+    RU: {
+      review_summary: mapSummary(category, 'RU'),
+      complaint_category: mapCat(category, 'RU'),
+      complaint_focus: mapFocus(category, 'RU'),
+      recommended_actions: mapActions(category, 'RU')
+    },
+    DE: {
+      review_summary: mapSummary(category, 'DE'),
+      complaint_category: mapCat(category, 'DE'),
+      complaint_focus: mapFocus(category, 'DE'),
+      recommended_actions: mapActions(category, 'DE')
+    }
+  };
+
+  const tBlock = translations[displayLang] || translations.TR;
+
+  return {
+    reviewSummary: tBlock.review_summary,
+    complaintCategory: tBlock.complaint_category,
+    complaintFocus: tBlock.complaint_focus,
+    guestSentiment: sentiment,
+    riskLevel: risk,
+    recommendedActions: tBlock.recommended_actions || [],
+    detectedLanguage: language
+  };
+};
+
 export default function Tasks() {
   const { t } = useTranslation();
   const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
@@ -52,6 +229,7 @@ export default function Tasks() {
 
   // Inline expanded reviews record
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
+  const [cardLangs, setCardLangs] = useState<Record<string, 'TR' | 'EN' | 'RU' | 'DE'>>({});
 
   // Side Panel Selected Task Details
   const [selectedTaskDetails, setSelectedTaskDetails] = useState<Task | null>(null);
@@ -788,18 +966,97 @@ export default function Tasks() {
                       </div>
                     </div>
 
-                    {/* Center: AI Action Highlight Card */}
-                    {aiRecommendedAction && (
-                      <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100/80 text-xs">
-                        <div className="flex items-center gap-1.5 text-indigo-700 font-bold mb-1.5">
-                          <Sparkles size={12} className="text-indigo-600 animate-pulse" />
-                          <span>Yapay Zeka Aksiyon Önerisi</span>
+                    {/* Upgraded AI Operation Analysis Card */}
+                    {(() => {
+                      const displayLang = cardLangs[task.id] || 'TR';
+                      const analysis = resolveAiAnalysis(task, displayLang);
+
+                      return (
+                        <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/70 text-xs space-y-3.5">
+                          {/* Card Header & Language Selector */}
+                          <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2">
+                            <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-[12px]">
+                              <Sparkles size={13} className="text-indigo-600 animate-pulse" />
+                              <span>Yapay Zeka Operasyon Analizi</span>
+                            </div>
+                            
+                            {/* Little Language Selector */}
+                            <div className="flex items-center gap-1 bg-white border border-indigo-100 rounded-lg p-0.5 shadow-sm">
+                              {(['TR', 'EN', 'RU', 'DE'] as const).map((lang) => (
+                                <button
+                                  key={lang}
+                                  onClick={() => setCardLangs(prev => ({ ...prev, [task.id]: lang }))}
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-black cursor-pointer transition-all ${
+                                    displayLang === lang
+                                      ? 'bg-blue-600 text-white shadow-sm'
+                                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {lang}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Analysis details layout */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Left details */}
+                            <div className="space-y-2">
+                              <div>
+                                <span className="text-[10px] text-slate-450 font-bold block uppercase tracking-wider">Yorum Özeti</span>
+                                <p className="text-slate-700 font-semibold leading-relaxed mt-0.5">{analysis.reviewSummary}</p>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-450 font-bold block uppercase tracking-wider">Ana Şikayet Konusu</span>
+                                <p className="text-slate-700 font-bold mt-0.5">🏷️ {analysis.complaintCategory}</p>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-450 font-bold block uppercase tracking-wider">Şikayet Odak / Yoğunluk</span>
+                                <p className="text-slate-600 font-semibold mt-0.5">{analysis.complaintFocus}</p>
+                              </div>
+                            </div>
+
+                            {/* Right details */}
+                            <div className="space-y-2">
+                              <div className="flex gap-4">
+                                <div>
+                                  <span className="text-[10px] text-slate-450 font-bold block uppercase tracking-wider">Duygu Durumu</span>
+                                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-750 font-bold text-[10px]">
+                                    🎭 {analysis.guestSentiment}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-450 font-bold block uppercase tracking-wider">Risk Seviyesi</span>
+                                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full border font-black text-[10px] ${
+                                    analysis.riskLevel === 'Kritik' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    analysis.riskLevel === 'Yüksek' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                    analysis.riskLevel === 'Orta' ? 'bg-yellow-50 text-yellow-755 border-yellow-200' :
+                                    'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  }`}>
+                                    ⚠️ {analysis.riskLevel}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <span className="text-[10px] text-slate-450 font-bold block uppercase tracking-wider">Yorumun Dili</span>
+                                <p className="text-slate-700 font-semibold mt-0.5">🌐 Dil: {analysis.detectedLanguage}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Recommended actions list */}
+                          <div className="bg-indigo-50/20 border border-indigo-100/50 p-3 rounded-xl space-y-1.5 mt-2">
+                            <span className="text-[10px] text-indigo-900 font-black uppercase tracking-wider block">Önerilen Aksiyon Planı</span>
+                            <ul className="space-y-1 text-slate-650 leading-relaxed font-semibold list-decimal pl-4">
+                              {analysis.recommendedActions.map((act: string, idx: number) => (
+                                <li key={idx}>{act}</li>
+                              ))}
+                            </ul>
+                          </div>
                         </div>
-                        <p className="text-slate-650 leading-relaxed font-semibold">
-                          {aiRecommendedAction}
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Active completed resolution details display */}
                     {activeTab === 'completed' && resolutionText && (
