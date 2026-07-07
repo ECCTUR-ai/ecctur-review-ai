@@ -28,6 +28,25 @@ import {
 
 import { hotelRepository } from '@/repositories/hotelRepository';
 
+interface ReviewPlatformConfig {
+  key: string;
+  label: string;
+  active: boolean;
+  icon: React.ReactNode;
+  activeBorder: string;
+}
+
+const visibleReviewPlatforms: ReviewPlatformConfig[] = [
+  { key: 'Google', label: 'Google', active: true, icon: <span className="text-[14px]">🔵</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'Booking', label: 'Booking', active: true, icon: <span className="text-[14px]">🔷</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'TripAdvisor', label: 'TripAdvisor', active: true, icon: <span className="text-[14px]">🟢</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'Hotels.com', label: 'Hotels', active: true, icon: <span className="text-[14px]">🟣</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'HolidayCheck', label: 'HolidayCheck', active: true, icon: <span className="text-[14px]">💗</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'Expedia', label: 'Expedia', active: false, icon: <span className="text-[14px]">🟡</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'Airbnb', label: 'Airbnb', active: false, icon: <span className="text-[14px]">🔴</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'Yelp', label: 'Yelp', active: false, icon: <span className="text-[14px]">🟥</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' }
+];
+
 const isTimeoutError = (err: any, responseText?: string) => {
   const msg = String(err?.message || err || '').toLowerCase();
   const txt = String(responseText || '').toLowerCase();
@@ -1908,18 +1927,31 @@ export default function Reviews() {
       </div>
 
       {/* Platform Summary Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-9 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
         {(() => {
+          const activeReviewPlatforms = visibleReviewPlatforms.filter(p => p.active);
+          
+          const getPlatformCount = (key: string) => {
+            if (key === 'Google') return googleCount;
+            if (key === 'Booking') return bookingCount;
+            if (key === 'TripAdvisor') return tripadvisorCount;
+            if (key === 'Hotels.com') return hotelscomCount;
+            if (key === 'HolidayCheck') return holidaycheckCount;
+            if (key === 'Expedia') return expediaCount;
+            if (key === 'Airbnb') return airbnbCount;
+            if (key === 'Yelp') return yelpCount;
+            return 0;
+          };
+
           const platformTabs = [
             { key: '', label: 'Tümü', count: allCount, icon: <span className="text-[14px]">🌐</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'Google', label: 'Google', count: googleCount, icon: <span className="text-[14px]">🔵</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'Booking', label: 'Booking', count: bookingCount, icon: <span className="text-[14px]">🔷</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'TripAdvisor', label: 'TripAdvisor', count: tripadvisorCount, icon: <span className="text-[14px]">🟢</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'Hotels.com', label: 'Hotels', count: hotelscomCount, icon: <span className="text-[14px]">🟣</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'HolidayCheck', label: 'HolidayCheck', count: holidaycheckCount, icon: <span className="text-[14px]">💗</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'Expedia', label: 'Expedia', count: expediaCount, icon: <span className="text-[14px]">🟡</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'Airbnb', label: 'Airbnb', count: airbnbCount, icon: <span className="text-[14px]">🔴</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
-            { key: 'Yelp', label: 'Yelp', count: yelpCount, icon: <span className="text-[14px]">🟥</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' }
+            ...activeReviewPlatforms.map(p => ({
+              key: p.key,
+              label: p.label,
+              count: getPlatformCount(p.key),
+              icon: p.icon,
+              activeBorder: p.activeBorder
+            }))
           ];
 
           return platformTabs.map((tab) => {
@@ -1946,7 +1978,6 @@ export default function Reviews() {
           });
         })()}
       </div>
-
       {/* Filters Bar */}
       <div className="space-y-2">
         <ReviewFilters

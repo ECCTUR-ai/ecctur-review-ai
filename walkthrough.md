@@ -127,3 +127,20 @@ Gelecekteki platform genişlemelerine hazırlık olarak, sabit platform listeler
 - **Üst Hero Platform Hapları**, **Platform Performansı Kartları** ve **Platform Dağılım Grafikleri** artık tamamen `platformConfigList` içindeki `active === true` süzgecinden geçen platformları baz alarak dinamik olarak render edilmektedir.
 - İleride yeni bir platform aktif edilmek istendiğinde, sadece bu listedeki `active` değerinin `true` yapılması yeterlidir; arayüzün tüm alanları kendisini otomatik olarak günceller.
 
+---
+
+## 8. Yorumlar (Reviews) Sayfası Platform Filtrelerinin Konfigürasyon Tabanlı Yapılması
+
+Yorumlar sayfasındaki platform filtreleme kartlarındaki pasif platformların kaldırılması amacıyla Reviews ekranı da konfigürasyon tabanlı hale getirilmiştir:
+
+### 1. Yorumlar Sayfası Konfigürasyonu (`visibleReviewPlatforms`)
+- `src/pages/Reviews.tsx` dosyasında `ReviewPlatformConfig` arabirimi ve `visibleReviewPlatforms` adında yeni bir merkezi platform listesi tanımlanmıştır.
+- `Google`, `Booking`, `TripAdvisor`, `Hotels.com` ve `HolidayCheck` filtreleri için `active: true` atanmıştır.
+- `Expedia`, `Airbnb` ve `Yelp` filtreleri için `active: false` atanmıştır. Tüm altyapı kodları korunarak sadece UI render'ı gizlenmiştir.
+
+### 2. Filtre Kartları Grid Tasarımı ve Dinamik Yapı
+- **Platform Özet Filtre Kartları (Platform Summary Counters)** artık tamamen bu konfigürasyondan beslenerek sadece aktif platform filtrelerini listeler.
+- Kartların grid tasarımı, 6 aktif filtre (Tümü + 5 aktif platform) için `md:grid-cols-6` olarak güncellenmiş ve yerleşim simetrisi optimize edilmiştir.
+- "Tümü" kartı listenin en başında kalmış ve tüm platformlardaki toplam yorum sayısını göstermeye devam etmektedir.
+
+
