@@ -516,7 +516,7 @@ export default function DashboardLayout() {
                   ))}
                 </select>
               ) : (
-                <span className="text-[11px] md:text-xs text-slate-500 font-semibold">No hotels</span>
+                <span className="text-[11px] md:text-xs text-slate-500 font-semibold">{t('dashboard.noHotels')}</span>
               )}
             </div>
 

@@ -22,6 +22,7 @@ const resources = {
         title: 'Executive Dashboard',
         subtitle: 'Overview of hotel operations, AI insights, and platform sync reports.',
         apiConnectedLabel: 'API Connected',
+        noHotels: 'No hotels assigned yet',
         kpi: {
           satisfactionScore: 'Guest Satisfaction Score',
           totalReviews: 'Total Reviews',
@@ -219,6 +220,7 @@ const resources = {
         title: 'Kontrol Paneli',
         subtitle: 'Otelinizin operasyonel durumu, yapay zeka analizleri ve performans raporları.',
         apiConnectedLabel: 'API Bağlantısı Etkin',
+        noHotels: 'Bu kullanıcıya henüz otel atanmamış',
         kpi: {
           satisfactionScore: 'Misafir Memnuniyet Puanı',
           totalReviews: 'Toplam Yorum',
@@ -416,6 +418,7 @@ const resources = {
         title: 'Панель управления',
         subtitle: 'Операционное состояние вашего отеля, анализ ИИ и отчеты о синхронизации платформ.',
         apiConnectedLabel: 'API подключено',
+        noHotels: 'Отели не назначены',
         kpi: {
           satisfactionScore: 'Индекс удовлетворенности',
           totalReviews: 'Всего отзывов',
