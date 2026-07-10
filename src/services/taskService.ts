@@ -9,6 +9,7 @@ export const taskService = {
     priority?: string;
     department?: string;
     search?: string;
+    reviewId?: string;
   }): Promise<Task[]> {
     return await taskRepository.getTasks(params);
   },

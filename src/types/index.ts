@@ -11,6 +11,62 @@ export interface AIAnalysis {
   sentimentScore: number;
 }
 
+export interface OperationsAnalysisV2 {
+  version: "2.0";
+  executive_summary: string;
+  overall_sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
+  emotion: string;
+  confidence: number;
+  main_problem: {
+    title: string;
+    category: string;
+    department: string;
+    impact: number;
+    evidence: string[];
+  } | null;
+  secondary_problems: {
+    title: string;
+    category: string;
+    department: string;
+    impact: number;
+    evidence: string[];
+  }[];
+  problem_distribution: {
+    title: string;
+    category: string;
+    department: string;
+    impact: number;
+  }[];
+  department_distribution: {
+    department: string;
+    impact: number;
+  }[];
+  root_cause_chain: {
+    step: number;
+    title: string;
+    description: string;
+  }[];
+  risk_analysis: {
+    risk: 'booking_score' | 'google_rating' | 'guest_retention' | 'negative_word_of_mouth' | 'social_media' | 'compensation' | 'legal';
+    label: string;
+    level: 'low' | 'medium' | 'high' | 'critical';
+    reason: string;
+  }[];
+  affected_kpis: {
+    name: string;
+    impact: 'low' | 'medium' | 'high' | 'critical';
+  }[];
+  recommended_actions: {
+    department: string;
+    action: string;
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    expected_impact: 'low' | 'medium' | 'high' | 'very_high';
+    estimated_time: string;
+    auto_task_eligible: boolean;
+  }[];
+  tags: string[];
+}
+
 export interface Review {
   id: string;
   guestName: string;
@@ -43,6 +99,11 @@ export interface Review {
   department_analysis?: any;
   quality_analysis?: any;
   priority_analysis?: any;
+  ai_operation_analysis?: OperationsAnalysisV2 | null;
+  ai_operation_analysis_version?: string | null;
+  ai_operation_analysis_updated_at?: string | null;
+  ai_operation_analysis_model?: string | null;
+  ai_operation_analysis_confidence?: number | null;
 }
 
 export interface Department {

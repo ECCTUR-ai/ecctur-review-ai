@@ -1190,6 +1190,29 @@ export const reviewService = {
     }
   },
 
+  async analyzeReview(id: string): Promise<Review> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing token');
+
+    const response = await fetch('/api/reviews?action=analyze-review', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ reviewId: id })
+    });
+
+    if (!response.ok) {
+      const errRes = await response.json().catch(() => ({ error: 'Analysis failed' }));
+      throw new Error(errRes.error || 'Analysis failed');
+    }
+
+    const data = await response.json();
+    return mapReview(data.review);
+  },
+
   async performReviewAction(params: {
     reviewId: string;
     actionType: 'approved' | 'published' | 'sent_to_whatsapp' | 'regenerated' | 'edited';

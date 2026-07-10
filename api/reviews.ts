@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { reviewImportService } from '../api-services/reviewImportService.js';
 import { bookingProvider } from '../api-services/providers/bookingProvider.js';
 import { fetchAggregatorReviews } from '../src/services/providers/hotelReviewAggregatorProvider.js';
+import { analyzeReviewText } from './utils/operationsAnalysis.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -1149,6 +1150,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
       console.error('[API translate-review] Failure:', err);
       return res.status(500).json({ success: false, error: 'Translation failed', details: err.message || String(err) });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: analyze-review
+  // -------------------------------------------------------------
+  if (action === 'analyze-review') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    const { reviewId } = req.body;
+    if (!reviewId) {
+      return res.status(400).json({ success: false, error: 'Missing reviewId parameter in request body.' });
+    }
+
+    try {
+      // 1. Fetch the review
+      const { data: review, error: revErr } = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('id', reviewId)
+        .maybeSingle();
+
+      if (revErr || !review) {
+        return res.status(404).json({ success: false, error: 'Review not found' });
+      }
+
+      const reviewText = review.review_text || review.comment_text || '';
+      const rating = review.rating || 5;
+
+      const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || '';
+
+      // 2. Perform operations analysis V2
+      const analysis = await analyzeReviewText(reviewText, rating, apiKey);
+
+      // 3. Save to database
+      const updateData = {
+        ai_operation_analysis: analysis,
+        ai_operation_analysis_version: '2.0',
+        ai_operation_analysis_updated_at: new Date().toISOString(),
+        ai_operation_analysis_model: process.env.AI_OPERATIONS_MODEL || 'gpt-4o',
+        ai_operation_analysis_confidence: analysis.confidence,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: updatedReview, error: updateErr } = await supabaseAdmin
+        .from('reviews')
+        .update(updateData)
+        .eq('id', reviewId)
+        .select('*')
+        .single();
+
+      if (updateErr) {
+        throw updateErr;
+      }
+
+      return res.status(200).json({ success: true, review: updatedReview });
+    } catch (err: any) {
+      console.error('[API analyze-review] Failure:', err);
+      return res.status(500).json({ success: false, error: 'Analysis failed', details: err.message || String(err) });
     }
   }
 

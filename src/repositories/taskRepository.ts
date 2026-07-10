@@ -33,9 +33,10 @@ export const taskRepository = {
     priority?: string;
     department?: string;
     search?: string;
+    reviewId?: string;
   }): Promise<Task[]> {
-    if (!params || !params.hotelId) {
-      console.warn('[taskRepository] Warning: getTasks called without hotelId parameter. Enforcing tenant isolation.');
+    if (!params || (!params.hotelId && !params.reviewId)) {
+      console.warn('[taskRepository] Warning: getTasks called without hotelId or reviewId parameter. Enforcing tenant isolation.');
       return [];
     }
 
@@ -45,6 +46,7 @@ export const taskRepository = {
       if (useHotelFilter && params.hotelId) {
         query = query.eq('hotel_id', params.hotelId);
       }
+      if (params.reviewId) query = query.eq('review_id', params.reviewId);
       if (params.status) query = query.eq('status', params.status);
       if (params.priority) query = query.eq('priority', params.priority);
       if (params.department) query = query.eq('department', params.department);

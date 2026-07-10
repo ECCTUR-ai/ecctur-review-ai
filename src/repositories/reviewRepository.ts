@@ -3,6 +3,21 @@ import { supabase } from '@/lib/supabase';
 import { Review, ReviewSource, Sentiment, ReviewStatus, ReviewPriority } from '@/types';
 import { normalizeReviewStatus } from '@/utils/statusHelper';
 
+function safeParseJson(val: any): any {
+  if (!val) return null;
+  if (typeof val === 'object') return val;
+  try {
+    let clean = String(val).trim();
+    if (clean.startsWith('```')) {
+      clean = clean.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+    }
+    return JSON.parse(clean);
+  } catch (e) {
+    console.warn("Failed to parse JSON string in repository:", e);
+    return null;
+  }
+}
+
 export function mapReview(item: any): Review {
   if (!item) {
     return {
@@ -23,6 +38,10 @@ export function mapReview(item: any): Review {
       internalNotes: '',
     };
   }
+
+  const parsedReviewAnalysis = safeParseJson(item.review_analysis);
+  const parsedAiAnalysis = safeParseJson(item.ai_analysis);
+
   return {
     id: item.id,
     guestName: item.guest_name || item.guestName || '',
@@ -59,16 +78,21 @@ export function mapReview(item: any): Review {
     google_reply_status: item.google_reply_status || null,
     google_reply_published_at: item.google_reply_published_at || null,
     google_reply_error: item.google_reply_error || null,
-    department_analysis: item.department_analysis || null,
-    quality_analysis: item.quality_analysis || null,
-    priority_analysis: item.priority_analysis || null,
-    aiAnalysis: item.ai_analysis || item.review_analysis ? {
-      sentiment: (item.sentiment || item.ai_analysis?.sentiment || item.review_analysis?.sentiment || 'neutral').toLowerCase() as Sentiment,
-      emotion: item.ai_analysis?.emotion || item.review_analysis?.emotion || '',
-      keyTopics: item.ai_analysis?.key_topics || item.review_analysis?.key_topics || item.ai_analysis?.keyTopics || [],
-      qualityScore: item.ai_analysis?.quality_score || item.review_analysis?.quality_score || item.ai_analysis?.qualityScore || 0,
-      sentimentScore: item.ai_analysis?.sentiment_score || item.review_analysis?.sentiment_score || item.ai_analysis?.sentimentScore || 0
-    } : undefined
+    department_analysis: safeParseJson(item.department_analysis),
+    quality_analysis: safeParseJson(item.quality_analysis),
+    priority_analysis: safeParseJson(item.priority_analysis),
+    aiAnalysis: parsedAiAnalysis || parsedReviewAnalysis ? {
+      sentiment: (item.sentiment || parsedAiAnalysis?.sentiment || parsedReviewAnalysis?.sentiment || 'neutral').toLowerCase() as Sentiment,
+      emotion: parsedAiAnalysis?.emotion || parsedReviewAnalysis?.emotion || '',
+      keyTopics: parsedAiAnalysis?.key_topics || parsedReviewAnalysis?.key_topics || parsedAiAnalysis?.keyTopics || (parsedReviewAnalysis?.topic ? String(parsedReviewAnalysis.topic).split(',').map((t: string) => t.trim()) : []),
+      qualityScore: parsedAiAnalysis?.quality_score || parsedReviewAnalysis?.quality_score || parsedAiAnalysis?.qualityScore || 0,
+      sentimentScore: parsedAiAnalysis?.sentiment_score || parsedReviewAnalysis?.sentiment_score || parsedAiAnalysis?.sentimentScore || 0
+    } : undefined,
+    ai_operation_analysis: safeParseJson(item.ai_operation_analysis),
+    ai_operation_analysis_version: item.ai_operation_analysis_version || null,
+    ai_operation_analysis_updated_at: item.ai_operation_analysis_updated_at || null,
+    ai_operation_analysis_model: item.ai_operation_analysis_model || null,
+    ai_operation_analysis_confidence: item.ai_operation_analysis_confidence || null
   };
 }
 

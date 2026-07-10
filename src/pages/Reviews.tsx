@@ -2831,6 +2831,40 @@ export default function Reviews() {
         </div>
       )}
 
+      {/* Slide-over Drawer for Review Details */}
+      {selectedReviewDetail && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setSelectedReviewId(null)}
+          />
+          {/* Drawer Content */}
+          <div className="relative w-full max-w-2xl h-full bg-white shadow-2xl animate-slide-in flex flex-col z-10 border-l border-slate-200">
+            {/* Close button inside the drawer header */}
+            <div className="absolute top-4 right-4 z-40">
+              <button 
+                onClick={() => setSelectedReviewId(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all bg-white border border-slate-200 shadow-sm cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden h-full">
+              <ReviewDetailPanel
+                review={selectedReviewDetail}
+                onUpdateStatus={handleUpdateStatus}
+                onSubmitResponse={handleSubmitResponse}
+                onSaveDraft={handleSaveDraft}
+                onGenerateAiReply={handleGenerateAiReply}
+                onUpdateNotes={handleUpdateNotes}
+                onPublishGoogleReply={handlePublishGoogleReply}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Premium Toast Notification Overlay */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-blue-200 bg-white shadow-2xl flex items-center gap-3 animate-slide-in max-w-sm">

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './AuthGuard';
 import { reviewService } from '@/services/reviewService';
+import { AiOperationsAnalysisV2 } from './AiOperationsAnalysisV2';
 
 interface ReviewDetailPanelProps {
   review: Review;
@@ -63,6 +64,50 @@ export function ReviewDetailPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingApproval, setIsSendingApproval] = useState(false);
 
+  const [existingTasks, setExistingTasks] = useState<any[]>([]);
+  const [localReview, setLocalReview] = useState<Review>(review);
+
+  const fetchExistingTasks = async () => {
+    try {
+      const res = await taskService.getTasks({ reviewId: review.id });
+      setExistingTasks(res || []);
+    } catch (err) {
+      console.warn('Failed to fetch existing tasks:', err);
+    }
+  };
+
+  const handleAnalyze = async (id: string) => {
+    try {
+      const updated = await reviewService.analyzeReview(id);
+      setLocalReview(updated);
+      fetchExistingTasks();
+    } catch (e: any) {
+      console.error('Failed to trigger analysis V2:', e);
+      alert('Analiz sırasında hata oluştu: ' + (e.message || String(e)));
+    }
+  };
+
+  const handleTriggerTaskFromAction = (action: { department: string; description: string; priority: string }) => {
+    let resolvedDept = action.department;
+    if (action.department === 'Front Office') resolvedDept = 'Ön Büro';
+    else if (action.department === 'Technical Service' || action.department === 'Maintenance') resolvedDept = 'Teknik Servis';
+    else if (action.department === 'Food & Beverage' || action.department === 'Kitchen' || action.department === 'Restaurant' || action.department === 'Bar') resolvedDept = 'Yiyecek & İçecek';
+    else if (action.department === 'Spa') resolvedDept = 'Spa';
+    else if (action.department === 'Management') resolvedDept = 'Yönetim';
+    else resolvedDept = 'Misafir İlişkileri'; // Fallback
+
+    setTaskTitle(`Eylem Gerekiyor: ${action.department} Düzeltici Önlem`);
+    setTaskDescription(action.description);
+    setTaskDept(resolvedDept);
+    setTaskPriority(action.priority as any);
+    
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    setTaskDueDate(d.toISOString().split('T')[0]);
+
+    setShowTaskForm(true);
+  };
+
 
   // Task creation local states
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -82,6 +127,7 @@ export function ReviewDetailPanel({
   const [translationError, setTranslationError] = useState<string | null>(null);
 
   useEffect(() => {
+    setLocalReview(review);
     setResponseVal(review.response || '');
     setManagerNotes(review.managerNotes || '');
     setInternalNotes(review.internalNotes || '');
@@ -100,6 +146,8 @@ export function ReviewDetailPanel({
     setTaskDueDate(d.toISOString().split('T')[0]);
     setTaskPriority(review.priority);
     setShowTaskForm(false);
+
+    fetchExistingTasks();
   }, [review]);
 
   const handleTranslate = (lang: 'tr' | 'en' | 'ru') => {
@@ -252,19 +300,19 @@ export function ReviewDetailPanel({
         await taskService.createTask({
           reviewId: review.id,
           title: taskTitle,
-          description: taskDescription + `\nYapay Zeka Aksiyon Önerisi: ${metadataPayload.ai_recommended_action}`,
+          description: taskDescription,
           department: taskDept,
           assignedTo: taskAssigned,
           dueDate: taskDueDate,
           priority: taskPriority,
           status: 'open',
           hotelId: review.hotelId,
-          organizationId: review.organizationId,
-          metadata: metadataPayload
+          organizationId: review.organizationId
         });
         setShowTaskForm(false);
         setTaskCreatedToast(true);
         setTimeout(() => setTaskCreatedToast(false), 3000);
+        fetchExistingTasks();
       } catch (err: any) {
         alert(`Görev oluşturma hatası: ${err.message}`);
       } finally {
@@ -384,60 +432,14 @@ export function ReviewDetailPanel({
           </div>
         </div>
 
-        {/* 3. AI Summary */}
+        {/* 3 & 4. AI Operations Analysis V2 */}
         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
-          <div className="flex justify-between items-center">
-            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles size={11} className="text-blue-500" />
-              AI Özet Analizi
-            </h4>
-            {isNegativeOrHighPriority && canManageTasks && (
-              <button
-                onClick={() => setShowTaskForm(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-100 text-[10px] font-bold text-rose-600 transition-colors"
-              >
-                <CheckSquare size={11} />
-                <span>Görev Oluştur</span>
-              </button>
-            )}
-          </div>
-          <p className="text-xs text-slate-600 leading-relaxed bg-blue-50/50 border border-blue-100 p-3 rounded-lg">
-            {aiSummaryText}
-          </p>
-        </div>
-
-        {/* 4. AI Analysis Dashboard metrics */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
-          <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Shield size={11} className="text-purple-500" />
-            AI Analiz Kartları
-          </h4>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div className="p-3 rounded-xl bg-white border border-slate-200">
-              <span className="text-[10px] text-slate-500 font-semibold block mb-1">Duygu</span>
-              <span className={`font-bold capitalize ${
-                review.sentiment === 'positive' ? 'text-emerald-600' : review.sentiment === 'neutral' ? 'text-amber-600' : 'text-rose-600'
-              }`}>
-                {review.sentiment === 'positive' ? 'Pozitif' : review.sentiment === 'negative' ? 'Negatif' : 'Nötr'}
-              </span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-white border border-slate-200">
-              <span className="text-[10px] text-slate-500 font-semibold block mb-1">Departman</span>
-              <span className="font-bold text-slate-800 capitalize">{departmentName}</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-white border border-slate-200">
-              <span className="text-[10px] text-slate-500 font-semibold block mb-1">Öncelik</span>
-              <PriorityBadge priority={review.priority} />
-            </div>
-
-            <div className="p-3 rounded-xl bg-white border border-slate-200">
-              <span className="text-[10px] text-slate-500 font-semibold block mb-1">Kalite Skoru</span>
-              <span className="font-bold text-emerald-600">{confidenceScore}%</span>
-            </div>
-          </div>
+          <AiOperationsAnalysisV2
+            review={localReview}
+            onAnalyze={handleAnalyze}
+            onTriggerTaskForm={handleTriggerTaskFromAction}
+            existingTasks={existingTasks}
+          />
         </div>
 
         {/* 5. AI Response Draft Editor */}
