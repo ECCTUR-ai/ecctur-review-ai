@@ -2994,35 +2994,80 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
 
       let importedCount = 0;
       let duplicateCount = 0;
-      let failedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+      const skippedReviews: Array<{ externalReviewId: string; reviewerName: string; reason: string }> = [];
+      const processedExternalIds = new Set<string>();
 
       for (const r of scrapedReviews) {
         try {
+          const extId = r.externalId || '';
+          const text = r.reviewText || '';
+          const name = r.guestName || 'Misafir';
+
+          // 1. Validation check (mandatory fields: hotel_id, platform, externalId, reviewText)
+          if (!hotelId || !extId || !text.trim()) {
+            skippedCount++;
+            skippedReviews.push({
+              externalReviewId: extId,
+              reviewerName: name,
+              reason: !extId ? 'invalid_external_id' : 'empty_review_text'
+            });
+            continue;
+          }
+
+          // 2. Duplicate in payload check
+          if (processedExternalIds.has(extId)) {
+            skippedCount++;
+            skippedReviews.push({
+              externalReviewId: extId,
+              reviewerName: name,
+              reason: 'duplicate_in_payload'
+            });
+            continue;
+          }
+          processedExternalIds.add(extId);
+
+          // Round rating to integer for database compatibility
+          const dbRating = r.rating !== null && r.rating !== undefined ? Math.round(r.rating) : null;
+
+          // 3. Duplicate check in database
           const isDuplicate = await checkIsDuplicate(
             hotelId,
             'otelpuan',
-            r.externalId || null,
-            r.guestName,
-            r.rating,
-            r.reviewText
+            extId,
+            name,
+            dbRating || 0,
+            text
           );
 
           if (isDuplicate) {
             duplicateCount++;
+            skippedCount++;
+            skippedReviews.push({
+              externalReviewId: extId,
+              reviewerName: name,
+              reason: 'duplicate_existing'
+            });
             continue;
           }
 
-          const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+          const sentiment = dbRating !== null ? (dbRating >= 4 ? 'positive' : dbRating === 3 ? 'neutral' : 'negative') : 'neutral';
+          
+          const metaPayload = {
+            ...(r.metadata || {}),
+            normalizedFloatRating: r.rating
+          };
 
           const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
             hotel_id: hotelId,
             hotel_name: hotelName,
             organization_id: orgId,
-            guest_name: r.guestName,
-            rating: r.rating,
-            review_text: r.reviewText,
+            guest_name: name,
+            rating: dbRating,
+            review_text: text,
             platform: 'otelpuan',
-            platform_review_id: r.externalId || null,
+            platform_review_id: extId,
             sentiment,
             status: 'Draft',
             publish_status: 'Draft',
@@ -3032,22 +3077,28 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
             travel_date: null,
             owner_response_text: null,
             owner_response_date: null,
-            metadata: r.metadata || null
+            metadata: metaPayload
           });
 
           if (insertErr) {
             console.error('[Otelpuan Import] Database insert error:', insertErr);
-            failedCount++;
+            errorCount++;
+            skippedCount++;
+            skippedReviews.push({
+              externalReviewId: extId,
+              reviewerName: name,
+              reason: 'database_error'
+            });
           } else {
             importedCount++;
             
             try {
               const reviewPayload = {
-                id: r.externalId,
-                platform_review_id: r.externalId,
-                guest_name: r.guestName,
-                rating: r.rating,
-                review_text: r.reviewText,
+                id: extId,
+                platform_review_id: extId,
+                guest_name: name,
+                rating: dbRating,
+                review_text: text,
                 platform: 'otelpuan',
                 sentiment,
                 status: 'Draft',
@@ -3063,7 +3114,13 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           }
         } catch (loopErr) {
           console.error('[Otelpuan Import] Loop exception:', loopErr);
-          failedCount++;
+          errorCount++;
+          skippedCount++;
+          skippedReviews.push({
+            externalReviewId: r.externalId || '',
+            reviewerName: r.guestName || 'Misafir',
+            reason: 'unknown'
+          });
         }
       }
 
@@ -3089,10 +3146,10 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           last_review_count: (scrapedReviews || []).length,
           last_imported_count: importedCount,
           last_duplicate_count: duplicateCount,
-          last_error_count: failedCount,
+          last_error_count: errorCount,
           sync_mode: syncMode,
-          status: failedCount > 0 && importedCount === 0 ? 'error' : 'active',
-          error_message: failedCount > 0 ? 'Some Otelpuan reviews failed to import' : null,
+          status: errorCount > 0 && importedCount === 0 ? 'error' : 'active',
+          error_message: errorCount > 0 ? 'Some Otelpuan reviews failed to import' : null,
           metadata: { dateFilterUnsupported: true }
         });
       } catch (dbErr) {
@@ -3107,16 +3164,23 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         syncStartDate: 'Tarih filtresi desteklenmiyor',
         imported: importedCount,
         duplicates: duplicateCount,
-        skipped: 0,
-        errors: failedCount,
+        skipped: skippedCount,
+        errors: errorCount,
         lastReviewDate: opLatestReviewDate || opState?.last_review_date || null,
         nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         estimatedCostSavingMessage: syncMode === 'incremental_sync' ? 'Kısmi tarama yapıldı, son 20 yorum kontrol edilerek API maliyeti düşürüldü.' : '',
         fetchedCount: scrapedReviews.length,
         insertedCount: importedCount,
         duplicateCount,
-        failedCount,
-        totalAfterImport: totalAfterImport || 0
+        failedCount: errorCount,
+        totalAfterImport: totalAfterImport || 0,
+        scraperInputCount: scrapedReviews.length,
+        normalizedCount: scrapedReviews.length,
+        validCount: processedExternalIds.size,
+        updatedCount: 0,
+        skippedCount,
+        errorCount,
+        skippedReviews
       });
     } catch (err: any) {
       const elapsed = Date.now() - startTime;
