@@ -2,9 +2,9 @@ import { URL } from 'url';
 import dns from 'dns';
 import { promisify } from 'util';
 import { spawnSync } from 'child_process';
-import { OtelpuanReview } from '../types/otelpuan';
-import { parseOtelpuanPage, normalizeOtelpuanRating, parseTurkishDate } from '../utils/otelpuanParser';
-import { generateDeterministicId } from '../utils/reviewHash';
+import { OtelpuanReview } from '../types/otelpuan.js';
+import { parseOtelpuanPage, normalizeOtelpuanRating, parseTurkishDate } from '../utils/otelpuanParser.js';
+import { generateDeterministicId } from '../utils/reviewHash.js';
 
 const lookupAsync = promisify(dns.lookup);
 

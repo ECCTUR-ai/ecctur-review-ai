@@ -1,6 +1,6 @@
-import { validateOtelpuanUrl, isPrivateIp, otelpuanScraperService } from '../src/services/otelpuanScraperService';
-import { parseTurkishDate, normalizeOtelpuanRating, parseOtelpuanPage } from '../src/utils/otelpuanParser';
-import { generateDeterministicId } from '../src/utils/reviewHash';
+import { validateOtelpuanUrl, isPrivateIp, otelpuanScraperService } from '../src/services/otelpuanScraperService.js';
+import { parseTurkishDate, normalizeOtelpuanRating, parseOtelpuanPage } from '../src/utils/otelpuanParser.js';
+import { generateDeterministicId } from '../src/utils/reviewHash.js';
 
 async function runTests() {
   console.log("==========================================");

@@ -1,5 +1,5 @@
-import { OtelpuanReview } from '../types/otelpuan';
-import { generateDeterministicId } from './reviewHash';
+import { OtelpuanReview } from '../types/otelpuan.js';
+import { generateDeterministicId } from './reviewHash.js';
 
 // Maps Turkish month names to ISO double-digit month numbers
 const TURKISH_MONTHS: Record<string, string> = {

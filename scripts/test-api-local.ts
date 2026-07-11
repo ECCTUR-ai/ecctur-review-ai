@@ -35,7 +35,7 @@ async function runLocalApiTest() {
   const hotelUrl = 'https://www.otelpuan.com/Sinnada-Resort-Thermaland';
 
   // Dynamically import handler after process.env is populated
-  const handlerModule = await import('../api/reviews');
+  const handlerModule = await import('../api/reviews.js');
   const handler = handlerModule.default;
 
   console.log(`[Test] Calling handler POST /api/reviews/otelpuan/test with URL: ${hotelUrl}...`);
