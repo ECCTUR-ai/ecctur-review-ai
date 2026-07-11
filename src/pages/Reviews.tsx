@@ -482,7 +482,7 @@ export default function Reviews() {
     refetch: refetchCounts
   } = useFetch(() => reviewService.getReviews({
     hotelId: queriedHotelId,
-    limit: 1000
+    fetchAll: true
   }), [queriedHotelId]);
 
   const refetch = useCallback(() => {
@@ -2227,7 +2227,7 @@ export default function Reviews() {
               {totalReviews > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-slate-100 text-[11px] text-slate-500 font-semibold bg-white p-4 rounded-3xl shadow-sm">
                   <div>
-                    Toplam <span className="font-bold text-slate-800">{totalReviews}</span> yorumdan{' '}
+                    Toplam <span className="font-bold text-slate-800">{data?.total || totalReviews}</span> yorumdan{' '}
                     <span className="font-bold text-slate-800">{totalReviews === 0 ? 0 : startIndex + 1}</span>-
                     <span className="font-bold text-slate-800">{endIndex}</span> arası gösteriliyor
                   </div>

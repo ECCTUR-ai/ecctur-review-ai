@@ -13,15 +13,34 @@ export const dashboardRepository = {
       return { reviews: [], syncStates: [] };
     }
 
-    // 1. Fetch reviews matching hotel_id
-    let reviewsQuery = supabase
-      .from('reviews')
-      .select('id, platform, rating, review_date, status, review_text, created_at, guest_name, sentiment')
-      .eq('hotel_id', hotelId);
+    // 1. Fetch reviews matching hotel_id in a loop
+    let allReviews: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (limitDate) {
-      const isoStr = limitDate.toISOString();
-      reviewsQuery = reviewsQuery.or(`review_date.gte.${isoStr},created_at.gte.${isoStr}`);
+    while (hasMore) {
+      let reviewsQuery = supabase
+        .from('reviews')
+        .select('id, platform, rating, review_date, status, review_text, created_at, guest_name, sentiment')
+        .eq('hotel_id', hotelId)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (limitDate) {
+        const isoStr = limitDate.toISOString();
+        reviewsQuery = reviewsQuery.or(`review_date.gte.${isoStr},created_at.gte.${isoStr}`);
+      }
+
+      const { data, error } = await reviewsQuery;
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allReviews = [...allReviews, ...data];
+        hasMore = data.length === pageSize;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
     // 2. Fetch sync states matching hotel_id
@@ -30,10 +49,7 @@ export const dashboardRepository = {
       .select('*')
       .eq('hotel_id', hotelId);
 
-    const [reviewsRes, syncStatesRes] = await Promise.all([reviewsQuery, syncStatesQuery]);
-
-    if (reviewsRes.error) throw reviewsRes.error;
-    
+    const syncStatesRes = await syncStatesQuery;
     let syncStates: any[] = [];
     if (syncStatesRes.error) {
       console.warn('[dashboardRepository] review_sync_states table error (e.g. schema cache or RLS):', syncStatesRes.error.message);
@@ -42,7 +58,7 @@ export const dashboardRepository = {
     }
 
     return {
-      reviews: reviewsRes.data || [],
+      reviews: allReviews,
       syncStates
     };
   }

@@ -86,7 +86,7 @@ export default function Reports() {
   const fetchReviews = async () => {
     setLoading(true);
     try {
-      const result = await reviewService.getReviews({ hotelId: queriedHotelId, limit: 1000 });
+      const result = await reviewService.getReviews({ hotelId: queriedHotelId, fetchAll: true });
       setReviews(result.reviews || []);
     } catch (error) {
       console.error('Failed to load reviews for reports:', error);

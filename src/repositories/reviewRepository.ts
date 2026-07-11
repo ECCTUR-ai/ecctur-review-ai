@@ -108,76 +108,112 @@ export const reviewRepository = {
     limit?: number;
     offset?: number;
     sortBy?: 'newest' | 'oldest';
+    fetchAll?: boolean;
   }): Promise<{ reviews: Review[]; total: number }> {
     if (!params || !params.hotelId) {
       console.warn('[reviewRepository] Warning: getReviews called without hotelId parameter. Enforcing tenant isolation.');
       return { reviews: [], total: 0 };
     }
 
-    let query = supabase
-      .from('reviews')
-      .select('*', { count: 'exact' })
-      .eq('hotel_id', params.hotelId);
+    const buildBaseQuery = () => {
+      let query = supabase
+        .from('reviews')
+        .select('*', { count: 'exact' })
+        .eq('hotel_id', params.hotelId);
 
-    if (params.source) {
-      const srcLower = params.source.toLowerCase();
-      if (srcLower === 'booking') {
-        query = query.or('platform.eq.booking,platform.eq.Booking');
-      } else if (srcLower === 'tripadvisor') {
-        query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
-      } else if (srcLower === 'google') {
-        query = query.or('platform.eq.google,platform.eq.Google,platform.eq.google-maps,platform.eq.google_maps,platform.eq.google maps');
-      } else if (srcLower === 'holidaycheck') {
-        query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
-      } else if (srcLower === 'hotels.com' || srcLower === 'hotelscom') {
-        query = query.or('platform.eq.hotels.com,platform.eq.hotelscom');
-      } else {
-        query = query.eq('platform', params.source);
+      if (params.source) {
+        const srcLower = params.source.toLowerCase();
+        if (srcLower === 'booking') {
+          query = query.or('platform.eq.booking,platform.eq.Booking');
+        } else if (srcLower === 'tripadvisor') {
+          query = query.or('platform.eq.tripadvisor,platform.eq.TripAdvisor,platform.eq.Tripadvisor');
+        } else if (srcLower === 'google') {
+          query = query.or('platform.eq.google,platform.eq.Google,platform.eq.google-maps,platform.eq.google_maps,platform.eq.google maps');
+        } else if (srcLower === 'holidaycheck') {
+          query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
+        } else if (srcLower === 'hotels.com' || srcLower === 'hotelscom') {
+          query = query.or('platform.eq.hotels.com,platform.eq.hotelscom');
+        } else {
+          query = query.eq('platform', params.source);
+        }
       }
-    }
-    if (params.sentiment) {
-      query = query.eq('sentiment', params.sentiment);
-    }
-    if (params.status) {
-      const statusVal = normalizeReviewStatus(params.status);
-      if (statusVal === 'approved') {
-        query = query.or('status.eq.approved,status.eq.Approved,status.eq.published,status.eq.Published,status.eq.cevaplandi');
-      } else if (statusVal === 'draft') {
-        query = query.or('status.eq.draft,status.eq.Draft');
-      } else if (statusVal === 'archived') {
-        query = query.or('status.eq.archived,status.eq.Archived');
-      } else if (statusVal === 'manual_replied') {
-        query = query.or('status.eq.manual_replied,status.eq.manual-replied,status.eq.Manual_Replied');
-      } else if (statusVal === 'pending') {
-        query = query.or('status.eq.pending,status.eq.Pending,status.eq.pending_approval,status.eq.waiting_approval');
-      } else {
-        query = query.eq('status', params.status);
+      if (params.sentiment) {
+        query = query.eq('sentiment', params.sentiment);
       }
-    }
-    if (params.priority) {
-      query = query.eq('priority', params.priority);
-    }
-    if (params.rating) {
-      query = query.eq('rating', params.rating);
-    }
-    if (params.search) {
-      query = query.ilike('guest_name', `%${params.search}%`);
-    }
-
-    const limit = params.limit || 20;
-    const offset = params.offset || 0;
-    query = query.range(offset, offset + limit - 1);
+      if (params.status) {
+        const statusVal = normalizeReviewStatus(params.status);
+        if (statusVal === 'approved') {
+          query = query.or('status.eq.approved,status.eq.Approved,status.eq.published,status.eq.Published,status.eq.cevaplandi');
+        } else if (statusVal === 'draft') {
+          query = query.or('status.eq.draft,status.eq.Draft');
+        } else if (statusVal === 'archived') {
+          query = query.or('status.eq.archived,status.eq.Archived');
+        } else if (statusVal === 'manual_replied') {
+          query = query.or('status.eq.manual_replied,status.eq.manual-replied,status.eq.Manual_Replied');
+        } else if (statusVal === 'pending') {
+          query = query.or('status.eq.pending,status.eq.Pending,status.eq.pending_approval,status.eq.waiting_approval');
+        } else {
+          query = query.eq('status', params.status);
+        }
+      }
+      if (params.priority) {
+        query = query.eq('priority', params.priority);
+      }
+      if (params.rating) {
+        query = query.eq('rating', params.rating);
+      }
+      if (params.search) {
+        query = query.ilike('guest_name', `%${params.search}%`);
+      }
+      return query;
+    };
 
     const isAsc = params.sortBy === 'oldest';
-    const sortedQuery = query
-      .order('review_date', { ascending: isAsc, nullsFirst: false })
-      .order('created_at', { ascending: isAsc });
-    const response = await sortedQuery;
 
-    if (response.error) throw response.error;
+    if (params.fetchAll) {
+      let allReviews: Review[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let totalCount = 0;
 
-    const reviews = (response.data || []).map(mapReview);
-    return { reviews, total: response.count || 0 };
+      while (hasMore) {
+        let query = buildBaseQuery();
+        query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+        const sortedQuery = query
+          .order('review_date', { ascending: isAsc, nullsFirst: false })
+          .order('created_at', { ascending: isAsc });
+
+        const response = await sortedQuery;
+        if (response.error) throw response.error;
+
+        totalCount = response.count || 0;
+        const reviewsPage = (response.data || []).map(mapReview);
+        if (reviewsPage.length > 0) {
+          allReviews = [...allReviews, ...reviewsPage];
+          hasMore = reviewsPage.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+      return { reviews: allReviews, total: totalCount };
+    } else {
+      let query = buildBaseQuery();
+      const limit = params.limit || 20;
+      const offset = params.offset || 0;
+      query = query.range(offset, offset + limit - 1);
+
+      const sortedQuery = query
+        .order('review_date', { ascending: isAsc, nullsFirst: false })
+        .order('created_at', { ascending: isAsc });
+
+      const response = await sortedQuery;
+      if (response.error) throw response.error;
+
+      const reviews = (response.data || []).map(mapReview);
+      return { reviews, total: response.count || 0 };
+    }
   },
 
   async getReviewById(id: string): Promise<Review> {

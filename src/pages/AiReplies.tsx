@@ -166,22 +166,40 @@ export default function AiReplies() {
     if (!activeHotelId) return;
 
     try {
-      let query = supabase
-        .from('reviews')
-        .select('status, rating, created_at, review_date, responded_at, google_reply_published_at');
+      let allReviews: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (selectedHotelId === 'all') {
-        if (roleKey !== 'super_admin' && hotelIds && hotelIds.length > 0) {
-          query = query.in('hotel_id', hotelIds);
-        } else if (organizationId) {
-          query = query.eq('organization_id', organizationId);
+      while (hasMore) {
+        let query = supabase
+          .from('reviews')
+          .select('status, rating, created_at, review_date, responded_at, google_reply_published_at')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (selectedHotelId === 'all') {
+          if (roleKey !== 'super_admin' && hotelIds && hotelIds.length > 0) {
+            query = query.in('hotel_id', hotelIds);
+          } else if (organizationId) {
+            query = query.eq('organization_id', organizationId);
+          }
+        } else {
+          query = query.eq('hotel_id', selectedHotelId);
         }
-      } else {
-        query = query.eq('hotel_id', selectedHotelId);
+
+        const { data: dbReviewsPage, error } = await query;
+        if (error) throw error;
+
+        if (dbReviewsPage && dbReviewsPage.length > 0) {
+          allReviews = [...allReviews, ...dbReviewsPage];
+          hasMore = dbReviewsPage.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data: dbReviews, error } = await query;
-      if (error) throw error;
+      const dbReviews = allReviews;
 
       if (!dbReviews || dbReviews.length === 0) {
         setKpis({
