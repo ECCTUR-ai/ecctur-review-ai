@@ -78,6 +78,8 @@ export const ReviewCard = React.memo(function ReviewCard({
         return <Sun size={13} className="text-rose-500" />;
       case 'Hotels.com':
         return <Building size={13} className="text-indigo-500" />;
+      case 'otelpuan':
+        return <div className="w-2.5 h-2.5 rounded-full bg-orange-500 flex-shrink-0" />;
       default:
         return <MessageCircle size={13} className="text-slate-500" />;
     }
@@ -371,6 +373,7 @@ export const ReviewCard = React.memo(function ReviewCard({
     if (norm.includes('tripadvisor')) return 'TripAdvisor';
     if (norm.includes('hotels')) return 'Hotels.com';
     if (norm.includes('holidaycheck')) return 'HolidayCheck';
+    if (norm.includes('otelpuan')) return 'Otelpuan';
     return getPlatformLabel(plat);
   };
 
@@ -456,7 +459,8 @@ export const ReviewCard = React.memo(function ReviewCard({
       <div className="md:col-span-6 flex flex-col gap-3">
         {/* Rating Badge Row */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-lg text-amber-700 text-xs font-extrabold shadow-sm shrink-0">
+          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-lg text-amber-700 text-xs font-extrabold shadow-sm shrink-0"
+               title={review.metadata?.originalRating ? `Orijinal Otelpuan Puanı: ${review.metadata.originalRating}/10` : undefined}>
             <span>{review.rating.toFixed(1)}</span>
             <StarRating rating={review.rating} />
           </div>

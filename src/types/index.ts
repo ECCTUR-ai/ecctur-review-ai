@@ -1,4 +1,4 @@
-export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia' | 'HolidayCheck' | 'Hotels.com' | 'Airbnb' | 'Yelp';
+export type ReviewSource = 'Google' | 'TripAdvisor' | 'Booking' | 'Expedia' | 'HolidayCheck' | 'Hotels.com' | 'Airbnb' | 'Yelp' | 'otelpuan';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 export type ReviewPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ReviewStatus = 'pending' | 'draft' | 'approved' | 'archived' | 'manual_replied' | 'waiting_approval' | 'pending_approval' | 'published';
@@ -234,6 +234,7 @@ export interface Hotel {
   bookingUrl?: string;
   holidaycheckUrl?: string;
   hotelscomUrl?: string;
+  otelpuanUrl?: string;
 }
 
 export interface UserProfile {

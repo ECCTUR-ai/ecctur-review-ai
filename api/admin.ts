@@ -1110,10 +1110,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to create hotels' });
     }
     try {
-      const { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl, hotelscomUrl } = req.body;
+      let { name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl, hotelscomUrl, otelpuanUrl } = req.body;
       if (!name || !organizationId) {
         return res.status(400).json({ error: 'Missing name or organizationId parameter' });
       }
+
+      if (otelpuanUrl && otelpuanUrl.trim()) {
+        try {
+          const u = new URL(otelpuanUrl.trim());
+          if (u.protocol !== 'https:') {
+            return res.status(400).json({ error: 'Otelpuan URL\'si sadece https:// ile başlayabilir.' });
+          }
+          if (u.hostname !== 'otelpuan.com' && u.hostname !== 'www.otelpuan.com') {
+            return res.status(400).json({ error: 'Otelpuan URL\'si sadece otelpuan.com veya www.otelpuan.com alan adlarını içerebilir.' });
+          }
+          otelpuanUrl = u.toString();
+        } catch (_) {
+          return res.status(400).json({ error: 'Geçersiz Otelpuan URL\'si.' });
+        }
+      }
+
       const updatePayload = {
         name,
         organization_id: organizationId,
@@ -1122,7 +1138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tripadvisor_url: tripadvisorUrl || null,
         booking_url: cleanBookingUrl(bookingUrl) || null,
         holidaycheck_url: holidaycheckUrl || null,
-        hotelscom_url: hotelscomUrl || null
+        hotelscom_url: hotelscomUrl || null,
+        otelpuan_url: otelpuanUrl || null
       };
       console.log("[SUPABASE UPDATE]", updatePayload);
 
@@ -1137,7 +1154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!error && data) {
         const { data: selectCheck, error: selectError } = await supabaseAdmin
           .from('hotels')
-          .select('holidaycheck_url, hotelscom_url')
+          .select('holidaycheck_url, hotelscom_url, otelpuan_url')
           .eq('id', data.id)
           .maybeSingle();
         console.log("[SUPABASE SELECT VERIFICATION]", selectCheck, selectError);
@@ -1174,6 +1191,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      if (otelpuanUrl && otelpuanUrl.trim()) {
+        try {
+          const u = new URL(otelpuanUrl.trim());
+          if (u.protocol !== 'https:') {
+            return res.status(400).json({ error: 'Otelpuan URL\'si sadece https:// ile başlayabilir.' });
+          }
+          if (u.hostname !== 'otelpuan.com' && u.hostname !== 'www.otelpuan.com') {
+            return res.status(400).json({ error: 'Otelpuan URL\'si sadece otelpuan.com veya www.otelpuan.com alan adlarını içerebilir.' });
+          }
+          otelpuanUrl = u.toString();
+        } catch (_) {
+          return res.status(400).json({ error: 'Geçersiz Otelpuan URL\'si.' });
+        }
+      }
+
       const updatePayload = {
         name,
         organization_id: organizationId,
@@ -1182,7 +1214,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tripadvisor_url: tripadvisorUrl || null,
         booking_url: cleanBookingUrl(bookingUrl) || null,
         holidaycheck_url: holidaycheckUrl || null,
-        hotelscom_url: hotelscomUrl || null
+        hotelscom_url: hotelscomUrl || null,
+        otelpuan_url: otelpuanUrl || null
       };
       console.log("[SUPABASE UPDATE]", updatePayload);
 
@@ -1198,7 +1231,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!error && data) {
         const { data: selectCheck, error: selectError } = await supabaseAdmin
           .from('hotels')
-          .select('holidaycheck_url, hotelscom_url')
+          .select('holidaycheck_url, hotelscom_url, otelpuan_url')
           .eq('id', data.id)
           .maybeSingle();
         console.log("[SUPABASE SELECT VERIFICATION]", selectCheck, selectError);

@@ -46,6 +46,7 @@ const visibleReviewPlatforms: ReviewPlatformConfig[] = [
   { key: 'TripAdvisor', label: 'TripAdvisor', active: true, icon: <span className="text-[14px]">🟢</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
   { key: 'Hotels.com', label: 'Hotels', active: true, icon: <span className="text-[14px]">🟣</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
   { key: 'HolidayCheck', label: 'HolidayCheck', active: true, icon: <span className="text-[14px]">💗</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
+  { key: 'otelpuan', label: 'Otelpuan', active: true, icon: <div className="w-3.5 h-3.5 rounded-full bg-orange-500 flex-shrink-0" />, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
   { key: 'Expedia', label: 'Expedia', active: false, icon: <span className="text-[14px]">🟡</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
   { key: 'Airbnb', label: 'Airbnb', active: false, icon: <span className="text-[14px]">🔴</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' },
   { key: 'Yelp', label: 'Yelp', active: false, icon: <span className="text-[14px]">🟥</span>, activeBorder: 'border-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/10' }
@@ -132,6 +133,7 @@ export default function Reviews() {
   const [isImportingBooking, setIsImportingBooking] = useState(false);
   const [isImportingHolidaycheck, setIsImportingHolidaycheck] = useState(false);
   const [isImportingHotelscom, setIsImportingHotelscom] = useState(false);
+  const [isImportingOtelpuan, setIsImportingOtelpuan] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [importRange, setImportRange] = useState('365');
   
@@ -550,7 +552,7 @@ export default function Reviews() {
       try {
         const { data, error } = await supabase
           .from('hotels')
-          .select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, address, phone, website')
+          .select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, hotelscom_url, otelpuan_url, address, phone, website')
           .eq('id', currentHotelId)
           .maybeSingle();
 
@@ -566,6 +568,8 @@ export default function Reviews() {
             tripadvisorUrl: data.tripadvisor_url || '',
             bookingUrl: data.booking_url || '',
             holidaycheckUrl: data.holidaycheck_url || '',
+            hotelscomUrl: data.hotelscom_url || '',
+            otelpuanUrl: data.otelpuan_url || '',
             address: data.address || '',
             phone: data.phone || '',
             website: data.website || ''
@@ -650,12 +654,13 @@ export default function Reviews() {
   const bookingCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'booking').length;
   const holidaycheckCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'holidaycheck').length;
   const hotelscomCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'hotelscom').length;
+  const otelpuanCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'otelpuan').length;
   const expediaCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'expedia').length;
   const airbnbCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'airbnb').length;
   const yelpCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'yelp').length;
   const otherCount = baseReviewsForCounts.filter(r => {
     const normalized = normalizeReviewPlatform(r.source);
-    return normalized !== 'google' && normalized !== 'tripadvisor' && normalized !== 'booking' && normalized !== 'holidaycheck' && normalized !== 'hotelscom' && normalized !== 'expedia' && normalized !== 'airbnb' && normalized !== 'yelp';
+    return normalized !== 'google' && normalized !== 'tripadvisor' && normalized !== 'booking' && normalized !== 'holidaycheck' && normalized !== 'hotelscom' && normalized !== 'expedia' && normalized !== 'airbnb' && normalized !== 'yelp' && normalized !== 'otelpuan';
   }).length;
 
   const allCount = baseReviewsForCounts.length;
@@ -1219,6 +1224,91 @@ export default function Reviews() {
     }
   };
 
+  const handleSyncOtelpuanReviews = async () => {
+    if (!currentHotelId) {
+      alert('Lütfen bir otel seçin.');
+      return;
+    }
+
+    const currentHotel = hotels?.find(h => h.id === currentHotelId);
+    let dbRow: any = null;
+    try {
+      const { data } = await supabase
+        .from('hotels')
+        .select('otelpuan_url, name')
+        .eq('id', currentHotelId)
+        .maybeSingle();
+      dbRow = data;
+    } catch (e) {
+      console.error(e);
+    }
+
+    const otelpuanUrl = currentHotel?.otelpuanUrl || dbRow?.otelpuan_url;
+    if (!otelpuanUrl) {
+      alert('Bu otel için Otelpuan bağlantısı tanımlanmamış.');
+      return;
+    }
+
+    if (isImportingOtelpuan) return;
+    setIsImportingOtelpuan(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Oturum bulunamadı.');
+
+      let existingCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', currentHotelId)
+          .eq('platform', 'otelpuan');
+        if (!error && count !== null) {
+          existingCount = count;
+        }
+      } catch (e) {
+        console.error('Failed to get existing Otelpuan review count:', e);
+      }
+
+      const mode = existingCount === 0 ? 'initial_import' : 'daily_sync';
+
+      const response = await fetch('/api/reviews?action=import-otelpuan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          hotelId: currentHotelId,
+          hotelName: currentHotel?.name || dbRow?.name || '',
+          otelpuanUrl,
+          mode
+        })
+      });
+
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || 'İçe aktarım başarısız oldu.');
+      }
+
+      const insertedCount = res.insertedCount ?? 0;
+      const duplicateCount = res.duplicateCount ?? 0;
+      const failedCount = res.failedCount ?? 0;
+      const fetchedCount = res.fetchedCount ?? 0;
+
+      const alertMsg = `Otelpuan yorumları senkronize edildi: ${fetchedCount} yorum kontrol edildi, ${insertedCount} yeni yorum eklendi.`;
+      
+      alert(alertMsg);
+      setToastMessage(alertMsg);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'İçe aktarım sırasında bir sorun oluştu.');
+    } finally {
+      setIsImportingOtelpuan(false);
+    }
+  };
+
   const handleSyncHotelscomReviews = async () => {
     if (!currentHotelId) {
       alert('Lütfen bir otel seçin.');
@@ -1329,7 +1419,7 @@ export default function Reviews() {
       try {
         const { data } = await supabase
           .from('hotels')
-          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, hotelscom_url')
+          .select('google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, hotelscom_url, otelpuan_url')
           .eq('id', currentHotelId)
           .maybeSingle();
         dbRow = data;
@@ -1342,8 +1432,9 @@ export default function Reviews() {
       const bookingUrl = currentHotel?.bookingUrl || dbRow?.booking_url || '';
       const holidaycheckUrl = currentHotel?.holidaycheckUrl || dbRow?.holidaycheck_url;
       const hotelscomUrl = currentHotel?.hotelscomUrl || dbRow?.hotelscom_url;
+      const otelpuanUrl = currentHotel?.otelpuanUrl || dbRow?.otelpuan_url;
 
-      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl && !holidaycheckUrl && !hotelscomUrl) {
+      if (!googleMapsUrl && !tripadvisorUrl && !bookingUrl && !holidaycheckUrl && !hotelscomUrl && !otelpuanUrl) {
         alert('Bu otel için tanımlı hiçbir platform linki bulunamadı.');
         setIsSyncingAll(false);
         return;
@@ -1414,12 +1505,25 @@ export default function Reviews() {
         } catch (e) {}
         const hotelscomMode = hotelscomExistingCount === 0 ? 'initial_import' : 'daily_sync';
 
+        // Check existing Otelpuan reviews count
+        let otelpuanExistingCount = 0;
+        try {
+          const { count } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('hotel_id', currentHotelId)
+            .eq('platform', 'otelpuan');
+          if (count !== null) otelpuanExistingCount = count;
+        } catch (e) {}
+        const otelpuanMode = otelpuanExistingCount === 0 ? 'initial_import' : 'daily_sync';
+
         const finalResults: any = {
           Google: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
           "Booking.com": { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
           TripAdvisor: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
           "Hotels.com": { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
-          HolidayCheck: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 }
+          HolidayCheck: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 },
+          Otelpuan: { imported: 0, duplicates: 0, skipped: 0, errors: [], syncMode: '', syncStartDate: '', lastReviewDate: '', nextRecommendedSyncAt: '', estimatedCostSavingMessage: '', elapsedMs: 0 }
         };
 
         const cleanErrorMessage = (text: string, defaultMsg: string): string => {
@@ -1678,6 +1782,51 @@ export default function Reviews() {
           }
         }
 
+        // E) Otelpuan (Scraper)
+        if (otelpuanUrl) {
+          const opStart = Date.now();
+          try {
+            const response = await fetch('/api/reviews?action=import-otelpuan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ hotelId: currentHotelId, otelpuanUrl, mode: otelpuanMode, syncMode: modeOverride || 'incremental_sync' })
+            });
+            const text = await response.text();
+            finalResults.Otelpuan.elapsedMs = Date.now() - opStart;
+
+            if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+              const res = JSON.parse(text);
+              finalResults.Otelpuan.imported = res.imported ?? 0;
+              finalResults.Otelpuan.duplicates = res.duplicates ?? 0;
+              finalResults.Otelpuan.skipped = res.skipped ?? 0;
+              finalResults.Otelpuan.syncMode = res.syncMode;
+              finalResults.Otelpuan.syncStartDate = res.syncStartDate;
+              finalResults.Otelpuan.lastReviewDate = res.lastReviewDate;
+              finalResults.Otelpuan.nextRecommendedSyncAt = res.nextRecommendedSyncAt;
+              finalResults.Otelpuan.estimatedCostSavingMessage = res.estimatedCostSavingMessage || '';
+              if (res.errors) finalResults.Otelpuan.errors.push(...res.errors);
+            } else {
+              let rawObj: any = null;
+              try { if (text.trim().startsWith('{')) rawObj = JSON.parse(text); } catch (_) {}
+              finalResults.Otelpuan.errors.push({
+                message: cleanErrorMessage(text, `Otelpuan error status ${response.status}`),
+                action: rawObj?.action || 'import-otelpuan',
+                stack: rawObj?.stack,
+                elapsedMs: rawObj?.elapsedMs
+              });
+            }
+          } catch (e: any) {
+            let rawObj: any = null;
+            try { if (typeof e.message === 'string' && e.message.trim().startsWith('{')) rawObj = JSON.parse(e.message); } catch (_) {}
+            finalResults.Otelpuan.errors.push({
+              message: cleanErrorMessage(e.message || String(e), 'Otelpuan network exception'),
+              action: rawObj?.action || 'import-otelpuan',
+              stack: rawObj?.stack || e.stack,
+              elapsedMs: rawObj?.elapsedMs
+            });
+          }
+        }
+
         const syncTime = new Date().toISOString();
         const healthStatus = {
           lastSyncTime: syncTime,
@@ -1747,6 +1896,19 @@ export default function Reviews() {
             nextRecommendedSyncAt: finalResults.HolidayCheck.nextRecommendedSyncAt,
             estimatedCostSavingMessage: finalResults.HolidayCheck.estimatedCostSavingMessage,
             elapsedMs: finalResults.HolidayCheck.elapsedMs
+          },
+          "Otelpuan": {
+            imported: finalResults.Otelpuan.imported,
+            duplicates: finalResults.Otelpuan.duplicates,
+            skipped: finalResults.Otelpuan.skipped,
+            status: finalResults.Otelpuan.errors.length > 0 ? "error" : "active",
+            errors: finalResults.Otelpuan.errors,
+            syncMode: finalResults.Otelpuan.syncMode || 'incremental_sync',
+            syncStartDate: finalResults.Otelpuan.syncStartDate || 'Tüm geçmiş',
+            lastReviewDate: finalResults.Otelpuan.lastReviewDate,
+            nextRecommendedSyncAt: finalResults.Otelpuan.nextRecommendedSyncAt,
+            estimatedCostSavingMessage: finalResults.Otelpuan.estimatedCostSavingMessage,
+            elapsedMs: finalResults.Otelpuan.elapsedMs
           }
         };
         localStorage.setItem(`sync_health_${currentHotelId}`, JSON.stringify(healthStatus));
@@ -1994,6 +2156,15 @@ export default function Reviews() {
                 </button>
 
                 <button
+                  onClick={handleSyncOtelpuanReviews}
+                  disabled={isImportingOtelpuan}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+                >
+                  <RefreshCw size={12} className={isImportingOtelpuan ? 'animate-spin' : ''} />
+                  <span>{isImportingOtelpuan ? 'Otelpuan Çekiliyor...' : 'Otelpuan Tekil Çek'}</span>
+                </button>
+
+                <button
                   onClick={handleSyncHotelscomReviews}
                   disabled={isImportingHotelscom}
                   className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
@@ -2043,7 +2214,7 @@ export default function Reviews() {
       </div>
 
       {/* Platform Summary Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
         {(() => {
           const activeReviewPlatforms = visibleReviewPlatforms.filter(p => p.active);
           
@@ -2053,6 +2224,7 @@ export default function Reviews() {
             if (key === 'TripAdvisor') return tripadvisorCount;
             if (key === 'Hotels.com') return hotelscomCount;
             if (key === 'HolidayCheck') return holidaycheckCount;
+            if (key === 'otelpuan') return otelpuanCount;
             if (key === 'Expedia') return expediaCount;
             if (key === 'Airbnb') return airbnbCount;
             if (key === 'Yelp') return yelpCount;

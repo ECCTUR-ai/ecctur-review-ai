@@ -972,8 +972,9 @@ function compileLocalInsights(reviews: Array<{ comment: string; rating: number; 
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
+  const origin = req.headers.origin || '*';
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
 
@@ -987,12 +988,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ success: true, runtime: "ok" });
   }
 
-  // Route to experimental Otelpuan test scraper (does not write to database)
+  // Authorization check
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user) {
+    return res.status(401).json({ success: false, error: 'Invalid authentication token' });
+  }
+
+  // Route to experimental Otelpuan test scraper (Admin-only authenticated access)
   const isOtelpuanTest = req.url?.includes('/otelpuan/test') || action === 'otelpuan-test';
   if (isOtelpuanTest) {
     if (req.method !== 'POST') {
       return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
     }
+    const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+    let userRole = userRolesData?.[0]?.roles?.name;
+    if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
+      userRole = 'Super Admin';
+    }
+    const roleNameLower = (userRole || 'staff').toLowerCase();
+    if (roleNameLower !== 'admin' && roleNameLower !== 'super admin') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Admin access required for test endpoint.' });
+    }
+
     const { hotelUrl, maxReviews } = req.body || {};
     if (!hotelUrl) {
       return res.status(400).json({ success: false, error: 'Missing hotelUrl parameter in request body' });
@@ -1006,19 +1030,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });
     }
-  }
-
-  // Authorization check
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-  if (authError || !user) {
-    return res.status(401).json({ success: false, error: 'Invalid authentication token' });
   }
 
   // -------------------------------------------------------------
@@ -2913,6 +2924,209 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
         error: err.message || String(err),
         stack: err.stack || String(err),
         action: 'import-holidaycheck',
+        elapsedMs: elapsed
+      });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: import-otelpuan
+  // -------------------------------------------------------------
+  if (action === 'import-otelpuan') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    let { hotelId, hotelName, otelpuanUrl, mode = 'initial_import' } = req.body;
+    if (!hotelId) {
+      return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
+    }
+
+    const startTime = Date.now();
+    try {
+      const { data: userRolesData } = await supabaseAdmin.from('user_roles').select('*, roles(name)').eq('profile_id', user.id);
+      let userRole = userRolesData?.[0]?.roles?.name;
+      if (user.email === 'admin@ecctur.ai' || user.email === 'cemil.sezgin@ecctur.com') {
+        userRole = 'Super Admin';
+      }
+      const roleNameLower = (userRole || 'staff').toLowerCase();
+
+      const isOwner = roleNameLower === 'owner' || roleNameLower === 'super admin';
+      if (mode === 'backfill_import' && !isOwner) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Only Owner role can trigger backfill import.' });
+      }
+
+      const { data: hotelData, error: hotelError } = await supabaseAdmin.from('hotels').select('organization_id, name, otelpuan_url').eq('id', hotelId).maybeSingle();
+      if (hotelError || !hotelData) return res.status(404).json({ success: false, error: 'Hotel not found' });
+
+      const orgId = hotelData.organization_id;
+      if (!hotelName) {
+        hotelName = hotelData.name;
+      }
+      if (!otelpuanUrl) {
+        otelpuanUrl = hotelData.otelpuan_url;
+      }
+
+      if (!otelpuanUrl) {
+        return res.status(400).json({ success: false, error: 'Bu otel için Otelpuan linki tanımlanmamış. Lütfen Admin panelinden tanımlayın.' });
+      }
+
+      console.log('[Otelpuan Import Request]', { hotelId, hotelName, otelpuanUrl });
+
+      const { data: opState } = await supabaseAdmin
+        .from('review_sync_states')
+        .select('*')
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'Otelpuan')
+        .maybeSingle();
+
+      let syncMode = req.body.syncMode || req.query.syncMode || 'incremental_sync';
+      if (syncMode !== 'manual_full_resync') {
+        const hasSuccessfulSync = opState && opState.last_successful_sync_at;
+        if (!hasSuccessfulSync) {
+          syncMode = 'initial_full_sync';
+        }
+      }
+
+      const limit = syncMode === 'incremental_sync' ? 20 : 100;
+      console.log('[Otelpuan Import] using url', otelpuanUrl);
+      const scrapedReviews = await reviewImportService.importReviews('otelpuan', otelpuanUrl, limit);
+
+      let importedCount = 0;
+      let duplicateCount = 0;
+      let failedCount = 0;
+
+      for (const r of scrapedReviews) {
+        try {
+          const isDuplicate = await checkIsDuplicate(
+            hotelId,
+            'otelpuan',
+            r.externalId || null,
+            r.guestName,
+            r.rating,
+            r.reviewText
+          );
+
+          if (isDuplicate) {
+            duplicateCount++;
+            continue;
+          }
+
+          const sentiment = r.rating >= 4 ? 'positive' : r.rating === 3 ? 'neutral' : 'negative';
+
+          const { error: insertErr } = await supabaseAdmin.from('reviews').insert({
+            hotel_id: hotelId,
+            hotel_name: hotelName,
+            organization_id: orgId,
+            guest_name: r.guestName,
+            rating: r.rating,
+            review_text: r.reviewText,
+            platform: 'otelpuan',
+            platform_review_id: r.externalId || null,
+            sentiment,
+            status: 'Draft',
+            publish_status: 'Draft',
+            published: 'No',
+            created_at: new Date().toISOString(),
+            review_date: r.reviewDate || null,
+            travel_date: null,
+            owner_response_text: null,
+            owner_response_date: null,
+            metadata: r.metadata || null
+          });
+
+          if (insertErr) {
+            console.error('[Otelpuan Import] Database insert error:', insertErr);
+            failedCount++;
+          } else {
+            importedCount++;
+            
+            try {
+              const reviewPayload = {
+                id: r.externalId,
+                platform_review_id: r.externalId,
+                guest_name: r.guestName,
+                rating: r.rating,
+                review_text: r.reviewText,
+                platform: 'otelpuan',
+                sentiment,
+                status: 'Draft',
+                review_date: r.reviewDate,
+                hotel_id: hotelId,
+                organization_id: orgId,
+                hotel_name: hotelName
+              };
+              await postToN8N(reviewPayload);
+            } catch (n8nErr) {
+              console.warn('[Otelpuan Import] Failed to post to n8n:', n8nErr);
+            }
+          }
+        } catch (loopErr) {
+          console.error('[Otelpuan Import] Loop exception:', loopErr);
+          failedCount++;
+        }
+      }
+
+      console.log(`[Otelpuan Import] inserted/duplicate count: ${importedCount}/${duplicateCount}`);
+
+      const { count: totalAfterImport } = await supabaseAdmin
+        .from('reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('hotel_id', hotelId)
+        .eq('platform', 'otelpuan');
+
+      const opLatestReviewDate = (scrapedReviews || []).length > 0
+        ? scrapedReviews.map((r: any) => r.reviewDate).filter(Boolean).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+        : null;
+
+      try {
+        await supabaseAdmin.from('review_sync_states').upsert({
+          hotel_id: hotelId,
+          platform: 'Otelpuan',
+          last_sync_at: new Date().toISOString(),
+          last_successful_sync_at: new Date().toISOString(),
+          last_review_date: opLatestReviewDate || opState?.last_review_date || null,
+          last_review_count: (scrapedReviews || []).length,
+          last_imported_count: importedCount,
+          last_duplicate_count: duplicateCount,
+          last_error_count: failedCount,
+          sync_mode: syncMode,
+          status: failedCount > 0 && importedCount === 0 ? 'error' : 'active',
+          error_message: failedCount > 0 ? 'Some Otelpuan reviews failed to import' : null,
+          metadata: { dateFilterUnsupported: true }
+        });
+      } catch (dbErr) {
+        console.error('[Otelpuan Import] Failed to update sync state:', dbErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        platform: 'Otelpuan',
+        requestedMode: mode,
+        syncMode,
+        syncStartDate: 'Tarih filtresi desteklenmiyor',
+        imported: importedCount,
+        duplicates: duplicateCount,
+        skipped: 0,
+        errors: failedCount,
+        lastReviewDate: opLatestReviewDate || opState?.last_review_date || null,
+        nextRecommendedSyncAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        estimatedCostSavingMessage: syncMode === 'incremental_sync' ? 'Kısmi tarama yapıldı, son 20 yorum kontrol edilerek API maliyeti düşürüldü.' : '',
+        fetchedCount: scrapedReviews.length,
+        insertedCount: importedCount,
+        duplicateCount,
+        failedCount,
+        totalAfterImport: totalAfterImport || 0
+      });
+    } catch (err: any) {
+      const elapsed = Date.now() - startTime;
+      console.error('[Otelpuan Import] error:', err);
+      logPlatformError('Otelpuan', 'import-otelpuan', req, 500, err.message || String(err), elapsed, err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || String(err),
+        stack: err.stack || String(err),
+        action: 'import-otelpuan',
         elapsedMs: elapsed
       });
     }

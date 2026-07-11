@@ -563,6 +563,7 @@ export default function Admin() {
   const [hotelBookingUrl, setHotelBookingUrl] = useState('');
   const [hotelHolidaycheckUrl, setHotelHolidaycheckUrl] = useState('');
   const [hotelHotelscomUrl, setHotelHotelscomUrl] = useState('');
+  const [hotelOtelpuanUrl, setHotelOtelpuanUrl] = useState('');
 
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
@@ -827,6 +828,8 @@ export default function Admin() {
     setHotelTripadvisorLink('');
     setHotelBookingUrl('');
     setHotelHolidaycheckUrl('');
+    setHotelHotelscomUrl('');
+    setHotelOtelpuanUrl('');
   };
 
   const handleOpenEditHotel = (h: Hotel) => {
@@ -839,11 +842,30 @@ export default function Admin() {
     setHotelBookingUrl(h.bookingUrl || '');
     setHotelHolidaycheckUrl(h.holidaycheckUrl || '');
     setHotelHotelscomUrl(h.hotelscomUrl || '');
+    setHotelOtelpuanUrl(h.otelpuanUrl || '');
   };
 
   const handleSaveHotel = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (hotelOtelpuanUrl && hotelOtelpuanUrl.trim()) {
+        const val = hotelOtelpuanUrl.trim();
+        try {
+          const u = new URL(val);
+          if (u.protocol !== 'https:') {
+            triggerToast('Otelpuan URL\'si sadece https:// ile başlayabilir.');
+            return;
+          }
+          if (u.hostname !== 'otelpuan.com' && u.hostname !== 'www.otelpuan.com') {
+            triggerToast('Otelpuan URL\'si sadece otelpuan.com veya www.otelpuan.com alan adlarını içerebilir.');
+            return;
+          }
+        } catch (_) {
+          triggerToast('Geçersiz Otelpuan URL\'si.');
+          return;
+        }
+      }
+
       const payload = {
         name: hotelName,
         organizationId: hotelOrgId,
@@ -851,7 +873,8 @@ export default function Admin() {
         tripadvisorUrl: hotelTripadvisorLink,
         bookingUrl: hotelBookingUrl,
         holidaycheckUrl: hotelHolidaycheckUrl,
-        hotelscomUrl: hotelHotelscomUrl
+        hotelscomUrl: hotelHotelscomUrl,
+        otelpuanUrl: hotelOtelpuanUrl
       };
       console.log("[ADMIN SAVE PAYLOAD]", payload);
 
@@ -870,6 +893,7 @@ export default function Admin() {
       setHotelBookingUrl('');
       setHotelHolidaycheckUrl('');
       setHotelHotelscomUrl('');
+      setHotelOtelpuanUrl('');
       refetchHotels();
     } catch (err: any) {
       console.error(err);
@@ -1746,6 +1770,17 @@ export default function Admin() {
                       value={hotelHotelscomUrl}
                       onChange={(e) => setHotelHotelscomUrl(e.target.value)}
                       placeholder="https://www.hotels.com/..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Otelpuan Otel URL'si</label>
+                    <input
+                      type="url"
+                      value={hotelOtelpuanUrl}
+                      onChange={(e) => setHotelOtelpuanUrl(e.target.value)}
+                      placeholder="https://www.otelpuan.com/..."
                       className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500 text-slate-300 placeholder:text-slate-400"
                     />
                   </div>
