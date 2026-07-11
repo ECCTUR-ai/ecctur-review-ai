@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/reviews/otelpuan/test",
+      "destination": "/api/reviews"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

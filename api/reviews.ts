@@ -4,6 +4,7 @@ import { reviewImportService } from '../api-services/reviewImportService.js';
 import { bookingProvider } from '../api-services/providers/bookingProvider.js';
 import { fetchAggregatorReviews } from '../src/services/providers/hotelReviewAggregatorProvider.js';
 import { analyzeReviewText } from './utils/operationsAnalysis.js';
+import { otelpuanScraperService } from '../src/services/otelpuanScraperService.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -984,6 +985,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (action === 'health') {
     return res.status(200).json({ success: true, runtime: "ok" });
+  }
+
+  // Route to experimental Otelpuan test scraper (does not write to database)
+  const isOtelpuanTest = req.url?.includes('/otelpuan/test') || action === 'otelpuan-test';
+  if (isOtelpuanTest) {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
+    }
+    const { hotelUrl, maxReviews } = req.body || {};
+    if (!hotelUrl) {
+      return res.status(400).json({ success: false, error: 'Missing hotelUrl parameter in request body' });
+    }
+    try {
+      const result = await otelpuanScraperService.scrapeReviews({
+        hotelUrl,
+        maxReviews: maxReviews ? Number(maxReviews) : 50
+      });
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
   }
 
   // Authorization check

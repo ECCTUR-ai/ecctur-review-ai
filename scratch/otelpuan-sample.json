@@ -1,0 +1,52 @@
+[
+  {
+    "platform": "otelpuan",
+    "externalReviewId": "2bf5072049e6f3dfd79ebf90b4d4554b73b2c15926ec034f59eeecfb2639a04a",
+    "hotelName": "Voyage Sorgun",
+    "reviewerName": "Ahmet Yılmaz",
+    "rating": 4.6,
+    "reviewTitle": "Harika Bir Aile Tatili",
+    "reviewText": "Otelin temizliği ve yemek çeşitliliği mükemmeldi. Personel her konuda son derece ilgili ve güler yüzlüydü. Çok memnun kaldık.",
+    "reviewDate": "2026-07-11",
+    "stayDate": null,
+    "roomScore": 9,
+    "serviceScore": 10,
+    "foodScore": 9,
+    "cleanlinessScore": 10,
+    "locationScore": 9,
+    "verified": true,
+    "sourceUrl": "https://www.otelpuan.com/side/manavgat/voyage-sorgun",
+    "metadata": {
+      "originalRating": 9.2,
+      "originalDateText": "11 Temmuz 2026",
+      "originalStayDateText": "Haziran 2026",
+      "reviewType": null,
+      "recommendationStatus": null
+    }
+  },
+  {
+    "platform": "otelpuan",
+    "externalReviewId": "9b12856f6b3e945c71d60ba293cfd72856a9080c98f8280f58eeeecfb2655bf92",
+    "hotelName": "Voyage Sorgun",
+    "reviewerName": "Merve K.",
+    "rating": 4.0,
+    "reviewTitle": "Güzel Bir Tatildi",
+    "reviewText": "Genel olarak hizmet kalitesinden ve odanın konforundan çok memnun kaldık. Havuzlar temiz ve plajı genişti.",
+    "reviewDate": "2026-07-05",
+    "stayDate": null,
+    "roomScore": 8,
+    "serviceScore": 8,
+    "foodScore": 8,
+    "cleanlinessScore": 9,
+    "locationScore": 9,
+    "verified": true,
+    "sourceUrl": "https://www.otelpuan.com/side/manavgat/voyage-sorgun",
+    "metadata": {
+      "originalRating": 8.0,
+      "originalDateText": "05 Temmuz 2026",
+      "originalStayDateText": "Haziran 2026",
+      "reviewType": null,
+      "recommendationStatus": null
+    }
+  }
+]
