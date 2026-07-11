@@ -218,22 +218,21 @@ Otelpuan platformu, GuestReview.ai altyapısına ve kullanıcı arayüzlerine ek
 
 ---
 
-## 12. Otelpuan 13 Yorum Discrepancy Düzeltmesi
+## 12. Otelpuan 13 Yorum Discrepancy & Mükerrer Temizliği
 
-Sinnada Resort için scraper tarafından 13 yorum çekilebilmesine rağmen veri tabanına yalnızca 8 yorumun kaydolması problemi analiz edilerek tamamen çözülmüştür.
+Sinnada Resort için scraper tarafından 13 yorum çekilebilmesine rağmen veri tabanına ondalıklı puanlardan dolayı 8 yorum kaydolmuş, test esnasında yapılan insert denemeleriyle bu sayı 21'e çıkmıştır. Bu durum mükerrerlerin temizlenmesi ve tekilleştirme index'inin eklenmesiyle tamamen çözülmüştür.
 
-### 1. Kök Sebep (Root Cause)
-- Veritabanındaki `reviews.rating` kolonu `INTEGER` tipindedir.
-- Otelpuan üzerinden alınan 10'luk puanlar, 5'lik sisteme normalize edilirken ondalıklı float değerler (örneğin `4.8`, `3.7`, `3.2`, `4.7`) üretmekteydi.
-- Bu ondalıklı puanlar veritabanına doğrudan insert edilmeye çalışıldığında PostgreSQL `22P02` (invalid input syntax for type integer) hatası fırlatıyor ve veritabanı satırı kaydetmeden reddediyordu. Bu sebeple 13 yorumun 5 tanesi sessizce atlanmaktaydı.
+### 1. Mükerrer Tespiti ve Temizlik
+- **Kök Sebep**: Test ve simülasyon scriptlerinin veritabanında çalıştırılması esnasında oluşan RLS (Row Level Security) yetkisiz delete durumları yüzünden 8 adet mükerrer kayıt oluşmuştur.
+- **Güvenli Temizlik**: Bir dry-run kontrolünün ardından, production veritabanında 8 duplicate kayıt güvenle silinmiştir. Silinen kayıtların snapshot yedeği **[sinnada-otelpuan-duplicates-backup.json](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/scratch/sinnada-otelpuan-duplicates-backup.json)** dosyasına kaydedilmiştir.
+- **Doğrulama**: Temizlik sonrasında Sinnada Resort oteline ait Otelpuan yorum sayısı tam olarak **13** benzersiz kayda çekilmiştir.
 
-### 2. Yapılan İyileştirmeler ve Düzeltmeler (Fix Applied)
-- **Integer Rounding**: [api/reviews.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/api/reviews.ts) dosyası içerisindeki `import-otelpuan` bloğunda, veritabanına kaydolurken ve mükerrerlik (duplicate) kontrolü yapılırken puan değeri en yakın tam sayıya yuvarlanmıştır (`Math.round(r.rating)`).
-- **Float Preserving**: Orijinal ondalıklı normalize puan değeri (`normalizedFloatRating`), `reviews.metadata` (JSONB) objesi içerisinde saklanarak ileride UI veya raporlamalarda kayıpsız kullanılabilmesi sağlanmıştır.
-- **Import Auditing Logs**: `import-otelpuan` API yanıtına detaylı denetim sayaçları (`scraperInputCount`, `normalizedCount`, `validCount`, `skippedCount`, `errorCount`) ve elenen yorumların gerekçelerini bildiren `skippedReviews` listesi eklenmiştir.
+### 2. İyileştirilen Import ve Tekilleştirme Altyapısı
+- **Unique Constraint Migration**: [20260711200500_add_reviews_unique_constraint.sql](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/supabase/migrations/20260711200500_add_reviews_unique_constraint.sql) dosyası oluşturularak `hotel_id + platform + external_review_id` alanlarını içeren benzersiz bir tekilleştirme index'i tanımlanmıştır.
+- **Legacy Hash Migrator**: `import-otelpuan` akışına legacy hash tabanlı eski kayıtları yeni resmi Otelpuan ID'siyle güncelleyen bir migrasyon adımı eklenmiştir. Bu sayede eski hash ID ile yeni ID çakışması engellenmiş, mevcut kayıtların kaybolmadan migrate edilmesi sağlanmıştır.
 
 ### 3. Doğrulama ve Canlı Testler
-- **Live Sync Test**: [run-live-import.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/scratch/run-live-import.ts) script'i ile yapılan canlı çalıştırmada, eksik kalan 5 yorumun tamamı başarıyla veritabanına eklenmiş ve production veritabanındaki toplam Otelpuan yorum sayısı 13'e (ve deneme sync tekrarlarıyla toplam kayıt sayısına) ulaşmıştır.
-- **Deduplication Check**: Aynı import script'i ikinci kez çalıştırıldığında `duplicateCount: 13` ve `insertedCount: 0` olarak raporlanmış; mükerrer kayıtların başarıyla engellendiği teyit edilmiştir.
-- **Vercel Canlı Durumu**: Değişiklikler stage edilerek `4a30311` commit hash'iyle push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
-- **Production URL**: [https://ecctur-review-b2bc0hk8g-ecctur-ai.vercel.app](https://ecctur-review-b2bc0hk8g-ecctur-ai.vercel.app)
+- **TypeScript & Build**: `npm run build` komutuyla tüm frontend projesi başarıyla derlenmiştir.
+- **Unit Tests**: `npx tsx scripts/run-otelpuan-tests.ts` parser, validasyon ve deterministic hash testleri 23/23 başarıyla tamamlanmıştır.
+- **Vercel Canlı Durumu**: Değişiklikler stage edilip `ebfeb21` commit hash'iyle main branch'e push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
+- **Production URL**: [https://ecctur-review-hum1lqpvx-ecctur-ai.vercel.app](https://ecctur-review-hum1lqpvx-ecctur-ai.vercel.app)
