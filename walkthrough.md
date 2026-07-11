@@ -1,6 +1,6 @@
-# GuestReview.ai – Dashboard Data Integrity Audit & Walkthrough Report
+# GuestReview.ai – Dashboard Data Integrity Audit, Otelpuan Integration & Walkthrough Report
 
-This document reports the technical modifications made to the GuestReview.ai Dashboard data architecture, unifying the repository layers, introducing DB-level date filtering, and integrating realtime updates.
+This document reports the technical modifications made to the GuestReview.ai Dashboard data architecture, unifying the repository layers, introducing DB-level date filtering, integrating realtime updates, and completing the Otelpuan review integration.
 
 ---
 
@@ -177,6 +177,41 @@ Senkronizasyon modunun ve zaman kısıtlamalarının (scrapeFromDate) tespiti he
   - Eğer `last_review_date` değeri boşsa, `last_successful_sync_at - 2 gün` güvenlik aralığı kullanılır.
 - İki platform da kademeli taramadaysa, iki platformun hesaplanan güvenlik tarihlerinden **daha eski olanı** genel veri çekme başlangıç tarihi (`scrapeFromDate`) olarak seçilir ve Apify Aggregator'a iletilir. Platformlardan biri bile `initial_full_sync` modundaysa herhangi bir tarih filtresi uygulanmayarak tam tarama yapılır.
 
+---
 
+## 11. Otelpuan Entegrasyonu Detayları
 
+Otelpuan platformu, GuestReview.ai altyapısına ve kullanıcı arayüzlerine eksiksiz bir şekilde entegre edilmiştir. Bu entegrasyon kapsamında yapılan tüm işlemler aşağıda detaylandırılmıştır:
 
+### 1. Veritabanı Migrasyonu (Database Column)
+- **Dosya**: [20260711192500_add_otelpuan_url_to_hotels.sql](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/supabase/migrations/20260711192500_add_otelpuan_url_to_hotels.sql)
+- `hotels` tablosuna dynamic lookup ve link yönetimi için `otelpuan_url` kolonu TEXT tipinde eklenmiştir.
+
+### 2. Provider & Scraper Entegrasyonu (Sync Pipeline)
+- **Scraper Servisi**: `src/services/otelpuanScraperService.ts` ve ESM relative import çözünürlüğü (.js) tamamlanmıştır.
+- **Import Provider**: [reviewImportService.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/api-services/reviewImportService.ts) dosyasına `'otelpuan'` platform case'i eklenerek `otelpuanScraperService.scrapeReviews` çağrısı entegre edilmiş ve veriler `NormalizedReview` arayüzüne doğru şekilde map edilmiştir.
+- **Duplicate & Hash Kontrolü**: Gelen yorumların mükerrer olarak kaydedilmesini engellemek için deterministic hash id oluşturma (`hotel_id + platform + externalReviewId` birleşimi) ve database seviyesinde duplicate kontrolü (`checkIsDuplicate`) eksiksiz uygulanmıştır.
+
+### 3. API Entegrasyonu (Authenticated Endpoints)
+- **Dosya**: [api/reviews.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/api/reviews.ts)
+- **Tekil Çekme Aksiyonu**: `action === 'import-otelpuan'` eklenerek token-based yetkilendirme doğrulamasıyla senkronizasyon endpoint'i oluşturulmuştur.
+- **Toplu Sync (Full Sync)**: `handleSyncAllPlatforms` tetiklendiğinde eğer otel için tanımlı bir `otelpuan_url` varsa Otelpuan da otomatik olarak senkronizasyon döngüsüne dahil edilmiştir.
+- **API Güvenliği**: Deneysel `/api/reviews/otelpuan/test` endpoint'i production'da yetkisiz erişime kapatılmış; yalnızca geçerli bir Bearer Token'a sahip ve rolü `Admin` veya `Super Admin` olan kullanıcıların erişimine izin verilecek şekilde güvenli hale getirilmiştir. CORS header'ı generic `*` yerine istek gelen `req.headers.origin` değerine dinamik olarak atanmaktadır.
+
+### 4. Otel Ayarları & Validasyon (Hotel Settings)
+- **Dosyalar**: [Admin.tsx](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/pages/Admin.tsx), [admin.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/api/admin.ts), [hotelRepository.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/repositories/hotelRepository.ts), [adminService.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/services/adminService.ts)
+- Otel Ekleme/Düzenleme modalına **"Otelpuan Otel URL'si"** alanı eklenmiştir.
+- **Validasyon**: Hem client-side (Admin.tsx) hem de server-side (api/admin.ts) üzerinde, URL boş bırakılabilmekle birlikte doldurulduğunda sadece `https://` protokolüne ve `otelpuan.com` veya `www.otelpuan.com` alan adlarına sahip olacak şekilde sınırlandırılmıştır.
+
+### 5. Yorumlar Arayüzü & Platform Kartı (Reviews UI Integration)
+- **Dosyalar**: [Reviews.tsx](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/pages/Reviews.tsx), [ReviewCard.tsx](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/components/ReviewCard.tsx), [types/index.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/types/index.ts), [utils/platform.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/src/utils/platform.ts)
+- **Üst Entegrasyon Alanı**: "HolidayCheck Tekil Çek" butonundan hemen sonra "Otelpuan Tekil Çek" butonu eklenmiştir. URL tanımlı değilse uyarı verir, senkronizasyon esnasında loading durumuna geçerek butonu disable eder ve sync tamamlandığında işlem sonucunu toast olarak gösterir.
+- **Platform Kartı**: Arayüzdeki platform kartları sırasına **"Otelpuan"** platformu eklenmiştir. Kart turuncu sade bir geometrik daire işaretiyle render edilir ve veritabanındaki gerçek `platform = 'otelpuan'` toplam kayıt sayısını dynamic olarak yansıtır.
+- **Responsive Layout**: Platform sayısı 7'ye (Tümü + 6 aktif platform) yükseldiği için, arayüzün taşmasını önlemek amacıyla CSS grid layout'u responsive `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7` yapısına dönüştürülmüştür. Böylece dar ekranlarda otomatik satır sarması (örn. 4+3 yerleşimi) sağlanmıştır.
+- **Filtre & Badge**: Otelpuan platform kartına tıklandığında listeyi `platform = 'otelpuan'` olacak şekilde filtreler. Yorum kartlarında "Otelpuan" platform badge'i gösterilir. Yorum puanları normalize edilerek 5 yıldız ölçeğinde gösterilirken, metadata içindeki orijinal 10'luk puan da tooltip (title) üzerinde gösterilmektedir.
+
+### 6. Doğrulama ve Canlı Testler
+- **TypeScript & Build**: `npm run build` komutu çalıştırılarak tüm frontend projesi başarıyla derlenmiştir.
+- **Unit Tests**: `npx tsx scripts/run-otelpuan-tests.ts` parser, validasyon ve deterministic hash testleri 23/23 başarıyla tamamlanmıştır.
+- **Vercel Canlı Durumu**: Değişiklikler staging edilip `1092dbb` commit hash'iyle main branch'e push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
+- **Production URL**: [https://ecctur-review-r9b73psnp-ecctur-ai.vercel.app](https://ecctur-review-r9b73psnp-ecctur-ai.vercel.app)
