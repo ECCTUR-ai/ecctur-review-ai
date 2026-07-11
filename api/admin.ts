@@ -1178,7 +1178,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Forbidden: Admin permissions required to update hotels' });
     }
     try {
-      const { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl, hotelscomUrl } = req.body;
+      let { id, name, organizationId, googleMapsLink, googleMapsUrl, tripadvisorUrl, bookingUrl, holidaycheckUrl, hotelscomUrl, otelpuanUrl } = req.body;
       if (!id || !name || !organizationId) {
         return res.status(400).json({ error: 'Missing id, name or organizationId parameter' });
       }
