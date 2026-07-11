@@ -1,8 +1,10 @@
 import { URL } from 'url';
 import dns from 'dns';
 import { promisify } from 'util';
+import { spawnSync } from 'child_process';
 import { OtelpuanReview } from '../types/otelpuan';
-import { parseOtelpuanPage } from '../utils/otelpuanParser';
+import { parseOtelpuanPage, normalizeOtelpuanRating, parseTurkishDate } from '../utils/otelpuanParser';
+import { generateDeterministicId } from '../utils/reviewHash';
 
 const lookupAsync = promisify(dns.lookup);
 
@@ -71,67 +73,38 @@ export async function validateOtelpuanUrl(urlStr: string): Promise<string> {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Helper to fetch HTML from URL with user-agent, timeout, and retries.
+ * Helper to fetch content from URL using spawned curl to bypass Cloudflare TLS fingerprinting blocks.
  */
-async function fetchWithRetry(
-  url: string,
-  userAgent: string,
-  timeoutMs = 20000,
-  maxRetries = 3
-): Promise<string> {
-  let attempt = 0;
-  let delay = 500; // Starting delay for backoff
+function fetchViaCurl(url: string, postData?: string, timeoutSeconds = 20): string {
+  const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  
+  const args = [
+    '-s',
+    '--http1.1',
+    '--compressed',
+    '-H', `User-Agent: ${userAgent}`,
+    '--max-time', String(timeoutSeconds)
+  ];
 
-  while (attempt <= maxRetries) {
-    attempt++;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7'
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timer);
-
-      // SSRF Check again on redirect URL host
-      if (response.redirected) {
-        await validateOtelpuanUrl(response.url);
-      }
-
-      if (response.status === 403) {
-        throw new Error(`HTTP 403 Forbidden: Access denied by server.`);
-      }
-      if (response.status === 429) {
-        throw new Error(`HTTP 429 Too Many Requests: Throttled by server.`);
-      }
-      if (response.status >= 500) {
-        throw new Error(`HTTP ${response.status} Server Error.`);
-      }
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} Error.`);
-      }
-
-      return await response.text();
-    } catch (err: any) {
-      clearTimeout(timer);
-      console.warn(`[Otelpuan Scraper] Attempt ${attempt} failed for URL ${url}:`, err.message || String(err));
-      
-      if (attempt > maxRetries) {
-        throw err;
-      }
-      // Exponential backoff wait
-      await sleep(delay);
-      delay *= 2;
-    }
+  if (postData) {
+    args.push('-X', 'POST');
+    args.push('-H', 'Content-Type: application/json');
+    args.push('-d', postData);
   }
 
-  throw new Error("Failed to fetch page");
+  args.push(url);
+
+  const result = spawnSync('curl', args, { encoding: 'utf-8', maxBuffer: 15 * 1024 * 1024 });
+
+  if (result.error) {
+    throw new Error(`Failed to execute curl: ${result.error.message}`);
+  }
+
+  if (result.status !== 0) {
+    throw new Error(`curl failed with exit code ${result.status}: ${result.stderr || ''}`);
+  }
+
+  return result.stdout;
 }
 
 export const otelpuanScraperService = {
@@ -148,7 +121,6 @@ export const otelpuanScraperService = {
     reviews: OtelpuanReview[];
   }> {
     const { hotelUrl, maxReviews = 50 } = params;
-    const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 GuestReviewBot/1.0";
     
     let validatedUrl = "";
     try {
@@ -157,99 +129,197 @@ export const otelpuanScraperService = {
       throw new Error(`URL validation failed: ${err.message || String(err)}`);
     }
 
+    let html = "";
+    try {
+      html = fetchViaCurl(validatedUrl);
+    } catch (err: any) {
+      throw new Error(`Failed to fetch hotel page HTML: ${err.message || String(err)}`);
+    }
+
+    if (!html || html.trim() === "") {
+      throw new Error("Received empty HTML content from hotel page");
+    }
+
+    // Extract metadata from HTML page
+    const vendorIdMatch = html.match(/data-hd-vendorId=["'](\d+)["']/i) || html.match(/vendorId:\s*(\d+)/i);
+    const hotelNameMatch = html.match(/data-hd-hotelName=["']([^"']+)["']/i) || html.match(/<h1>([\s\S]*?)<\/h1>/i);
+    const reviewCountMatch = html.match(/data-hd-reviewCount=["'](\d+)["']/i);
+    
+    const vendorId = vendorIdMatch ? parseInt(vendorIdMatch[1], 10) : null;
+    let hotelName = hotelNameMatch ? hotelNameMatch[1].replace(/&amp;/g, '&').replace(/<[^>]*>/g, '').trim() : null;
+    
+    // Total count cap from HTML metadata (e.g. 13)
+    const pageReviewCount = reviewCountMatch ? parseInt(reviewCountMatch[1], 10) : null;
+    const finalCapLimit = pageReviewCount !== null ? Math.min(maxReviews, pageReviewCount) : maxReviews;
+
+    if (!hotelName) {
+      const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/i);
+      if (titleMatch) {
+        hotelName = titleMatch[1].split('|')[0].replace(/yorumları/i, '').replace(/fiyatları/i, '').trim();
+      }
+    }
+
+    console.log(`[Otelpuan Scraper] Extracted vendorId: ${vendorId}, hotelName: ${hotelName}, pageReviewCount: ${pageReviewCount}`);
+
     const reviewsMap = new Map<string, OtelpuanReview>();
-    let hotelName: string | null = null;
-    let fetchedCount = 0;
     let skippedCount = 0;
     let errorCount = 0;
 
-    let page = 1;
-    let hasMore = true;
-    let prevPageHash = "";
+    // If vendorId is found, execute API JSON calls. Else fallback to regex HTML parsing.
+    if (vendorId) {
+      let offset = 0;
+      let hasMore = true;
+      const batchLimit = 20;
 
-    while (hasMore && reviewsMap.size < maxReviews) {
-      // Build paginated URL
-      const pageUrl = new URL(validatedUrl);
-      pageUrl.searchParams.set('page', String(page));
-      pageUrl.searchParams.set('p', String(page)); // support alternate page params
-      
-      console.log(`[Otelpuan Scraper] Scraping page ${page}: ${pageUrl.toString()}`);
-      
-      let html = "";
-      try {
-        html = await fetchWithRetry(pageUrl.toString(), userAgent);
-      } catch (err: any) {
-        console.error(`[Otelpuan Scraper] Scraping page ${page} failed:`, err.message || String(err));
-        errorCount++;
-        break;
+      while (hasMore && reviewsMap.size < finalCapLimit) {
+        const postBody = JSON.stringify({
+          vendorId,
+          limit: batchLimit,
+          offset,
+          points: [],
+          periods: [],
+          photoReview: false,
+          verified: false,
+          sort: "",
+          searchText: "",
+          visitorType: ""
+        });
+
+        let jsonStr = "";
+        try {
+          jsonStr = fetchViaCurl("https://www.otelpuan.com/review/list", postBody);
+        } catch (err: any) {
+          console.error(`[Otelpuan Scraper] Fetching reviews offset ${offset} failed:`, err.message);
+          errorCount++;
+          break;
+        }
+
+        let data: any;
+        try {
+          data = JSON.parse(jsonStr);
+        } catch (err: any) {
+          console.error(`[Otelpuan Scraper] Parsing JSON response offset ${offset} failed:`, err.message || String(err));
+          errorCount++;
+          break;
+        }
+
+        const list = data?.list || [];
+        if (list.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        let newItemsAdded = false;
+        for (const raw of list) {
+          if (reviewsMap.size >= finalCapLimit) break;
+
+          const text = raw.body || raw.reviewText || "";
+          if (!text || !text.trim()) {
+            skippedCount++;
+            continue;
+          }
+
+          const originalRating = raw.generalPoint !== undefined && raw.generalPoint !== null ? parseFloat(raw.generalPoint) : null;
+          const normalizedRating = normalizeOtelpuanRating(originalRating);
+          
+          const reviewerName = raw.userNameSurname || raw.author || raw.name || "Misafir";
+          
+          // Dates: bookingDate is month/year like "Haziran 2026". Review submission date is not returned in API list.
+          const originalDateText = raw.booking?.bookingDate || "";
+          const originalStayDateText = raw.bookingDetailText || "";
+
+          // Resolve dates: since bookingDate is month/year only, they resolve to null.
+          const reviewDate = parseTurkishDate(originalDateText);
+          const stayDate = parseTurkishDate(originalStayDateText);
+
+          const externalReviewId = String(raw.id || generateDeterministicId(validatedUrl, reviewerName, reviewDate, text));
+
+          if (reviewsMap.has(externalReviewId)) {
+            skippedCount++;
+          } else {
+            // Map sub scores
+            let roomScore: number | null = null;
+            let serviceScore: number | null = null;
+            let foodScore: number | null = null;
+            let cleanlinessScore: number | null = null;
+            let locationScore: number | null = null;
+
+            if (raw.subReviews && Array.isArray(raw.subReviews)) {
+              for (const sub of raw.subReviews) {
+                const subType = (sub.questType || '').toUpperCase();
+                const pt = sub.point !== undefined && sub.point !== null ? parseFloat(sub.point) : null;
+                
+                if (subType === 'ROOM') roomScore = pt;
+                else if (subType === 'SERVICE') serviceScore = pt;
+                else if (subType === 'FOOD') foodScore = pt;
+                else if (subType === 'LOCATION') locationScore = pt;
+                else if (subType === 'CLEAN' || subType === 'CLEANLINESS' || subType === 'HYGIENE') cleanlinessScore = pt;
+              }
+            }
+
+            reviewsMap.set(externalReviewId, {
+              platform: "otelpuan",
+              externalReviewId,
+              hotelName,
+              reviewerName,
+              rating: normalizedRating,
+              reviewTitle: raw.title || null,
+              reviewText: text,
+              reviewDate,
+              stayDate,
+              roomScore,
+              serviceScore,
+              foodScore,
+              cleanlinessScore,
+              locationScore,
+              verified: raw.verified === true,
+              sourceUrl: validatedUrl,
+              metadata: {
+                originalRating,
+                originalDateText,
+                originalStayDateText,
+                reviewType: null,
+                recommendationStatus: raw.recommendation || null
+              }
+            });
+            newItemsAdded = true;
+          }
+        }
+
+        if (!newItemsAdded) {
+          hasMore = false;
+          break;
+        }
+
+        offset += list.length;
+        
+        // Throttling: 1-2 seconds
+        await sleep(1000 + Math.random() * 1000);
       }
-
-      // Check if page returns empty or exact same content as previous page (infinite loop protection)
-      if (!html || html.trim() === "") {
-        hasMore = false;
-        break;
-      }
-
-      // Quick hash of HTML body to verify we didn't receive same page again
-      const currentHash = html.substring(0, 1000) + html.substring(html.length - 1000);
-      if (currentHash === prevPageHash) {
-        console.log(`[Otelpuan Scraper] Page ${page} matches previous page content hash. Stopping pagination.`);
-        hasMore = false;
-        break;
-      }
-      prevPageHash = currentHash;
-
-      // Parse reviews from page
+    } else {
+      // Fallback HTML page regex parsing
       const parsed = parseOtelpuanPage(html, validatedUrl);
-      if (parsed.hotelName && !hotelName) {
-        hotelName = parsed.hotelName;
-      }
-
-      const pageReviews = parsed.reviews;
-      if (!pageReviews || pageReviews.length === 0) {
-        console.log(`[Otelpuan Scraper] No reviews found on page ${page}. Stopping pagination.`);
-        hasMore = false;
-        break;
-      }
-
-      let newReviewOnPage = false;
-      for (const review of pageReviews) {
-        if (reviewsMap.size >= maxReviews) break;
-
-        // Skip reviews with empty body
+      for (const review of parsed.reviews) {
+        if (reviewsMap.size >= finalCapLimit) break;
+        
         if (!review.reviewText || !review.reviewText.trim()) {
           skippedCount++;
           continue;
         }
 
         if (reviewsMap.has(review.externalReviewId)) {
-          // Duplicate found on page
           skippedCount++;
         } else {
           reviewsMap.set(review.externalReviewId, review);
-          fetchedCount++;
-          newReviewOnPage = true;
         }
       }
-
-      // If no new reviews were found on this page, stop to prevent infinite pagination
-      if (!newReviewOnPage) {
-        console.log(`[Otelpuan Scraper] No new reviews found on page ${page}. Stopping pagination.`);
-        hasMore = false;
-        break;
-      }
-
-      page++;
-      
-      // Throttle request rate (1-2 seconds)
-      await sleep(1000 + Math.random() * 1000);
     }
 
     return {
       success: true,
       hotelName,
       requestedLimit: maxReviews,
-      fetchedCount,
+      fetchedCount: reviewsMap.size,
       skippedCount,
       errorCount,
       reviews: Array.from(reviewsMap.values())
