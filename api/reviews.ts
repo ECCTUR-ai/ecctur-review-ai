@@ -989,20 +989,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Authorization check
-  let user: any = null;
-  if (action !== 'cleanup-sinnada-duplicates') {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
-    }
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Missing or invalid authorization header' });
+  }
 
-    const token = authHeader.split(' ')[1];
-    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-    if (authError || !authUser) {
-      return res.status(401).json({ success: false, error: 'Invalid authentication token' });
-    }
-    user = authUser;
+  if (authError || !user) {
+    return res.status(401).json({ success: false, error: 'Invalid authentication token' });
   }
 
   // Route to experimental Otelpuan test scraper (Admin-only authenticated access)
@@ -3035,7 +3031,34 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
           // Round rating to integer for database compatibility
           const dbRating = r.rating !== null && r.rating !== undefined ? Math.round(r.rating) : null;
 
-          // 3. Duplicate check in database
+          // 3. Migrate legacy hash ID records if they match the normalized text
+          const { data: legacyMatches, error: legacyErr } = await supabaseAdmin
+            .from('reviews')
+            .select('id, platform_review_id')
+            .eq('hotel_id', hotelId)
+            .eq('platform', 'otelpuan')
+            .eq('review_text', text);
+
+          if (!legacyErr && legacyMatches && legacyMatches.length > 0) {
+            const legacyRow = legacyMatches[0];
+            if (legacyRow.platform_review_id !== extId) {
+              console.log(`[Otelpuan Import] Migrating legacy hash ID "${legacyRow.platform_review_id}" to real ID "${extId}"`);
+              await supabaseAdmin
+                .from('reviews')
+                .update({ platform_review_id: extId })
+                .eq('id', legacyRow.id);
+            }
+            duplicateCount++;
+            skippedCount++;
+            skippedReviews.push({
+              externalReviewId: extId,
+              reviewerName: name,
+              reason: 'duplicate_existing'
+            });
+            continue;
+          }
+
+          // 4. Duplicate check in database
           const isDuplicate = await checkIsDuplicate(
             hotelId,
             'otelpuan',
@@ -3200,129 +3223,6 @@ Respond ONLY with a JSON object in this format (no markdown, no code block backt
     }
   }
 
-  // -------------------------------------------------------------
-  // Action: cleanup-sinnada-duplicates
-  // -------------------------------------------------------------
-  if (action === 'cleanup-sinnada-duplicates') {
-    try {
-      // 1. Find Sinnada Hotel ID
-      const { data: hotels, error: hErr } = await supabaseAdmin
-        .from('hotels')
-        .select('id, name')
-        .ilike('name', '%sinnada%');
-
-      if (hErr || !hotels || hotels.length === 0) {
-        return res.status(404).json({ success: false, error: 'Sinnada hotel not found' });
-      }
-
-      const sinnadaId = hotels[0].id;
-
-      // 2. Fetch all Otelpuan reviews
-      const { data: dbReviews, error: rErr } = await supabaseAdmin
-        .from('reviews')
-        .select('*')
-        .eq('hotel_id', sinnadaId)
-        .eq('platform', 'otelpuan');
-
-      if (rErr || !dbReviews) {
-        return res.status(500).json({ success: false, error: 'Failed to fetch reviews', details: rErr });
-      }
-
-      const normalizeText = (t: string) => (t || '').replace(/\s+/g, ' ').trim().toLowerCase();
-
-      const groupedByText: { [normalizedText: string]: any[] } = {};
-      dbReviews.forEach((r: any) => {
-        const normText = normalizeText(r.review_text);
-        if (!groupedByText[normText]) groupedByText[normText] = [];
-        groupedByText[normText].push(r);
-      });
-
-      const duplicateGroups: any[] = [];
-      Object.keys(groupedByText).forEach(normText => {
-        const group = groupedByText[normText];
-        if (group.length <= 1) return;
-
-        const sorted = [...group].sort((a, b) => {
-          const aHasId = a.platform_review_id && a.platform_review_id.length > 0;
-          const bHasId = b.platform_review_id && b.platform_review_id.length > 0;
-          if (aHasId && !bHasId) return -1;
-          if (!aHasId && bHasId) return 1;
-
-          const aMetaSize = JSON.stringify(a.metadata || {}).length;
-          const bMetaSize = JSON.stringify(b.metadata || {}).length;
-          if (aMetaSize !== bMetaSize) return bMetaSize - aMetaSize;
-
-          if (a.rating !== b.rating) {
-            if (a.rating > 0 && b.rating === 0) return -1;
-            if (b.rating > 0 && a.rating === 0) return 1;
-          }
-
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        });
-
-        const keep = sorted[0];
-        const toDelete = sorted.slice(1);
-
-        duplicateGroups.push({
-          reviewTextPreview: keep.review_text.substring(0, 60),
-          reviewerName: keep.guest_name,
-          recordIds: group.map(r => r.id),
-          externalReviewIds: group.map(r => r.platform_review_id || 'null'),
-          createdAtValues: group.map(r => r.created_at),
-          keepRecordId: keep.id,
-          deleteRecordIds: toDelete.map(r => r.id),
-          reason: group.every((r: any) => r.platform_review_id === group[0].platform_review_id)
-            ? "Same external_review_id duplicate"
-            : "Different external_review_id/hash but same review text"
-        });
-      });
-
-      const allDeleteIds = duplicateGroups.flatMap(g => g.deleteRecordIds);
-      const uniqueCount = dbReviews.length - allDeleteIds.length;
-
-      // DRY RUN CHECK
-      const dryRunPassed = (uniqueCount === 13 && allDeleteIds.length === 8);
-      
-      let deleted = false;
-      let deleteError = null;
-
-      // Execute deletion only if dry run matches and execute is true
-      if (dryRunPassed && (req.body?.execute === true || req.query?.execute === 'true')) {
-        const { error: delErr } = await supabaseAdmin
-          .from('reviews')
-          .delete()
-          .in('id', allDeleteIds);
-        
-        if (delErr) {
-          deleteError = delErr;
-        } else {
-          deleted = true;
-        }
-      }
-
-      // Re-fetch to get final count
-      const { count: finalCount } = await supabaseAdmin
-        .from('reviews')
-        .select('id', { count: 'exact', head: true })
-        .eq('hotel_id', sinnadaId)
-        .eq('platform', 'otelpuan');
-
-      return res.status(200).json({
-        success: true,
-        dryRunPassed,
-        initialCount: dbReviews.length,
-        uniqueCount,
-        duplicateCount: allDeleteIds.length,
-        deleted,
-        deleteError,
-        finalCount: finalCount || 0,
-        duplicateGroups,
-        deletedRecords: dbReviews.filter((r: any) => allDeleteIds.includes(r.id))
-      });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  }
 
   // -------------------------------------------------------------
   // Action: import-hotelscom
