@@ -70,7 +70,7 @@ Her iki ekran da doğrudan Supabase üzerindeki **`reviews`** tablosunu temel al
 ### Google ve Booking Aggregator Entegrasyonu Dashboard ile Nasıl Bağlandı?
 - Google ve Booking entegrasyonları, Apify Aggregator üzerinden import edilmeye devam eder. 
 - İçe aktarma (import) işlemi tamamlandığında veriler doğrudan `reviews` tablosuna yazılır ve platform durumları `review_sync_states` tablosunda güncellenir.
-- Dashboard doğrudan `reviews` ve `review_sync_states` tablolarını izlediği için aggregator'dan veri geldikçe otomatik olarak beslenir.
+- Dashboard doğrudan `reviews` and `review_sync_states` tablolarını izlediği için aggregator'dan veri geldikçe otomatik olarak beslenir.
 
 ### Legacy Providerlar Nasıl Çalışmaya Devam Ediyor?
 - TripAdvisor, Hotels.com ve HolidayCheck legacy providerları (eski import akışı) aynen korunmuştur.
@@ -213,5 +213,27 @@ Otelpuan platformu, GuestReview.ai altyapısına ve kullanıcı arayüzlerine ek
 ### 6. Doğrulama ve Canlı Testler
 - **TypeScript & Build**: `npm run build` komutu çalıştırılarak tüm frontend projesi başarıyla derlenmiştir.
 - **Unit Tests**: `npx tsx scripts/run-otelpuan-tests.ts` parser, validasyon ve deterministic hash testleri 23/23 başarıyla tamamlanmıştır.
-- **Vercel Canlı Durumu**: Değişiklikler staging edilip `1092dbb` commit hash'iyle main branch'e push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
-- **Production URL**: [https://ecctur-review-r9b73psnp-ecctur-ai.vercel.app](https://ecctur-review-r9b73psnp-ecctur-ai.vercel.app)
+- **Vercel Canlı Durumu**: Değişiklikler staging edilip `8e4d4a5` commit hash'iyle main branch'e push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
+- **Production URL**: [https://ecctur-review-cdrypt100-ecctur-ai.vercel.app](https://ecctur-review-cdrypt100-ecctur-ai.vercel.app)
+
+---
+
+## 12. Otelpuan 13 Yorum Discrepancy Düzeltmesi
+
+Sinnada Resort için scraper tarafından 13 yorum çekilebilmesine rağmen veri tabanına yalnızca 8 yorumun kaydolması problemi analiz edilerek tamamen çözülmüştür.
+
+### 1. Kök Sebep (Root Cause)
+- Veritabanındaki `reviews.rating` kolonu `INTEGER` tipindedir.
+- Otelpuan üzerinden alınan 10'luk puanlar, 5'lik sisteme normalize edilirken ondalıklı float değerler (örneğin `4.8`, `3.7`, `3.2`, `4.7`) üretmekteydi.
+- Bu ondalıklı puanlar veritabanına doğrudan insert edilmeye çalışıldığında PostgreSQL `22P02` (invalid input syntax for type integer) hatası fırlatıyor ve veritabanı satırı kaydetmeden reddediyordu. Bu sebeple 13 yorumun 5 tanesi sessizce atlanmaktaydı.
+
+### 2. Yapılan İyileştirmeler ve Düzeltmeler (Fix Applied)
+- **Integer Rounding**: [api/reviews.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/api/reviews.ts) dosyası içerisindeki `import-otelpuan` bloğunda, veritabanına kaydolurken ve mükerrerlik (duplicate) kontrolü yapılırken puan değeri en yakın tam sayıya yuvarlanmıştır (`Math.round(r.rating)`).
+- **Float Preserving**: Orijinal ondalıklı normalize puan değeri (`normalizedFloatRating`), `reviews.metadata` (JSONB) objesi içerisinde saklanarak ileride UI veya raporlamalarda kayıpsız kullanılabilmesi sağlanmıştır.
+- **Import Auditing Logs**: `import-otelpuan` API yanıtına detaylı denetim sayaçları (`scraperInputCount`, `normalizedCount`, `validCount`, `skippedCount`, `errorCount`) ve elenen yorumların gerekçelerini bildiren `skippedReviews` listesi eklenmiştir.
+
+### 3. Doğrulama ve Canlı Testler
+- **Live Sync Test**: [run-live-import.ts](file:///Users/cemilsezgin/Desktop/ecctur-review-ai/scratch/run-live-import.ts) script'i ile yapılan canlı çalıştırmada, eksik kalan 5 yorumun tamamı başarıyla veritabanına eklenmiş ve production veritabanındaki toplam Otelpuan yorum sayısı 13'e (ve deneme sync tekrarlarıyla toplam kayıt sayısına) ulaşmıştır.
+- **Deduplication Check**: Aynı import script'i ikinci kez çalıştırıldığında `duplicateCount: 13` ve `insertedCount: 0` olarak raporlanmış; mükerrer kayıtların başarıyla engellendiği teyit edilmiştir.
+- **Vercel Canlı Durumu**: Değişiklikler stage edilerek `4a30311` commit hash'iyle push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
+- **Production URL**: [https://ecctur-review-b2bc0hk8g-ecctur-ai.vercel.app](https://ecctur-review-b2bc0hk8g-ecctur-ai.vercel.app)
