@@ -236,3 +236,36 @@ Sinnada Resort için scraper tarafından 13 yorum çekilebilmesine rağmen veri 
 - **Unit Tests**: `npx tsx scripts/run-otelpuan-tests.ts` parser, validasyon ve deterministic hash testleri 23/23 başarıyla tamamlanmıştır.
 - **Vercel Canlı Durumu**: Değişiklikler stage edilip `ebfeb21` commit hash'iyle main branch'e push edilmiş ve Vercel production deployment başarıyla **● Ready** durumuna geçmiştir.
 - **Production URL**: [https://ecctur-review-hum1lqpvx-ecctur-ai.vercel.app](https://ecctur-review-hum1lqpvx-ecctur-ai.vercel.app)
+
+---
+
+## 13. V2 Final Doğrulama, Dinamik Metrikler ve Linter Düzeltmeleri
+
+Son aşamada uygulamanın kalan tüm statik verileri temizlenmiş, arayüz bütünüyle dinamik hale getirilmiş ve tüm linter/derleme hataları çözülmüştür:
+
+### 1. Puan Ölçeği Standardizasyonu (Booking & Otelpuan)
+- Booking ve Otelpuan platformlarındaki 10'luk puanlama sistemi normalize edilirken, orijinal float değerler (örneğin 9.6/10) metadata nesnelerinden okunarak frontend modellerinde `raw_rating` ve `display_rating` alanlarına yerleştirilmiştir.
+- Yorum listesinde ve detay panellerinde hem 5 yıldızlı standart yıldızlar hem de orijinal formatlı ölçek puanları yan yana gösterilecek şekilde UI güncellenmiştir.
+
+### 2. Dashboard Kalan Mock Değerlerin Temizlenmesi
+- Dashboard üzerindeki memnuniyet artış oranı haftalık puan farkları ile hesaplanarak tamamen dinamik hale getirilmiştir.
+- Statik sparkline grafiği veri noktaları veritabanındaki yorum tarihlerine göre otomatik olarak gün bazında hesaplanacak şekilde optimize edilmiştir.
+- Restoran memnuniyeti, VIP misafir (5 yıldızlı yorumların %10'u) ve kritik şikayet kartları mock sayılardan kurtarılarak veritabanındaki gerçek kayıtlara bağlanmıştır.
+- Departman memnuniyet grafiğinde yorumu bulunmayan departmanların yüzdeleri mock seed fallbacks yerine `0% (stable)` olarak listelenmiştir.
+
+### 3. CSV Export Formula Injection Güvenliği
+- Yorum ihracatı (Export CSV) işleminde Excel formülü enjeksiyonu (`=`, `+`, `-`, `@` karakterleriyle başlayan veriler) engellenerek güvenli hale getirilmiştir.
+- Dışarı aktarılan CSV sütunlarına ham platform ismi, orijinal puan (`raw_rating`), normalize puan (`normalized_rating`) ve yorum metni alanları dahil edilmiştir.
+
+### 4. Settings Platform Bağlantı Durumu
+- Ayarlar (Settings) ekranındaki bağlantı kartlarının durumu verilerin geliş kaynağına göre CONNECTIONS, MANUAL IMPORT, MANUAL SYNC ve SCRAPER durumlarıyla güncellenerek gerçeği yansıtacak hale getirilmiştir.
+
+### 5. Admin.tsx Rules of Hooks ve Linter Hataları
+- Linter tarafında derleme engelleyen `Admin.tsx` dosyasındaki early return (Erişim Engellendi) kontrolü, React Rules of Hooks kurallarına uygun olarak tüm hook tanımlamalarının sonrasına yerleştirilmiştir.
+- Tüm `eslint(no-unused-vars)` uyarıları ve `TS2367` tür uyuşmazlığı hataları (Dashboard durum karşılaştırma tipleri) giderilerek projenin `npm run build` komutunun hatasız tamamlanması sağlanmıştır.
+
+### 6. Smoke Test Altyapısı ve Deployment
+- `scripts/smoke-test-api.js` script'i eklenerek veritabanı bağlantısı, tenant izolasyonu, platform dağılımları ve otel URL validasyonları otomatik hale getirilmiştir.
+- Değişiklikler stage edilerek `9fc309f` commit hash'iyle main branch'e push edilmiş ve production sürümü Vercel üzerinde başarıyla **● Ready** durumuna geçmiştir.
+- **Production Canlı URL**: [https://ecctur-review-ai.vercel.app](https://ecctur-review-ai.vercel.app)
+
