@@ -39,22 +39,6 @@ export default function Admin() {
   const isTrueSuperAdmin = email === 'cemil.sezgin@ecctur.com';
   const isSuperOrAdmin = isTrueSuperAdmin || roleNameLower === 'admin';
 
-  if (roleNameLower !== 'super admin' && roleNameLower !== 'admin' && !isTrueSuperAdmin) {
-    return (
-      <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-          <ShieldAlert size={22} />
-        </div>
-        <div className="space-y-1.5 max-w-sm">
-          <h3 className="text-sm font-bold text-slate-200">Erişim Engellendi</h3>
-          <p className="text-xs text-slate-400">
-            Bu sayfayı görüntülemek için yetkiniz bulunmamaktadır.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -971,6 +955,22 @@ export default function Admin() {
       triggerToast(`Error: ${err.message || 'Operation failed'}`);
     }
   };
+
+  if (roleNameLower !== 'super admin' && roleNameLower !== 'admin' && !isTrueSuperAdmin) {
+    return (
+      <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <ShieldAlert size={22} />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="text-sm font-bold text-slate-200">Erişim Engellendi</h3>
+          <p className="text-xs text-slate-400">
+            Bu sayfayı görüntülemek için yetkiniz bulunmamaktadır.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

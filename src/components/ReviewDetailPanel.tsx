@@ -362,7 +362,14 @@ export function ReviewDetailPanel({
               </div>
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <StarRating rating={review.rating} />
+              <div className="flex items-center gap-1.5">
+                {review.display_rating && (
+                  <span className="text-[10px] font-black text-indigo-600 bg-[#F0EDFF] border border-indigo-100 px-1.5 py-0.5 rounded">
+                    {review.display_rating}
+                  </span>
+                )}
+                <StarRating rating={review.rating} />
+              </div>
               <StatusBadge status={review.status} />
             </div>
           </div>

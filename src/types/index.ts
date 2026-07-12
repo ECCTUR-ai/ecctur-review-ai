@@ -71,6 +71,10 @@ export interface Review {
   id: string;
   guestName: string;
   rating: number;
+  raw_rating?: number | null;
+  raw_scale?: number | null;
+  normalized_rating?: number | null;
+  display_rating?: string | null;
   comment: string;
   date: string;
   review_date?: string | null;

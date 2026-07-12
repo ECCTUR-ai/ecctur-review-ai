@@ -149,17 +149,19 @@ export default function Settings() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             {[
-              { name: 'Google Maps Reviews', logo: '🔵', desc: 'Sync customer reviews from Google Maps locations.' },
-              { name: 'Booking.com', logo: '🔷', desc: 'Sync customer ratings and reviews from Booking.com listings.' },
-              { name: 'TripAdvisor', logo: '🟢', desc: 'Sync hospitality ratings from Tripadvisor hotel pages.' },
-              { name: 'Otelpuan.com', logo: '🍊', desc: 'Sync domestic hotel ratings and reviews from Otelpuan.' }
+              { name: 'Google Maps Reviews', logo: '🔵', desc: 'Sync customer reviews from Google Maps locations.', status: 'CONNECTED' },
+              { name: 'Booking.com', logo: '🔷', desc: 'Sync customer ratings and reviews from Booking.com listings.', status: 'MANUAL IMPORT' },
+              { name: 'TripAdvisor', logo: '🟢', desc: 'Sync hospitality ratings from Tripadvisor hotel pages.', status: 'CONNECTED' },
+              { name: 'Otelpuan.com', logo: '🍊', desc: 'Sync domestic hotel ratings and reviews from Otelpuan.', status: 'MANUAL SYNC' }
             ].map((p, idx) => (
               <div key={idx} className="p-4 bg-slate-50 border border-[#E8EAF0] rounded-2xl flex items-start gap-3">
                 <span className="text-base shrink-0 mt-0.5">{p.logo}</span>
                 <div>
                   <strong className="text-[#151827] block font-bold">{p.name}</strong>
                   <span className="text-[10px] text-zinc-555 block mt-1 leading-relaxed">{p.desc}</span>
-                  <span className="inline-block mt-3 text-[9px] font-black text-[#6D5DF6] uppercase">CONNECTED</span>
+                  <span className="inline-block mt-3 text-[9px] font-black text-[#6D5DF6] uppercase bg-[#F0EDFF] px-2 py-0.5 rounded border border-[#6D5DF6]/20">
+                    {p.status}
+                  </span>
                 </div>
               </div>
             ))}

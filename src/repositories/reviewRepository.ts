@@ -42,10 +42,51 @@ export function mapReview(item: any): Review {
   const parsedReviewAnalysis = safeParseJson(item.review_analysis);
   const parsedAiAnalysis = safeParseJson(item.ai_analysis);
 
+  const lowerPlatform = (item.platform || '').toLowerCase().trim();
+  let raw_rating: number | null = null;
+  let raw_scale: number | null = null;
+  let normalized_rating = Number(item.rating || 0);
+  let display_rating = `${normalized_rating} ★`;
+
+  if (lowerPlatform === 'otelpuan' || lowerPlatform === 'otel puan') {
+    raw_scale = 10;
+    const meta = item.metadata || {};
+    if (meta.originalRating !== undefined && meta.originalRating !== null) {
+      raw_rating = Number(meta.originalRating);
+    } else if (meta.normalizedFloatRating !== undefined && meta.normalizedFloatRating !== null) {
+      raw_rating = Number(meta.normalizedFloatRating) * 2;
+    } else {
+      raw_rating = normalized_rating * 2;
+    }
+    if (meta.normalizedFloatRating !== undefined && meta.normalizedFloatRating !== null) {
+      normalized_rating = Number(meta.normalizedFloatRating);
+    } else {
+      normalized_rating = raw_rating / 2;
+    }
+    display_rating = `${raw_rating} / 10`;
+  } else if (lowerPlatform === 'booking' || lowerPlatform === 'booking.com') {
+    raw_scale = 10;
+    const meta = item.metadata || {};
+    if (meta.originalRating !== undefined && meta.originalRating !== null) {
+      raw_rating = Number(meta.originalRating);
+    } else {
+      raw_rating = normalized_rating * 2;
+    }
+    display_rating = `${raw_rating} / 10`;
+  } else {
+    raw_scale = 5;
+    raw_rating = normalized_rating;
+    display_rating = `${normalized_rating} ★`;
+  }
+
   return {
     id: item.id,
     guestName: item.guest_name || item.guestName || '',
-    rating: item.rating,
+    rating: normalized_rating,
+    raw_rating,
+    raw_scale,
+    normalized_rating,
+    display_rating,
     comment: item.review_text || item.comment || '',
     date: item.review_date || item.date || item.created_at || '',
     review_date: item.review_date || null,
@@ -54,14 +95,15 @@ export function mapReview(item: any): Review {
     metadata: item.metadata || null,
     owner_response_text: item.owner_response_text || null,
     owner_response_date: item.owner_response_date || null,
-    source: (item.platform?.toLowerCase() === 'booking' ? 'Booking' :
-             item.platform?.toLowerCase() === 'tripadvisor' ? 'TripAdvisor' :
-             (item.platform?.toLowerCase() === 'google' || item.platform?.toLowerCase() === 'google-maps' || item.platform?.toLowerCase() === 'google_maps' || item.platform?.toLowerCase() === 'google maps') ? 'Google' :
-             item.platform?.toLowerCase() === 'holidaycheck' ? 'HolidayCheck' :
-             item.platform?.toLowerCase() === 'hotels.com' ? 'Hotels.com' :
-             item.platform?.toLowerCase() === 'expedia' ? 'Expedia' :
-             item.platform?.toLowerCase() === 'airbnb' ? 'Airbnb' :
-             item.platform?.toLowerCase() === 'yelp' ? 'Yelp' :
+    source: (lowerPlatform === 'booking' ? 'Booking' :
+             lowerPlatform === 'tripadvisor' ? 'TripAdvisor' :
+             (lowerPlatform === 'google' || lowerPlatform === 'google-maps' || lowerPlatform === 'google_maps' || lowerPlatform === 'google maps') ? 'Google' :
+             lowerPlatform === 'holidaycheck' ? 'HolidayCheck' :
+             lowerPlatform === 'hotels.com' ? 'Hotels.com' :
+             lowerPlatform === 'expedia' ? 'Expedia' :
+             lowerPlatform === 'airbnb' ? 'Airbnb' :
+             lowerPlatform === 'yelp' ? 'Yelp' :
+             lowerPlatform === 'otelpuan' ? 'otelpuan' :
              item.platform || item.source || 'Google') as ReviewSource,
     status: normalizeReviewStatus(item.status) as ReviewStatus,
     priority: (item.priority || 'low').toLowerCase() as ReviewPriority,
@@ -69,7 +111,7 @@ export function mapReview(item: any): Review {
     respondedAt: item.responded_at || item.respondedAt || item.updated_at || '',
     sentiment: (item.sentiment || 'neutral').toLowerCase() as Sentiment,
     departments: item.departments || [],
-    hotel: item.hotel_name || item.hotel || 'Demo Hotel',
+    hotel: item.hotel_name || item.hotel || 'Seçili Otel',
     managerNotes: item.notes || item.manager_notes || item.managerNotes || '',
     internalNotes: item.internal_notes || item.internalNotes || '',
     hotelId: item.hotel_id || item.hotelId,
@@ -133,6 +175,8 @@ export const reviewRepository = {
           query = query.or('platform.eq.holidaycheck,platform.eq.HolidayCheck');
         } else if (srcLower === 'hotels.com' || srcLower === 'hotelscom') {
           query = query.or('platform.eq.hotels.com,platform.eq.hotelscom');
+        } else if (srcLower === 'otelpuan' || srcLower === 'otel puan') {
+          query = query.or('platform.eq.otelpuan,platform.eq.Otelpuan,platform.eq.otel_puan,platform.eq.OTELPUAN');
         } else {
           query = query.eq('platform', params.source);
         }

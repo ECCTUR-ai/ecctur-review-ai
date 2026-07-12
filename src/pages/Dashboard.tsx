@@ -216,6 +216,53 @@ export default function Dashboard() {
 
   const guestSatisfactionScore = Math.round(avgRating * 20);
 
+  const satisfactionChangeText = useMemo(() => {
+    const now = new Date();
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(now.getDate() - 7);
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(now.getDate() - 14);
+
+    const thisWeekReviews = filteredReviewsForStats.filter(r => {
+      const rd = new Date(r.review_date || r.created_at || 0);
+      return rd >= oneWeekAgo;
+    });
+    const lastWeekReviews = filteredReviewsForStats.filter(r => {
+      const rd = new Date(r.review_date || r.created_at || 0);
+      return rd >= twoWeeksAgo && rd < oneWeekAgo;
+    });
+
+    const thisWeekAvg = thisWeekReviews.length > 0 
+      ? thisWeekReviews.reduce((sum, r) => sum + r.rating, 0) / thisWeekReviews.length 
+      : 0;
+    const lastWeekAvg = lastWeekReviews.length > 0 
+      ? lastWeekReviews.reduce((sum, r) => sum + r.rating, 0) / lastWeekReviews.length 
+      : 0;
+
+    if (thisWeekAvg > 0 && lastWeekAvg > 0) {
+      const diff = (thisWeekAvg - lastWeekAvg) * 20; // convert to percent-scale
+      if (diff > 0) return { text: `▲ +${diff.toFixed(1)}%`, isPositive: true };
+      if (diff < 0) return { text: `▼ ${diff.toFixed(1)}%`, isPositive: false };
+    }
+    return { text: `■ 0.0%`, isPositive: true };
+  }, [filteredReviewsForStats]);
+
+  const aiDraftsReady = useMemo(() => {
+    return filteredReviewsForStats.filter(r => {
+      const s = normalizeReviewStatus(r.status);
+      return s !== 'approved' && s !== 'manual_replied' && r.response && r.response.trim().length > 0;
+    }).length;
+  }, [filteredReviewsForStats]);
+
+  const criticalReviewsCount = useMemo(() => {
+    return filteredReviewsForStats.filter(r => (r.rating || 0) <= 2).length;
+  }, [filteredReviewsForStats]);
+
+  const vipGuestsCount = useMemo(() => {
+    const list = filteredReviewsForStats.filter(r => r.rating === 5);
+    return Math.round(list.length * 0.1); // 10% of 5-star reviews
+  }, [filteredReviewsForStats]);
+
   const juraRespondedCount = filteredReviewsForStats.filter((r: any) => {
     const s = normalizeReviewStatus(r.status);
     return s === 'approved' || s === 'manual_replied';
@@ -251,16 +298,62 @@ export default function Dashboard() {
   }, [filteredReviewsForStats]);
 
   const getSatisfactionSparklinePoints = useMemo(() => {
-    return [88, 90, 89, 92, 91, 93, guestSatisfactionScore > 0 ? guestSatisfactionScore : 92];
-  }, [guestSatisfactionScore]);
+    const points: number[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const matches = filteredReviewsForStats.filter(r => {
+        const rd = r.review_date || r.created_at || '';
+        return rd.startsWith(dateStr);
+      });
+      if (matches.length > 0) {
+        const avg = matches.reduce((sum, r) => sum + (r.rating || 0), 0) / matches.length;
+        points.push(Math.round(avg * 20));
+      } else {
+        points.push(guestSatisfactionScore > 0 ? guestSatisfactionScore : 0);
+      }
+    }
+    return points;
+  }, [filteredReviewsForStats, guestSatisfactionScore]);
 
   const getReviewsSparklinePoints = useMemo(() => {
-    return [12, 18, 15, 22, 28, 24, totalReviews > 0 ? Math.min(totalReviews, 50) : 32];
-  }, [totalReviews]);
+    const points: number[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const count = filteredReviewsForStats.filter(r => {
+        const rd = r.review_date || r.created_at || '';
+        return rd.startsWith(dateStr);
+      }).length;
+      points.push(count);
+    }
+    return points;
+  }, [filteredReviewsForStats]);
 
   const getRatingSparklinePoints = useMemo(() => {
-    return [4.1, 4.2, 4.3, 4.2, 4.4, 4.3, avgRating > 0 ? avgRating : 4.3];
-  }, [avgRating]);
+    const points: number[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const matches = filteredReviewsForStats.filter(r => {
+        const rd = r.review_date || r.created_at || '';
+        return rd.startsWith(dateStr);
+      });
+      if (matches.length > 0) {
+        const avg = matches.reduce((sum, r) => sum + (r.rating || 0), 0) / matches.length;
+        points.push(Number(avg.toFixed(1)));
+      } else {
+        points.push(avgRating > 0 ? avgRating : 0.0);
+      }
+    }
+    return points;
+  }, [filteredReviewsForStats, avgRating]);
 
   const renderSparkline = (points: number[], color = '#10b981') => {
     if (points.length < 2) return null;
@@ -327,9 +420,9 @@ export default function Dashboard() {
       if (matched.length === 0) {
         return {
           name: dept.label,
-          percentage: dept.seed,
-          trend: dept.seed >= 85 ? 'up' : 'down',
-          color: dept.seed >= 85 ? 'bg-indigo-500' : dept.seed >= 70 ? 'bg-purple-500' : 'bg-rose-500'
+          percentage: 0,
+          trend: 'stable',
+          color: 'bg-slate-200'
         };
       }
 
@@ -455,18 +548,21 @@ export default function Dashboard() {
 
   const dynamicAiOperationsSummary = useMemo(() => {
     const activeComplaints = taskStats.open + taskStats.inProgress;
-    const isRestoranImpacted = departmentPerformanceData.find(d => d.name.includes('Restoran'))?.percentage || 80;
+    const restaurantDept = departmentPerformanceData.find(d => d.name.includes('Restoran'));
+    const isRestoranImpacted = restaurantDept && restaurantDept.percentage > 0 ? restaurantDept.percentage : null;
     
     return {
       greeting: `Günlük Operasyonel Analiz Raporu:`,
       subText: `${hotelName} için son 30 gün verilerini taradım. Tespit ettiğim en kritik noktalar:`,
       bullets: [
         {
-          emoji: isRestoranImpacted < 75 ? '⚠️' : '🟢',
+          emoji: isRestoranImpacted === null ? '🟢' : isRestoranImpacted < 75 ? '⚠️' : '🟢',
           title: 'Restoran ve Servis Memnuniyeti:',
-          desc: isRestoranImpacted < 75 
-            ? `Yemek kalitesi ve servis gecikmelerine yönelik misafir bildirimleri memnuniyet endeksini baskılıyor.`
-            : `Yemekler ve servis kalitesine yönelik olumlu geri dönüşler devam ediyor.`
+          desc: isRestoranImpacted === null 
+            ? `Restoran ve servis kalitesine yönelik bu dönemde henüz yeni misafir yorumu kaydedilmedi.`
+            : isRestoranImpacted < 75 
+              ? `Yemek kalitesi ve servis gecikmelerine yönelik misafir bildirimleri memnuniyet endeksini baskılıyor.`
+              : `Yemekler ve servis kalitesine yönelik olumlu geri dönüşler devam ediyor.`
         },
         {
           emoji: '📋',
@@ -528,13 +624,13 @@ export default function Dashboard() {
             <div className="flex items-baseline gap-1 justify-end mt-1">
               <span className="text-3xl font-black text-[#151827]">{guestSatisfactionScore}%</span>
             </div>
-            <div className="flex items-center gap-1 mt-1 justify-end text-[10px] text-emerald-600 font-bold">
-              <span>▲ +1.2%</span>
+            <div className={`flex items-center gap-1 mt-1 justify-end text-[10px] font-bold ${satisfactionChangeText.isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span>{satisfactionChangeText.text}</span>
               <span className="text-zinc-500 font-normal">this week</span>
             </div>
           </div>
           <div className="w-16 h-16 rounded-[14px] bg-[#6D5DF6] flex items-center justify-center text-white text-xl font-bold shadow-md shadow-indigo-500/10">
-            {avgRating > 0 ? avgRating : '4.6'}
+            {avgRating > 0 ? avgRating.toFixed(1) : '-'}
           </div>
         </div>
       </div>
@@ -570,12 +666,12 @@ export default function Dashboard() {
             <Sparkles size={16} className="text-[#6D5DF6]" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-[#151827] leading-none">{aiResponseRate}%</h2>
-            <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Response Coverage</p>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(aiDraftsReady)}</h2>
+            <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Response Drafts Ready</p>
           </div>
           <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
-            <span>Replied</span>
-            <span className="text-[#6D5DF6] font-bold">🪄 {formatNumberTurkish(juraRespondedCount)}</span>
+            <span>Coverage</span>
+            <span className="text-[#6D5DF6] font-bold">{aiResponseRate}% replied</span>
           </div>
         </motion.div>
 
@@ -594,7 +690,7 @@ export default function Dashboard() {
           </div>
           <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Action</span>
-            <span className="text-amber-600 font-bold">Review Needed</span>
+            <span className="text-amber-650 font-bold">Review Needed</span>
           </div>
         </motion.div>
 
@@ -608,12 +704,12 @@ export default function Dashboard() {
             <ShieldAlert size={16} className="text-rose-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(activeTasksCount)}</h2>
-            <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Open Tasks</p>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(criticalReviewsCount)}</h2>
+            <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Rating ≤ 2 Reviews</p>
           </div>
           <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
-            <span>Priority</span>
-            <span className="text-rose-600 font-bold">Action Required</span>
+            <span>Open Tasks</span>
+            <span className="text-rose-600 font-bold">{formatNumberTurkish(activeTasksCount)} tasks</span>
           </div>
         </motion.div>
 
@@ -627,12 +723,12 @@ export default function Dashboard() {
             <Crown size={16} className="text-emerald-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-[#151827] leading-none">3</h2>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(vipGuestsCount)}</h2>
             <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">In-House High Value</p>
           </div>
           <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Segment</span>
-            <span className="text-emerald-600 font-bold">High Priority</span>
+            <span className="text-emerald-650 font-bold">High Priority</span>
           </div>
         </motion.div>
       </div>

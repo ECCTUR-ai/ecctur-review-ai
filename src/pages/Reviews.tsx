@@ -322,16 +322,40 @@ export default function Reviews() {
   const handleExportReviews = async () => {
     setIsExporting(true);
     try {
-      const headers = ['ID', 'Guest Name', 'Platform', 'Rating', 'Comment', 'Date', 'Status'];
-      const rows = reviews.map(r => [
-        r.id,
-        r.guestName || '',
-        r.source,
-        r.rating,
-        (r.comment || '').replace(/"/g, '""'),
-        r.review_date || '',
-        r.status
-      ]);
+      const headers = [
+        'ID', 
+        'Guest Name', 
+        'Platform Name', 
+        'Raw Rating', 
+        'Normalized Rating', 
+        'Review Date', 
+        'Review Text', 
+        'Reply Status'
+      ];
+      
+      const escapeCsvValue = (val: any) => {
+        const str = val === null || val === undefined ? '' : String(val);
+        const clean = str.replace(/"/g, '""');
+        if (clean.startsWith('=') || clean.startsWith('+') || clean.startsWith('-') || clean.startsWith('@')) {
+          return `'${clean}`;
+        }
+        return clean;
+      };
+
+      const rows = reviews.map(r => {
+        const rawRating = r.raw_rating !== undefined && r.raw_rating !== null ? r.raw_rating : r.rating;
+        return [
+          escapeCsvValue(r.id),
+          escapeCsvValue(r.guestName),
+          escapeCsvValue(r.source),
+          rawRating,
+          r.rating,
+          escapeCsvValue(r.review_date || r.date),
+          escapeCsvValue(r.comment),
+          escapeCsvValue(r.status)
+        ];
+      });
+
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.map(val => `"${val}"`).join(','))
@@ -641,7 +665,7 @@ export default function Reviews() {
                       </div>
                       <div className="flex items-center gap-0.5 text-amber-500 text-xs font-bold">
                         <Star size={11} className="fill-amber-500" />
-                        <span>{review.rating}</span>
+                        <span>{review.display_rating || review.rating}</span>
                       </div>
                     </div>
                     <p className="text-[11px] text-zinc-500 mt-2 line-clamp-2 leading-relaxed">
@@ -726,7 +750,7 @@ export default function Reviews() {
 
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-100 rounded-full text-xs font-bold text-amber-600">
                   <Star size={12} className="fill-amber-500" />
-                  <span>{selectedReviewDetail.rating} / 5</span>
+                  <span>{selectedReviewDetail.display_rating || `${selectedReviewDetail.rating} / 5`}</span>
                 </div>
               </div>
 
