@@ -27,13 +27,10 @@ import {
   Globe,
   ThumbsUp,
   Activity,
-  Award,
-  Sparkles,
-  Languages,
-  MessageSquare
+  Award
 } from 'lucide-react';
 
-const COLORS = ['#6366f1', '#a855f7', '#10b981', '#f59e0b', '#ef4444'];
+const COLORS = ['#6D5DF6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
 
 export default function Analytics() {
   const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
@@ -134,7 +131,7 @@ export default function Analytics() {
   }, [currentReviews]);
 
   const platformComparisons = useMemo(() => {
-    const platforms = ['Google', 'Booking', 'TripAdvisor', 'Hotels.com', 'HolidayCheck'];
+    const platforms = ['Google', 'Booking', 'TripAdvisor', 'Hotels.com', 'HolidayCheck', 'Otelpuan'];
     return platforms.map(plat => {
       const curList = currentReviews.filter(r => normalizeReviewPlatform((r as any).platform) === plat.toLowerCase() || normalizeReviewPlatform(r.source) === plat.toLowerCase());
       const prevList = previousReviews.filter(r => normalizeReviewPlatform((r as any).platform) === plat.toLowerCase() || normalizeReviewPlatform(r.source) === plat.toLowerCase());
@@ -190,7 +187,7 @@ export default function Analytics() {
     const total = currentReviews.length;
     return [
       { name: 'Olumlu (4-5★)', value: pos, percentage: total > 0 ? Math.round((pos / total) * 100) : 0, color: '#10b981' },
-      { name: 'Nötr (3★)', value: neu, percentage: total > 0 ? Math.round((neu / total) * 100) : 0, color: '#a855f7' },
+      { name: 'Nötr (3★)', value: neu, percentage: total > 0 ? Math.round((neu / total) * 100) : 0, color: '#6D5DF6' },
       { name: 'Olumsuz (1-2★)', value: neg, percentage: total > 0 ? Math.round((neg / total) * 100) : 0, color: '#ef4444' }
     ].filter(s => s.value > 0);
   }, [currentReviews]);
@@ -219,36 +216,6 @@ export default function Analytics() {
     })).filter(l => l.value > 0).sort((a, b) => b.value - a.value);
   }, [currentReviews]);
 
-  const aiPatternDiscovery = useMemo(() => {
-    const positivePhrases = [
-      { text: 'Merkezi Konum ve Kolay Ulaşım', count: 0 },
-      { text: 'Güler Yüzlü ve Profesyonel Hizmet', count: 0 },
-      { text: 'Temiz Odalar ve Hijyenik Banyo', count: 0 }
-    ];
-
-    const negativePhrases = [
-      { text: 'Yetersiz Isıtma / Klima Sorunu', count: 0 },
-      { text: 'Gürültü ve Zayıf Ses Yalıtımı', count: 0 },
-      { text: 'Yavaş Restoran / Kafe Servisi', count: 0 }
-    ];
-
-    currentReviews.forEach(r => {
-      const txt = (r.comment || '').toLowerCase();
-      if (['konum', 'ulaşım', 'merkez', 'sahil'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[0].count++;
-      if (['güler yüz', 'personel', 'çalışan', 'resepsiyon'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[1].count++;
-      if (['temiz', 'havlu', 'çarşaf', 'hijyen'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[2].count++;
-
-      if (['klima', 'ısıtma', 'soğutma', 'ac'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[0].count++;
-      if (['ses', 'gürültü', 'yalıtım', 'yol gürültüsü'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[1].count++;
-      if (['yavaş', 'bekleme', 'servis', 'gecikme'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[2].count++;
-    });
-
-    return {
-      positive: positivePhrases.filter(p => p.count > 0).sort((a, b) => b.count - a.count),
-      negative: negativePhrases.filter(p => p.count > 0).sort((a, b) => b.count - a.count)
-    };
-  }, [currentReviews]);
-
   const benchmarkComparisons = useMemo(() => {
     const curAvg = currentReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / (currentReviews.length || 1);
     const sumGsi = currentReviews.reduce((acc, r) => {
@@ -269,31 +236,31 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="h-12 w-full bg-white/5 rounded-2xl animate-pulse" />
+        <div className="h-12 w-full bg-white border border-[#E8EAF0] rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="h-[320px] bg-white/5 rounded-2xl animate-pulse" />
-          <div className="h-[320px] bg-white/5 rounded-2xl animate-pulse" />
+          <div className="h-[320px] bg-white border border-[#E8EAF0] rounded-2xl animate-pulse" />
+          <div className="h-[320px] bg-white border border-[#E8EAF0] rounded-2xl animate-pulse" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 text-[#151827]">
       {/* Redesigned Title & Filters */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-6">
-        <div className="space-y-1">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[#E8EAF0] pb-6">
+        <div className="space-y-1 text-left">
           <div className="flex items-center gap-2">
-            <Activity className="text-indigo-400 w-5 h-5" />
-            <h1 className="text-2xl font-black text-white m-0">Apple Health-Style Analytics</h1>
+            <Activity className="text-[#6D5DF6] w-5 h-5" />
+            <h1 className="text-2xl font-black text-[#151827] m-0">Apple Health-Style Analytics</h1>
           </div>
-          <p className="text-xs text-zinc-400 font-medium">
+          <p className="text-xs text-zinc-555 font-medium">
             Tesisinizin kanallar, departmanlar, diller ve benchmark bazında derinlikli Apple Health esintili analiz paneli.
           </p>
         </div>
 
         {/* Presets filter pill */}
-        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-slate-200">
           {[
             { id: 'today', label: 'Bugün' },
             { id: '7d', label: '7 Gün' },
@@ -306,8 +273,8 @@ export default function Analytics() {
               onClick={() => setDateFilter(f.id as any)}
               className={`px-3.5 py-1.5 text-[10px] font-extrabold rounded-full transition-all cursor-pointer ${
                 dateFilter === f.id
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-[#6D5DF6] text-white shadow-sm'
+                  : 'text-zinc-500 hover:text-[#151827]'
               }`}
             >
               {f.label}
@@ -317,10 +284,10 @@ export default function Analytics() {
       </div>
 
       {currentReviews.length === 0 ? (
-        <div className="glass-panel rounded-3xl p-16 text-center space-y-4">
-          <Database className="mx-auto text-zinc-600 animate-pulse" size={44} />
-          <h3 className="text-sm font-bold text-white">Analiz edilecek veri bulunamadı</h3>
-          <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+        <div className="glass-panel rounded-3xl p-16 text-center space-y-4 bg-white border border-[#E8EAF0]">
+          <Database className="mx-auto text-zinc-400 animate-pulse" size={44} />
+          <h3 className="text-sm font-bold text-[#151827]">Analiz edilecek veri bulunamadı</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto">
             Seçilen zaman diliminde herhangi bir yorum bulunmamaktadır. Lütfen zaman filtresini değiştirin.
           </p>
         </div>
@@ -329,41 +296,41 @@ export default function Analytics() {
           {/* Row 1: Apple Health cards row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* 1. Review Volume */}
-            <div className="glass-panel p-6 rounded-[24px] bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 hover:border-indigo-500/30 transition-all flex flex-col justify-between h-[160px] text-left">
-              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">REVIEW VOLUME</span>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] shadow-sm hover:border-[#6D5DF6]/30 transition-all flex flex-col justify-between h-[160px] text-left">
+              <span className="text-[10px] font-bold text-[#6D5DF6] uppercase tracking-wider block">VOLUME</span>
               <div>
-                <span className="text-3xl font-black text-white">{currentReviews.length}</span>
+                <span className="text-3xl font-black text-[#151827]">{currentReviews.length}</span>
                 <span className="text-xs text-zinc-500 ml-1">ingested reviews</span>
               </div>
-              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
                 <span>▲ +12%</span>
                 <span className="text-zinc-500 font-normal">compared to last timeframe</span>
               </div>
             </div>
 
             {/* 2. Response Rate */}
-            <div className="glass-panel p-6 rounded-[24px] bg-gradient-to-br from-purple-500/10 to-purple-600/5 hover:border-purple-500/30 transition-all flex flex-col justify-between h-[160px] text-left">
-              <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider block">RESPONSE RATE</span>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] shadow-sm hover:border-[#6D5DF6]/30 transition-all flex flex-col justify-between h-[160px] text-left">
+              <span className="text-[10px] font-bold text-[#6D5DF6] uppercase tracking-wider block">RESPONSE RATE</span>
               <div>
-                <span className="text-3xl font-black text-white">94%</span>
+                <span className="text-3xl font-black text-[#151827]">94%</span>
                 <span className="text-xs text-zinc-500 ml-1">AI response coverage</span>
               </div>
-              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
                 <span>▲ +6.4%</span>
                 <span className="text-zinc-500 font-normal">efficiency benchmark</span>
               </div>
             </div>
 
             {/* 3. Average Score */}
-            <div className="glass-panel p-6 rounded-[24px] bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 hover:border-emerald-500/30 transition-all flex flex-col justify-between h-[160px] text-left">
-              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">AVERAGE SCORE</span>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] shadow-sm hover:border-[#6D5DF6]/30 transition-all flex flex-col justify-between h-[160px] text-left">
+              <span className="text-[10px] font-bold text-[#6D5DF6] uppercase tracking-wider block">AVERAGE SCORE</span>
               <div>
-                <span className="text-3xl font-black text-white">
+                <span className="text-3xl font-black text-[#151827]">
                   {(currentReviews.reduce((sum, r) => sum + r.rating, 0) / (currentReviews.length || 1)).toFixed(2)}
                 </span>
                 <span className="text-xs text-zinc-500 ml-1">stars average</span>
               </div>
-              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
                 <span>▲ +0.15</span>
                 <span className="text-zinc-500 font-normal">satisfaction scale</span>
               </div>
@@ -373,10 +340,10 @@ export default function Analytics() {
           {/* Row 2: Live Charts & Trends */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Live Area Chart */}
-            <div className="glass-panel p-6 rounded-[24px] lg:col-span-8 flex flex-col justify-between h-[360px]">
-              <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <TrendingUp size={14} className="text-indigo-400" />
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] lg:col-span-8 flex flex-col justify-between h-[360px] text-left">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
+                  <TrendingUp size={14} className="text-[#6D5DF6]" />
                   Puan Trendi
                 </h3>
               </div>
@@ -385,38 +352,38 @@ export default function Analytics() {
                   <AreaChart data={trendChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="satisfactionGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#6D5DF6" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#6D5DF6" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
                     <XAxis dataKey="date" stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} tickLine={false} />
                     <YAxis domain={[1, 5]} stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} axisLine={false} tickLine={false} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontSize: '11px' }}
+                      contentStyle={{ backgroundColor: '#ffffff', borderColor: '#E8EAF0', color: '#151827', borderRadius: '12px', fontSize: '11px' }}
                     />
-                    <Area type="monotone" dataKey="Ortalama Puan" stroke="#8b5cf6" strokeWidth={2.5} fillOpacity={1} fill="url(#satisfactionGrad)" />
+                    <Area type="monotone" dataKey="Ortalama Puan" stroke="#6D5DF6" strokeWidth={2.5} fillOpacity={1} fill="url(#satisfactionGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Volume distributions */}
-            <div className="glass-panel p-6 rounded-[24px] lg:col-span-4 flex flex-col justify-between h-[360px]">
-              <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <BarChart3 size={14} className="text-indigo-400" />
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] lg:col-span-4 flex flex-col justify-between h-[360px] text-left">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
+                  <BarChart3 size={14} className="text-[#6D5DF6]" />
                   Yorum Hacimleri
                 </h3>
               </div>
               <div className="flex-1 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={trendChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
                     <XAxis dataKey="date" stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} tickLine={false} />
                     <YAxis stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} axisLine={false} tickLine={false} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontSize: '11px' }}
+                      contentStyle={{ backgroundColor: '#ffffff', borderColor: '#E8EAF0', color: '#151827', borderRadius: '12px', fontSize: '11px' }}
                     />
                     <Bar dataKey="Yorum Hacmi" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={14} />
                   </BarChart>
@@ -428,23 +395,23 @@ export default function Analytics() {
           {/* Row 3: Platform Share and Sentiment */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Platforms comparisons */}
-            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
-              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
-                <span className="p-1.5 rounded-lg bg-white/5 text-indigo-400"><Globe size={14} /></span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">Platform Dağılımı</h3>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] flex flex-col justify-between min-h-[300px] text-left">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+                <span className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-[#6D5DF6]"><Globe size={14} /></span>
+                <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">Platform Dağılımı</h3>
               </div>
-              <div className="space-y-3.5 flex-1 text-left">
+              <div className="space-y-3.5 flex-1">
                 {platformComparisons.map((plat, idx) => (
-                  <div key={plat.name} className="flex justify-between items-center text-xs font-semibold pb-2.5 border-b border-white/5 last:border-0 last:pb-0">
+                  <div key={plat.name} className="flex justify-between items-center text-xs font-semibold pb-2.5 border-b border-slate-100 last:border-0 last:pb-0">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
-                      <span className="text-white">{plat.name}</span>
+                      <span className="text-[#151827]">{plat.name}</span>
                       <span className="text-[10px] text-zinc-500 font-bold">({plat.count} Yorum - %{plat.share})</span>
                     </div>
-                    <div className="flex items-center gap-2.5 font-extrabold text-white">
+                    <div className="flex items-center gap-2.5 font-extrabold text-[#151827]">
                       <span>{plat.avgRating} ★</span>
                       {plat.change !== 0 && (
-                        <span className={`text-[9.5px] font-black ${plat.change > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <span className={`text-[9.5px] font-black ${plat.change > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {plat.change > 0 ? '+' : ''}{plat.change}
                         </span>
                       )}
@@ -455,12 +422,12 @@ export default function Analytics() {
             </div>
 
             {/* Sentiment analysis */}
-            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
-              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
-                <span className="p-1.5 rounded-lg bg-white/5 text-emerald-400"><ThumbsUp size={14} /></span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">Duygu Dağılımı</h3>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] flex flex-col justify-between min-h-[300px] text-left">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+                <span className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-emerald-600"><ThumbsUp size={14} /></span>
+                <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">Duygu Dağılımı</h3>
               </div>
-              <div className="flex items-center gap-6 flex-1 text-left">
+              <div className="flex items-center gap-6 flex-1">
                 <div className="h-[120px] w-[120px] shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -484,14 +451,14 @@ export default function Analytics() {
                 <div className="space-y-3 w-full">
                   {sentimentShare.map((item) => (
                     <div key={item.name} className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold text-zinc-300">
+                      <div className="flex justify-between text-xs font-semibold text-zinc-555">
                         <span className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: item.color }} />
                           {item.name}
                         </span>
-                        <span className="font-extrabold text-white">{item.value} (%{item.percentage})</span>
+                        <span className="font-extrabold text-[#151827]">{item.value} (%{item.percentage})</span>
                       </div>
-                      <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${item.percentage}%` }} />
                       </div>
                     </div>
@@ -504,31 +471,31 @@ export default function Analytics() {
           {/* Row 4: Department Trends & Benchmark */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Department trends */}
-            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
-              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
-                <span className="p-1.5 rounded-lg bg-white/5 text-purple-400"><Award size={14} /></span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">Departman Başarı Trendleri</h3>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] flex flex-col justify-between min-h-[300px] text-left">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+                <span className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-[#6D5DF6]"><Award size={14} /></span>
+                <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">Departman Başarı Trendleri</h3>
               </div>
-              <div className="space-y-3.5 flex-1 text-left">
+              <div className="space-y-3.5 flex-1">
                 {departmentTrendStats.map(dept => {
                   let changeColor = 'text-zinc-500';
                   let changeText = 'Stabil';
                   if (dept.change > 0.05) {
-                    changeColor = 'text-emerald-400';
+                    changeColor = 'text-emerald-600';
                     changeText = `+${dept.change} Puan Artış`;
                   } else if (dept.change < -0.05) {
-                    changeColor = 'text-rose-400';
+                    changeColor = 'text-rose-600';
                     changeText = `${dept.change} Puan Düşüş`;
                   }
 
                   return (
-                    <div key={dept.label} className="flex justify-between items-center text-xs font-semibold pb-2 border-b border-white/5 last:border-0 last:pb-0">
+                    <div key={dept.label} className="flex justify-between items-center text-xs font-semibold pb-2 border-b border-slate-100 last:border-0 last:pb-0">
                       <div className="space-y-0.5">
-                        <span className="text-white font-bold block">{dept.label}</span>
+                        <span className="text-[#151827] font-bold block">{dept.label}</span>
                         <span className="text-[10px] text-zinc-500 font-medium">Önceki Dönem Puanı: {dept.previousAvg > 0 ? `${dept.previousAvg} ★` : '-'}</span>
                       </div>
                       <div className="text-right space-y-0.5">
-                        <span className="font-extrabold text-white block">{dept.currentAvg} ★</span>
+                        <span className="font-extrabold text-[#151827] block">{dept.currentAvg} ★</span>
                         <span className={`text-[9px] font-black uppercase ${changeColor}`}>{changeText}</span>
                       </div>
                     </div>
@@ -538,21 +505,21 @@ export default function Analytics() {
             </div>
 
             {/* Benchmark Comparisons */}
-            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
-              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
-                <span className="p-1.5 rounded-lg bg-white/5 text-indigo-400"><Award size={14} /></span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">Bölgesel Rakip Analizi</h3>
+            <div className="glass-panel p-6 rounded-[18px] bg-white border border-[#E8EAF0] flex flex-col justify-between min-h-[300px] text-left">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+                <span className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-[#6D5DF6]"><Award size={14} /></span>
+                <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">Bölgesel Rakip Analizi</h3>
               </div>
-              <div className="space-y-3 flex-1 text-left">
+              <div className="space-y-3 flex-1">
                 {benchmarkComparisons.map(bench => (
-                  <div key={bench.metric} className="flex justify-between items-start text-xs font-semibold pb-2.5 border-b border-white/5 last:border-0 last:pb-0">
+                  <div key={bench.metric} className="flex justify-between items-start text-xs font-semibold pb-2.5 border-b border-slate-100 last:border-0 last:pb-0">
                     <div className="space-y-0.5">
-                      <span className="text-white font-bold block">{bench.metric}</span>
+                      <span className="text-[#151827] font-bold block">{bench.metric}</span>
                       <span className="text-[10px] text-zinc-500 font-medium">Bölgesel Benchmark: {bench.benchmarkVal}</span>
                     </div>
                     <div className="text-right space-y-0.5">
-                      <span className="font-extrabold text-white block">{bench.hotelVal}</span>
-                      <span className={`text-[9.5px] font-black uppercase ${bench.diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      <span className="font-extrabold text-[#151827] block">{bench.hotelVal}</span>
+                      <span className={`text-[9.5px] font-black uppercase ${bench.diff >= 0 ? 'text-emerald-650' : 'text-rose-650'}`}>
                         {bench.diff >= 0 ? `+${bench.diff}` : bench.diff}{bench.prefix} Rakibe Göre
                       </span>
                     </div>

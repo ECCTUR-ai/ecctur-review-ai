@@ -3,15 +3,13 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { reviewService } from '@/services/reviewService';
-import { matchesDepartment } from '@/utils/departmentMatcher';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
-import { Review, ReviewSource, ReviewStatus, ReviewPriority, Hotel } from '@/types';
+import { Review, ReviewSource, ReviewStatus, ReviewPriority } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { normalizeReviewPlatform } from '@/utils/platform';
-import { matchesCategory } from '@/utils/categoryMappings';
 import { normalizeReviewStatus } from '@/utils/statusHelper';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   RefreshCw, 
   Download, 
@@ -23,17 +21,9 @@ import {
   X,
   Star,
   Check,
-  Languages,
   Save,
   MessageSquare,
-  Activity,
-  Heart,
-  Frown,
-  MapPin,
-  Building,
-  User,
-  ExternalLink,
-  ChevronRight
+  Building
 } from 'lucide-react';
 import { taskService } from '@/services/taskService';
 import { generateTaskMetadata } from '@/utils/taskMetadata';
@@ -47,12 +37,12 @@ interface ReviewPlatformConfig {
 }
 
 const visibleReviewPlatforms: ReviewPlatformConfig[] = [
-  { key: 'Google', label: 'Google', active: true, icon: <span className="text-[14px]">🔵</span>, activeBorder: 'border-indigo-500 bg-indigo-500/10' },
-  { key: 'Booking', label: 'Booking', active: true, icon: <span className="text-[14px]">🔷</span>, activeBorder: 'border-indigo-500 bg-indigo-500/10' },
-  { key: 'TripAdvisor', label: 'TripAdvisor', active: true, icon: <span className="text-[14px]">🟢</span>, activeBorder: 'border-indigo-500 bg-indigo-500/10' },
-  { key: 'Hotels.com', label: 'Hotels', active: true, icon: <span className="text-[14px]">🟣</span>, activeBorder: 'border-indigo-500 bg-indigo-500/10' },
-  { key: 'HolidayCheck', label: 'HolidayCheck', active: true, icon: <span className="text-[14px]">💗</span>, activeBorder: 'border-indigo-500 bg-indigo-500/10' },
-  { key: 'otelpuan', label: 'Otelpuan', active: true, icon: <div className="w-3.5 h-3.5 rounded-full bg-orange-500 flex-shrink-0" />, activeBorder: 'border-indigo-500 bg-indigo-500/10' }
+  { key: 'Google', label: 'Google', active: true, icon: <span className="text-[14px]">🔵</span>, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' },
+  { key: 'Booking', label: 'Booking', active: true, icon: <span className="text-[14px]">🔷</span>, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' },
+  { key: 'TripAdvisor', label: 'TripAdvisor', active: true, icon: <span className="text-[14px]">🟢</span>, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' },
+  { key: 'Hotels.com', label: 'Hotels', active: true, icon: <span className="text-[14px]">🟣</span>, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' },
+  { key: 'HolidayCheck', label: 'HolidayCheck', active: true, icon: <span className="text-[14px]">💗</span>, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' },
+  { key: 'otelpuan', label: 'Otelpuan', active: true, icon: <div className="w-3.5 h-3.5 rounded-full bg-orange-500 flex-shrink-0" />, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' }
 ];
 
 export default function Reviews() {
@@ -61,16 +51,11 @@ export default function Reviews() {
   const isSuperAdmin = roleKey === 'super_admin';
   const hasNoAssignedHotels = !isSuperAdmin && (!hotelIds || hotelIds.length === 0);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const departmentParam = searchParams.get('department');
-  const fromParam = searchParams.get('from');
-  const toParam = searchParams.get('to');
-  const sentimentParam = searchParams.get('sentiment');
-  const categoryParam = searchParams.get('category');
+  const [searchParams] = useSearchParams();
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
-  // Query Filters state persisted globally
-  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_reviews_state', {
+  // Query Filters state
+  const [pageState, setPageState] = usePersistentPageState('guestreview_reviews_state_v3', {
     search: '',
     source: '' as ReviewSource | '',
     rating: '',
@@ -93,26 +78,15 @@ export default function Reviews() {
   const setSelectedReviewId = (val: string | null) => setPageState({ selectedReviewId: val });
   const setSortBy = (val: 'newest' | 'oldest') => setPageState({ sortBy: val, currentPage: 1 });
 
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImportingOtelpuan, setIsImportingOtelpuan] = useState(false);
-  const [isImportingGoogleMaps, setIsImportingGoogleMaps] = useState(false);
-  const [isImportingTripadvisor, setIsImportingTripadvisor] = useState(false);
-  const [isImportingBooking, setIsImportingBooking] = useState(false);
-  const [isImportingHolidaycheck, setIsImportingHolidaycheck] = useState(false);
-  const [isImportingHotelscom, setIsImportingHotelscom] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [showAdvancedImport, setShowAdvancedImport] = useState(false);
-  
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   const setCurrentPage = (val: number | ((prev: number) => number)) => {
     setPageState(prev => ({
       currentPage: typeof val === 'function' ? val(prev.currentPage) : val
-    }));
-  };
-  const setPageSize = (val: number) => setPageState({ pageSize: val, currentPage: 1 });
-  const setBackendLimit = (val: number | ((prev: number) => number)) => {
-    setPageState(prev => ({
-      backendLimit: typeof val === 'function' ? val(prev.backendLimit) : val
     }));
   };
 
@@ -120,9 +94,11 @@ export default function Reviews() {
   const isAuthorized = isSuperAdmin || (hotelIds && hotelIds.includes(activeHotelId));
   const queriedHotelId = isAuthorized ? activeHotelId : '00000000-0000-0000-0000-000000000000';
 
+  // Wipe selection when active hotel switches to maintain customer isolation
   useEffect(() => {
+    setSelectedReviewId(null);
     setCurrentPage(1);
-  }, [queriedHotelId, search, source, rating, status, priority]);
+  }, [currentHotelId]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -137,7 +113,6 @@ export default function Reviews() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [responseVal, setResponseVal] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedText, setTranslatedText] = useState<string | null>(null);
 
@@ -173,7 +148,7 @@ export default function Reviews() {
   };
 
   const handleCreateTask = async () => {
-    if (!taskCreationReview) return;
+    if (!taskCreationReview || isCreatingTask) return;
     setIsCreatingTask(true);
     try {
       const description = `Misafir Yorumu: "${taskCreationReview.comment || ''}"\nPlatform: ${taskCreationReview.source}\nMisafir: ${taskCreationReview.guestName || 'Misafir'}\nPuan: ${taskCreationReview.rating} Yıldız`;
@@ -203,7 +178,7 @@ export default function Reviews() {
         metadata: metadataPayload
       });
 
-      setToastMessage('Görevler modülüne eklendi');
+      setToastMessage('Görev oluşturuldu');
       setTaskCreationReview(null);
     } catch (e: any) {
       alert(`Görev oluşturulamadı: ${e.message}`);
@@ -216,7 +191,6 @@ export default function Reviews() {
   const {
     data,
     loading,
-    error,
     refetch: refetchMain
   } = useFetch(() => reviewService.getReviews({
     hotelId: queriedHotelId,
@@ -244,7 +218,7 @@ export default function Reviews() {
 
   const [selectedReviewDetail, setSelectedReviewDetail] = useState<Review | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [currentHotel, setCurrentHotel] = useState<Hotel | null>(null);
+  const [currentHotel, setCurrentHotel] = useState<any>(null);
 
   // Load hotel details
   useEffect(() => {
@@ -254,27 +228,12 @@ export default function Reviews() {
     }
     supabase.from('hotels').select('*').eq('id', currentHotelId).maybeSingle().then(({ data }) => {
       if (data) {
-        setCurrentHotel({
-          id: data.id,
-          organizationId: data.organization_id,
-          name: data.name,
-          createdAt: data.created_at,
-          googleMapsLink: data.google_maps_url || data.google_maps_link || '',
-          googleMapsUrl: data.google_maps_url || data.google_maps_link || '',
-          tripadvisorUrl: data.tripadvisor_url || '',
-          bookingUrl: data.booking_url || '',
-          holidaycheckUrl: data.holidaycheck_url || '',
-          hotelscomUrl: data.hotelscom_url || '',
-          otelpuanUrl: data.otelpuan_url || '',
-          address: data.address || '',
-          phone: data.phone || '',
-          website: data.website || ''
-        });
+        setCurrentHotel(data);
       }
     });
   }, [currentHotelId]);
 
-  // Sync state loaded when selection changes
+  // Load selected review detail
   useEffect(() => {
     if (!selectedReviewId) {
       setSelectedReviewDetail(null);
@@ -298,6 +257,8 @@ export default function Reviews() {
   }, [selectedReviewId]);
 
   const handleUpdateStatus = async (id: string, newStatus: ReviewStatus, responseText?: string) => {
+    if (isUpdatingStatus) return; // Prevent double approval triggers
+    setIsUpdatingStatus(true);
     try {
       if (responseText !== undefined) {
         await reviewService.saveResponseDraft(id, responseText);
@@ -310,11 +271,13 @@ export default function Reviews() {
       refetch();
     } catch (err) {
       console.warn(err);
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
   const handleGenerateReply = async () => {
-    if (!selectedReviewDetail) return;
+    if (!selectedReviewDetail || isGenerating) return;
     setIsGenerating(true);
     try {
       const generated = await reviewService.generateAiResponse(selectedReviewDetail.id);
@@ -327,7 +290,7 @@ export default function Reviews() {
   };
 
   const handleSaveNotes = async () => {
-    if (!selectedReviewDetail) return;
+    if (!selectedReviewDetail || isSavingNotes) return;
     setIsSavingNotes(true);
     try {
       const updated = await reviewService.updateReviewNotes(selectedReviewDetail.id, managerNotes, internalNotes);
@@ -344,7 +307,7 @@ export default function Reviews() {
   };
 
   const handleTranslate = async (lang: 'tr' | 'en' | 'ru') => {
-    if (!selectedReviewDetail) return;
+    if (!selectedReviewDetail || isTranslating) return;
     setIsTranslating(true);
     try {
       const trans = await reviewService.translateReview(selectedReviewDetail.comment || '', lang);
@@ -390,7 +353,7 @@ export default function Reviews() {
   };
 
   const handleSyncAllPlatforms = async (modeOverride?: string) => {
-    if (!currentHotelId) return;
+    if (!currentHotelId || isSyncingAll) return;
     setIsSyncingAll(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -414,7 +377,7 @@ export default function Reviews() {
   };
 
   const handleSyncOtelpuanReviews = async () => {
-    if (!currentHotelId || !currentHotel?.otelpuanUrl) return;
+    if (!currentHotelId || !currentHotel?.otelpuan_url || isImportingOtelpuan) return;
     setIsImportingOtelpuan(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -424,7 +387,7 @@ export default function Reviews() {
       const response = await fetch('/api/reviews?action=import-otelpuan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ hotelId: currentHotelId, otelpuanUrl: currentHotel.otelpuanUrl, mode: 'daily_sync' })
+        body: JSON.stringify({ hotelId: currentHotelId, otelpuanUrl: currentHotel.otelpuan_url, mode: 'daily_sync' })
       });
       if (response.ok) {
         setToastMessage("Otelpuan yorumları çekildi.");
@@ -438,21 +401,8 @@ export default function Reviews() {
   };
 
   // Helper values for counts
-  const fullReviewsForCounts = countData?.reviews || [];
-  let baseReviewsForCounts = fullReviewsForCounts;
+  const baseReviewsForCounts = countData?.reviews || [];
   
-  if (status === 'archived') {
-    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'archived');
-  } else if (status === 'pending') {
-    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'pending');
-  } else if (status === 'draft') {
-    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'draft');
-  } else if (status === 'approved') {
-    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) === 'approved');
-  } else {
-    baseReviewsForCounts = baseReviewsForCounts.filter(r => normalizeReviewStatus(r.status) !== 'archived');
-  }
-
   const googleCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'google').length;
   const bookingCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'booking').length;
   const tripadvisorCount = baseReviewsForCounts.filter(r => normalizeReviewPlatform(r.source) === 'tripadvisor').length;
@@ -474,19 +424,10 @@ export default function Reviews() {
     reviews = reviews.filter(r => normalizeReviewStatus(r.status) !== 'archived');
   }
 
-  // Sorting dates
+  // Sorting
   reviews = [...reviews].sort((a, b) => {
-    const hasDateA = !!a.review_date;
-    const hasDateB = !!b.review_date;
-    if (!hasDateA && !hasDateB) {
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return sortBy === 'oldest' ? timeA - timeB : timeB - timeA;
-    }
-    if (!hasDateA) return 1;
-    if (!hasDateB) return -1;
-    const timeA = new Date(a.review_date!).getTime();
-    const timeB = new Date(b.review_date!).getTime();
+    const timeA = a.review_date ? new Date(a.review_date).getTime() : 0;
+    const timeB = b.review_date ? new Date(b.review_date).getTime() : 0;
     return sortBy === 'oldest' ? timeA - timeB : timeB - timeA;
   });
 
@@ -501,9 +442,6 @@ export default function Reviews() {
     const maxVisible = 3;
     let start = Math.max(1, currentPage - 1);
     let end = Math.min(totalPages, start + maxVisible - 1);
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
@@ -528,8 +466,8 @@ export default function Reviews() {
           <AlertCircle size={22} />
         </div>
         <div className="space-y-1.5 max-w-sm">
-          <h3 className="text-sm font-bold text-white">Otel Ataması Eksik</h3>
-          <p className="text-xs text-zinc-400">
+          <h3 className="text-sm font-bold text-[#151827]">Otel Ataması Eksik</h3>
+          <p className="text-xs text-zinc-500">
             Hesabınıza atanmış herhangi bir otel bulunamadı. Lütfen yöneticinizle iletişime geçin.
           </p>
         </div>
@@ -538,12 +476,12 @@ export default function Reviews() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Redesigned Header Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
-        <div className="space-y-1 flex-1">
-          <h1 className="text-2xl font-black text-white m-0">Reviews Overview</h1>
-          <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+    <div className="space-y-6 text-[#151827]">
+      {/* Light Premium Header Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+        <div className="space-y-1 text-left">
+          <h1 className="text-2xl font-black text-[#151827] m-0">Reviews Overview</h1>
+          <p className="text-xs text-zinc-500 font-medium">
             Monitor and manage guest reviews dynamically across all connected platforms.
           </p>
         </div>
@@ -552,7 +490,7 @@ export default function Reviews() {
           <button
             onClick={() => handleSyncAllPlatforms()}
             disabled={isSyncingAll}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-indigo-500/15 cursor-pointer min-h-[38px]"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer min-h-[38px]"
           >
             <RefreshCw size={14} className={isSyncingAll ? 'animate-spin' : ''} />
             <span>{isSyncingAll ? 'Syncing...' : 'Sync All'}</span>
@@ -560,7 +498,7 @@ export default function Reviews() {
 
           <button
             onClick={() => setShowAdvancedImport(!showAdvancedImport)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs rounded-xl transition-all min-h-[38px] cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[#151827] font-bold text-xs rounded-xl transition-all min-h-[38px] cursor-pointer"
           >
             <span>Advanced Controls</span>
             <ChevronDown size={14} className={`transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`} />
@@ -569,7 +507,7 @@ export default function Reviews() {
           <button
             onClick={handleExportReviews}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold text-xs rounded-xl transition-all min-h-[38px] cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[#151827] font-bold text-xs rounded-xl transition-all min-h-[38px] cursor-pointer"
           >
             <Download size={14} className={isExporting ? 'animate-spin' : ''} />
             <span>Export CSV</span>
@@ -579,14 +517,14 @@ export default function Reviews() {
 
       {/* Advanced Legacy Sync Controls Collapsible Panel */}
       {showAdvancedImport && (
-        <div className="bg-white/5 p-4 rounded-[22px] border border-white/10 flex flex-wrap gap-2.5 items-center animate-slide-in">
-          <div className="w-full text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+        <div className="bg-white p-4 rounded-[14px] border border-slate-200 flex flex-wrap gap-2.5 items-center animate-slide-in">
+          <div className="w-full text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 text-left">
             Tekil Entegrasyonlar ve Test Kontrolleri (Gelişmiş)
           </div>
           <button
             onClick={handleSyncOtelpuanReviews}
             disabled={isImportingOtelpuan}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[#151827] font-bold text-[11px] rounded-xl transition-all cursor-pointer"
           >
             <RefreshCw size={12} className={isImportingOtelpuan ? 'animate-spin' : ''} />
             <span>Otelpuan Tekil Çek</span>
@@ -616,22 +554,22 @@ export default function Reviews() {
             <button
               key={tab.label}
               onClick={() => setSource(tab.key as any)}
-              className={`px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 shadow-sm ${
+              className={`px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 ${
                 isActive
-                  ? 'border-indigo-500 bg-indigo-500/10 text-white font-extrabold'
-                  : 'border-white/10 text-zinc-400 hover:text-white hover:bg-white/5'
+                  ? 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6] font-extrabold'
+                  : 'border-[#E8EAF0] bg-white text-zinc-500 hover:text-[#151827] hover:bg-slate-50'
               }`}
             >
               <span className="shrink-0">{tab.icon}</span>
               <span className="text-xs font-bold whitespace-nowrap">{tab.label}</span>
-              <span className="px-2 py-0.5 rounded-lg bg-black/20 text-[10px] text-zinc-400 font-extrabold">{tab.count}</span>
+              <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-[10px] text-zinc-500 font-extrabold">{tab.count}</span>
             </button>
           );
         })}
       </div>
 
       {/* WORKFLOW NAVIGATION TABS */}
-      <div className="flex border border-white/10 gap-1 p-1 rounded-2xl bg-white/5 w-fit">
+      <div className="flex border border-slate-200 gap-1 p-1 rounded-2xl bg-white w-fit">
         {[
           { key: '', label: 'Tüm Yorumlar' },
           { key: 'pending', label: 'Cevap Bekleyenler' },
@@ -646,8 +584,8 @@ export default function Reviews() {
               onClick={() => setStatus(tab.key as any)}
               className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
                 isActive 
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-gradient-to-r from-indigo-650 to-purple-650 text-white shadow-sm' 
+                  : 'text-zinc-500 hover:text-[#151827]'
               }`}
             >
               {tab.label}
@@ -659,27 +597,27 @@ export default function Reviews() {
       {/* V2 PANEL GRID LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-14rem)] min-h-[620px] items-stretch">
         
-        {/* LEFT COLUMN: Review List (Width 30%) */}
-        <div className="lg:col-span-4 flex flex-col bg-[#121216]/40 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Review List</span>
+        {/* LEFT COLUMN: Review List */}
+        <div className="lg:col-span-4 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
+          <div className="p-4 border-b border-[#E8EAF0] flex items-center justify-between shrink-0">
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">Review List</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1 text-[10px] font-bold text-white focus:outline-none"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-[10px] font-bold text-[#151827] focus:outline-none"
             >
-              <option value="newest" className="bg-[#121216]">Newest</option>
-              <option value="oldest" className="bg-[#121216]">Oldest</option>
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
             </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-24 bg-white/[0.02] border border-white/5 rounded-2xl animate-pulse" />
+                <div key={i} className="h-24 bg-slate-50 border border-[#E8EAF0] rounded-2xl animate-pulse" />
               ))
             ) : reviews.length === 0 ? (
-              <div className="py-24 text-center text-zinc-500 text-xs">
+              <div className="py-24 text-center text-zinc-500 text-xs font-semibold">
                 No reviews found matching selection.
               </div>
             ) : (
@@ -692,29 +630,29 @@ export default function Reviews() {
                     onClick={() => setSelectedReviewId(review.id)}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer text-left ${
                       isSelected
-                        ? 'bg-indigo-500/10 border-indigo-500/40 shadow-lg'
-                        : 'bg-white/[0.02] border-white/5 hover:bg-white/5'
+                        ? 'bg-[#F0EDFF] border-[#6D5DF6]/45 shadow-sm'
+                        : 'bg-slate-50/50 border-[#E8EAF0] hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex items-center gap-2">
                         {getPlatformIcon(review.source)}
-                        <span className="text-xs font-bold text-white truncate max-w-[120px]">{review.guestName || 'Guest'}</span>
+                        <span className="text-xs font-bold text-[#151827] truncate max-w-[120px]">{review.guestName || 'Guest'}</span>
                       </div>
-                      <div className="flex items-center gap-0.5 text-amber-400 text-xs font-bold">
-                        <Star size={11} className="fill-amber-400" />
+                      <div className="flex items-center gap-0.5 text-amber-500 text-xs font-bold">
+                        <Star size={11} className="fill-amber-500" />
                         <span>{review.rating}</span>
                       </div>
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-zinc-500 mt-2 line-clamp-2 leading-relaxed">
                       {review.comment || 'No comment text provided'}
                     </p>
-                    <div className="flex justify-between items-center mt-3 text-[10px] text-zinc-500">
+                    <div className="flex justify-between items-center mt-3 text-[10px] text-zinc-400">
                       <span>{review.review_date ? new Date(review.review_date).toLocaleDateString('tr-TR') : 'Date unknown'}</span>
                       <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                        normalizeReviewStatus(review.status) === 'approved' ? 'text-emerald-400 bg-emerald-500/10' :
-                        normalizeReviewStatus(review.status) === 'draft' ? 'text-amber-400 bg-amber-500/10' :
-                        'text-zinc-500 bg-white/5'
+                        normalizeReviewStatus(review.status) === 'approved' ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' :
+                        normalizeReviewStatus(review.status) === 'draft' ? 'text-amber-600 bg-amber-50 border border-amber-100' :
+                        'text-zinc-500 bg-slate-100 border border-slate-200'
                       }`}>
                         {review.status}
                       </span>
@@ -727,11 +665,11 @@ export default function Reviews() {
 
           {/* Pagination panel */}
           {totalPages > 1 && (
-            <div className="p-3 border-t border-white/10 flex items-center justify-between gap-2 shrink-0 bg-black/10">
+            <div className="p-3 border-t border-[#E8EAF0] flex items-center justify-between gap-2 shrink-0 bg-slate-50">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/5 text-[10px] text-white disabled:opacity-40"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-white text-[10px] text-[#151827] disabled:opacity-40"
               >
                 Prev
               </button>
@@ -741,7 +679,7 @@ export default function Reviews() {
                     key={p}
                     onClick={() => setCurrentPage(p)}
                     className={`w-6 h-6 rounded-lg text-[10px] font-bold ${
-                      currentPage === p ? 'bg-indigo-600 text-white' : 'border border-white/10 text-zinc-400'
+                      currentPage === p ? 'bg-[#6D5DF6] text-white shadow-sm' : 'border border-slate-200 text-zinc-500'
                     }`}
                   >
                     {p}
@@ -751,7 +689,7 @@ export default function Reviews() {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/5 text-[10px] text-white disabled:opacity-40"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-white text-[10px] text-[#151827] disabled:opacity-40"
               >
                 Next
               </button>
@@ -759,11 +697,11 @@ export default function Reviews() {
           )}
         </div>
 
-        {/* CENTER COLUMN: Selected Review Details (Width 45%) */}
-        <div className="lg:col-span-5 flex flex-col bg-[#121216]/40 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
+        {/* CENTER COLUMN: Selected Review Details */}
+        <div className="lg:col-span-5 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
           {isLoadingDetail ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 space-y-2">
-              <RefreshCw size={24} className="animate-spin text-indigo-400" />
+            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 space-y-2">
+              <RefreshCw size={24} className="animate-spin text-[#6D5DF6]" />
               <span className="text-xs">Loading Review Details...</span>
             </div>
           ) : selectedReviewDetail ? (
@@ -773,11 +711,11 @@ export default function Reviews() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     {getPlatformIcon(selectedReviewDetail.source)}
-                    <h2 className="text-lg font-black text-white m-0 leading-none">
+                    <h2 className="text-lg font-black text-[#151827] m-0 leading-none">
                       {selectedReviewDetail.guestName || 'Misafir'}
                     </h2>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-400">
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
                     <span>Date: {selectedReviewDetail.review_date ? new Date(selectedReviewDetail.review_date).toLocaleDateString('tr-TR') : 'Unknown'}</span>
                     <span>&bull;</span>
                     <span>Lang: {selectedReviewDetail.metadata?.language || 'TR'}</span>
@@ -786,21 +724,21 @@ export default function Reviews() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs font-bold text-amber-400">
-                  <Star size={12} className="fill-amber-400" />
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-100 rounded-full text-xs font-bold text-amber-600">
+                  <Star size={12} className="fill-amber-500" />
                   <span>{selectedReviewDetail.rating} / 5</span>
                 </div>
               </div>
 
               {/* Comment text */}
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Comment</span>
-                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-xs leading-relaxed text-zinc-300">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Comment</span>
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs leading-relaxed text-zinc-700">
                   {selectedReviewDetail.comment || 'No comment text provided.'}
                 </div>
                 
                 {translatedText && (
-                  <div className="mt-3 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 text-xs leading-relaxed text-indigo-300">
+                  <div className="mt-3 bg-[#F0EDFF] border border-[#6D5DF6]/20 rounded-2xl p-4 text-xs leading-relaxed text-[#6D5DF6]">
                     <span className="font-bold block mb-1">Translation:</span>
                     {translatedText}
                   </div>
@@ -810,8 +748,8 @@ export default function Reviews() {
               {/* Positives & Negatives */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Positive Highlights</span>
-                  <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-3.5 text-xs text-emerald-300 space-y-1.5">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Positive Highlights</span>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 text-xs text-emerald-700 space-y-1.5">
                     {selectedReviewDetail.metadata?.positives && selectedReviewDetail.metadata.positives.length > 0 ? (
                       selectedReviewDetail.metadata.positives.map((p: string, idx: number) => (
                         <div key={idx} className="flex items-start gap-1.5">
@@ -820,14 +758,14 @@ export default function Reviews() {
                         </div>
                       ))
                     ) : (
-                      <span className="italic text-zinc-500">No positives found.</span>
+                      <span className="italic text-zinc-450">No positives found.</span>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Negative Highlights</span>
-                  <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-3.5 text-xs text-rose-300 space-y-1.5">
+                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Negative Highlights</span>
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3.5 text-xs text-rose-700 space-y-1.5">
                     {selectedReviewDetail.metadata?.negatives && selectedReviewDetail.metadata.negatives.length > 0 ? (
                       selectedReviewDetail.metadata.negatives.map((n: string, idx: number) => (
                         <div key={idx} className="flex items-start gap-1.5">
@@ -836,7 +774,7 @@ export default function Reviews() {
                         </div>
                       ))
                     ) : (
-                      <span className="italic text-zinc-500">No negatives found.</span>
+                      <span className="italic text-zinc-450">No negatives found.</span>
                     )}
                   </div>
                 </div>
@@ -845,11 +783,11 @@ export default function Reviews() {
               {/* AI Draft response block */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">AI Draft Response</span>
+                  <span className="text-[10px] font-bold text-[#6D5DF6] uppercase tracking-wider">AI Draft Response</span>
                   <button
                     onClick={handleGenerateReply}
                     disabled={isGenerating}
-                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-extrabold flex items-center gap-1 cursor-pointer"
+                    className="text-[10px] text-[#6D5DF6] hover:text-[#5b4ee4] font-extrabold flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw size={10} className={isGenerating ? 'animate-spin' : ''} />
                     <span>Regenerate Response</span>
@@ -860,53 +798,54 @@ export default function Reviews() {
                   onChange={(e) => setResponseVal(e.target.value)}
                   placeholder="AI draft reply text..."
                   rows={6}
-                  className="w-full rounded-2xl bg-white/[0.02] border border-white/10 p-3.5 text-xs text-white focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
+                  className="w-full rounded-2xl bg-slate-50 border border-[#E8EAF0] p-3.5 text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6] leading-relaxed font-sans"
                 />
               </div>
 
               {/* One Click Approve Action */}
               <button
                 onClick={() => handleUpdateStatus(selectedReviewDetail.id, 'approved', responseVal)}
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs rounded-2xl transition-all shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isUpdatingStatus}
+                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <Check size={16} />
+                {isUpdatingStatus ? <RefreshCw size={14} className="animate-spin" /> : <Check size={16} />}
                 <span>Tek Tuşla Onayla (Approve & Publish)</span>
               </button>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 text-xs p-6 text-center space-y-2">
-              <Database size={28} className="text-zinc-600" />
+            <div className="flex-1 flex flex-col items-center justify-center text-zinc-555 text-xs p-6 text-center space-y-2 bg-slate-50/50">
+              <Database size={28} className="text-zinc-400" />
               <span>Lütfen detayları görüntülemek için sol listeden bir yorum seçin.</span>
             </div>
           )}
         </div>
 
-        {/* RIGHT COLUMN: AI Assistant (Width 25%) */}
-        <div className="lg:col-span-3 flex flex-col bg-[#121216]/40 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
-          <div className="p-4 border-b border-white/10 shrink-0 text-left">
-            <span className="text-xs font-bold text-white uppercase tracking-wider">AI Operations Board</span>
+        {/* RIGHT COLUMN: AI Assistant */}
+        <div className="lg:col-span-3 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
+          <div className="p-4 border-b border-[#E8EAF0] shrink-0 text-left">
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">AI Operations Board</span>
           </div>
 
           {selectedReviewDetail ? (
             <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin text-left">
               {/* Confidence and analysis details */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3">
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-400">AI Güven Skoru:</span>
-                  <span className="font-extrabold text-indigo-400">%{selectedReviewDetail.metadata?.confidence_score || '96'}</span>
+                  <span className="text-zinc-500">AI Güven Skoru:</span>
+                  <span className="font-extrabold text-[#6D5DF6]">%{selectedReviewDetail.metadata?.confidence_score || '96'}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-400">Sentiment:</span>
+                  <span className="text-zinc-500">Sentiment:</span>
                   <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${
-                    selectedReviewDetail.rating >= 4 ? 'text-emerald-400 bg-emerald-500/10' :
-                    selectedReviewDetail.rating <= 2 ? 'text-rose-400 bg-rose-500/10' : 'text-amber-400 bg-amber-500/10'
+                    selectedReviewDetail.rating >= 4 ? 'text-emerald-600 bg-emerald-50' :
+                    selectedReviewDetail.rating <= 2 ? 'text-rose-600 bg-rose-50' : 'text-amber-600 bg-amber-50'
                   }`}>
                     {selectedReviewDetail.rating >= 4 ? 'Positive' : selectedReviewDetail.rating <= 2 ? 'Negative' : 'Neutral'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-400">Departman:</span>
-                  <span className="px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[9px] font-bold">
+                  <span className="text-zinc-500">Departman:</span>
+                  <span className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-100 text-[9px] font-bold">
                     {selectedReviewDetail.departments?.[0] || 'Genel'}
                   </span>
                 </div>
@@ -918,19 +857,19 @@ export default function Reviews() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleTranslate('tr')}
-                    className="flex-1 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] text-white hover:bg-white/10 font-bold transition-all cursor-pointer"
+                    className="flex-1 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-[#151827] hover:bg-slate-100 font-bold transition-all cursor-pointer"
                   >
                     Türkçe
                   </button>
                   <button
                     onClick={() => handleTranslate('en')}
-                    className="flex-1 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] text-white hover:bg-white/10 font-bold transition-all cursor-pointer"
+                    className="flex-1 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-[#151827] hover:bg-slate-100 font-bold transition-all cursor-pointer"
                   >
                     English
                   </button>
                   <button
                     onClick={() => handleTranslate('ru')}
-                    className="flex-1 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] text-white hover:bg-white/10 font-bold transition-all cursor-pointer"
+                    className="flex-1 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-[#151827] hover:bg-slate-100 font-bold transition-all cursor-pointer"
                   >
                     Русский
                   </button>
@@ -938,19 +877,19 @@ export default function Reviews() {
               </div>
 
               {/* Manager notes */}
-              <div className="space-y-3 pt-3 border-t border-white/5">
+              <div className="space-y-3 pt-3 border-t border-slate-100">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Manager Notes</span>
                 <textarea
                   value={managerNotes}
                   onChange={(e) => setManagerNotes(e.target.value)}
                   placeholder="Private internal details..."
                   rows={3}
-                  className="w-full rounded-xl bg-white/[0.02] border border-white/10 p-2.5 text-xs text-white focus:outline-none"
+                  className="w-full rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-[#151827] focus:outline-none"
                 />
                 <button
                   onClick={handleSaveNotes}
                   disabled={isSavingNotes}
-                  className="w-full py-2 bg-indigo-600/30 hover:bg-indigo-600/40 border border-indigo-500/20 text-indigo-300 font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-2 bg-indigo-50 border border-indigo-100 text-[#6D5DF6] font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Save size={12} />
                   <span>Notları Kaydet</span>
@@ -958,10 +897,10 @@ export default function Reviews() {
               </div>
 
               {/* Action task generator */}
-              <div className="pt-3 border-t border-white/5">
+              <div className="pt-3 border-t border-slate-100">
                 <button
                   onClick={() => handleOpenTaskCreationModal(selectedReviewDetail)}
-                  className="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-rose-50 border border-rose-100 text-rose-600 font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <CheckSquare size={13} />
                   <span>Düzeltici Görev Oluştur</span>
@@ -969,7 +908,7 @@ export default function Reviews() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs">
+            <div className="flex-1 flex items-center justify-center text-zinc-400 text-xs">
               No selected review.
             </div>
           )}
@@ -979,26 +918,26 @@ export default function Reviews() {
 
       {/* Manual Task Creation Modal */}
       {taskCreationReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-white/10 bg-zinc-900/95 relative card-glow text-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md p-6 rounded-[18px] border border-[#E8EAF0] bg-white relative shadow-2xl text-left text-[#151827]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <CheckSquare size={16} className="text-rose-500" />
+              <h3 className="text-sm font-semibold text-[#151827] flex items-center gap-2">
+                <CheckSquare size={16} className="text-rose-600" />
                 Düzeltici Aksiyon Görevi Oluştur
               </h3>
               <button 
                 onClick={() => setTaskCreationReview(null)}
-                className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white"
+                className="p-1 rounded-lg hover:bg-slate-100 text-zinc-500 hover:text-black cursor-pointer"
               >
                 <X size={14} />
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5 text-xs text-zinc-400 space-y-1.5">
-                <div className="flex justify-between items-center text-white">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-zinc-650 space-y-1.5">
+                <div className="flex justify-between items-center text-[#151827]">
                   <span className="font-semibold">{taskCreationReview.guestName || 'Misafir'} ({taskCreationReview.source})</span>
-                  <span className="text-[10px] text-amber-400 font-extrabold">{taskCreationReview.rating} Yıldız</span>
+                  <span className="text-[10px] text-amber-600 font-extrabold">{taskCreationReview.rating} Yıldız</span>
                 </div>
                 <p className="italic leading-relaxed">
                   "{taskCreationReview.comment || 'Yorum metni bulunmuyor'}"
@@ -1006,11 +945,11 @@ export default function Reviews() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Görev Departmanı</label>
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Görev Departmanı</label>
                 <select
                   value={taskCreationDept}
                   onChange={(e) => setTaskCreationDept(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black border border-white/10 text-xs focus:outline-none focus:border-indigo-500 text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E8EAF0] text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6]"
                 >
                   <option value="Misafir İlişkileri">Misafir İlişkileri</option>
                   <option value="Ön Büro">Ön Büro</option>
@@ -1023,11 +962,11 @@ export default function Reviews() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Görev Önceliği</label>
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Görev Önceliği</label>
                 <select
                   value={taskCreationPriority}
                   onChange={(e) => setTaskCreationPriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black border border-white/10 text-xs focus:outline-none focus:border-indigo-500 text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E8EAF0] text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6]"
                 >
                   <option value="critical">Kritik</option>
                   <option value="high">Yüksek</option>
@@ -1036,17 +975,17 @@ export default function Reviews() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8EAF0]">
                 <button
                   onClick={() => setTaskCreationReview(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 text-zinc-300 hover:bg-white/10 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-50 text-zinc-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Vazgeç
                 </button>
                 <button
                   onClick={handleCreateTask}
                   disabled={isCreatingTask}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {isCreatingTask && <RefreshCw size={12} className="animate-spin" />}
                   Görev Ekle
@@ -1059,17 +998,17 @@ export default function Reviews() {
 
       {/* Premium Toast Notification Overlay */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-white/10 bg-[#121216]/90 backdrop-blur-xl shadow-2xl flex items-center gap-3 animate-slide-in max-w-sm">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-[#E8EAF0] bg-white shadow-xl flex items-center gap-3 animate-slide-in max-w-sm">
+          <div className="w-8 h-8 rounded-lg bg-[#F0EDFF] flex items-center justify-center text-[#6D5DF6]">
             <MessageSquare size={16} />
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-white">Bildirim</h4>
-            <p className="text-[10px] text-zinc-400 mt-0.5 font-medium">{toastMessage}</p>
+          <div className="text-left">
+            <h4 className="text-xs font-bold text-[#151827]">Bildirim</h4>
+            <p className="text-[10px] text-zinc-500 mt-0.5 font-medium">{toastMessage}</p>
           </div>
           <button 
             onClick={() => setToastMessage(null)}
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-bold ml-4"
+            className="text-xs text-[#6D5DF6] hover:text-[#5b4ee4] font-bold ml-4 cursor-pointer"
           >
             Kapat
           </button>

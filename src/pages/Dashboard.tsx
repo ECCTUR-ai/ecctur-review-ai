@@ -14,15 +14,13 @@ import {
   Star,
   MessageSquare,
   Clock,
-  CheckCircle,
   Sparkles,
-  ArrowUpRight,
-  ShieldAlert,
   RefreshCw,
   Building,
   AlertTriangle,
   User,
-  Crown
+  Crown,
+  ShieldAlert
 } from 'lucide-react';
 import {
   AreaChart,
@@ -58,7 +56,7 @@ export default function Dashboard() {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 1. Fetch dashboard review & sync states data
+  // 1. Fetch dashboard reviews & sync states
   const {
     data: dashboardData,
     loading: isLoading,
@@ -136,7 +134,6 @@ export default function Dashboard() {
     }
   }, [dashboardError, setIsApiOnline]);
 
-  // Sync trigger handler
   const handleSyncAllPlatforms = async () => {
     if (!queriedHotelId) return;
     setIsSyncingAll(true);
@@ -347,35 +344,6 @@ export default function Dashboard() {
     });
   }, [filteredReviewsForStats]);
 
-  const aiInsightsList = useMemo(() => {
-    return [
-      {
-        icon: '📈',
-        title: 'Restoran Şikayetlerinde Artış',
-        desc: 'Yemek kalitesi, servis hızı ve restoran hijyeni konularında şikayetlerde artış var.',
-        priority: 'high',
-        priorityLabel: t('dashboard.riskCenter.high'),
-        color: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
-      },
-      {
-        icon: '✨',
-        title: 'Kat Hizmetleri Performans Artışı',
-        desc: 'Oda düzeni ve çarşaf temizliği konularında memnuniyet puanları olumlu yönde gelişiyor.',
-        priority: 'low',
-        priorityLabel: t('dashboard.actions.lowBadge'),
-        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-      },
-      {
-        icon: '⏳',
-        title: 'Resepsiyon Bekleme Süresi Şikayetleri',
-        desc: 'Resepsiyonda check-in ve check-out sırasında yavaşlık şikayetleri bekleme süresini artırdı.',
-        priority: 'medium',
-        priorityLabel: t('dashboard.actions.mediumBadge'),
-        color: 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-      }
-    ];
-  }, [t]);
-
   const pieData = useMemo(() => {
     return [
       { name: t('dashboard.taskState.open'), value: taskStats.open, color: '#f59e0b', percent: taskStats.total > 0 ? Math.round((taskStats.open / taskStats.total) * 100) : 0 },
@@ -399,28 +367,29 @@ export default function Dashboard() {
       });
       const avg = matching.length > 0 
         ? Math.round((matching.reduce((sum, r) => sum + r.rating, 0) / matching.length) * 20)
-        : 90 + Math.floor(Math.random() * 5) - 2;
+        : guestSatisfactionScore > 0 ? guestSatisfactionScore : 88;
 
       return {
         date: new Date(date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
         Skor: Math.max(60, Math.min(100, avg))
       };
     });
-  }, [filteredReviewsForStats]);
+  }, [filteredReviewsForStats, guestSatisfactionScore]);
 
   const platformBreakdown = useMemo(() => {
-    const depts = ['Google', 'Booking', 'Tripadvisor', 'HolidayCheck', 'Hotels.com'];
+    const depts = ['Google', 'Booking', 'Tripadvisor', 'HolidayCheck', 'Hotels.com', 'Otelpuan'];
     const normNameMap: Record<string, string> = {
       Google: 'google',
       Booking: 'booking',
       Tripadvisor: 'tripadvisor',
       HolidayCheck: 'holidaycheck',
-      'Hotels.com': 'hotelscom'
+      'Hotels.com': 'hotelscom',
+      Otelpuan: 'otelpuan'
     };
 
     return depts.map(pName => {
       const dbKey = normNameMap[pName];
-      const matching = filteredReviewsForStats.filter(r => normalizeReviewPlatform(r.platform).toLowerCase() === dbKey);
+      const matching = filteredReviewsForStats.filter(r => normalizeReviewPlatform(r.platform || r.source || '').toLowerCase() === dbKey);
       const avg = matching.length > 0
         ? Number((matching.reduce((sum, r) => sum + r.rating, 0) / matching.length).toFixed(1))
         : 4.2;
@@ -429,7 +398,7 @@ export default function Dashboard() {
         name: pName,
         rating: formatNumberTurkish(avg, 1),
         logo: renderPlatformLogo(pName),
-        change: '+0,2'
+        change: '+0,1'
       };
     });
   }, [filteredReviewsForStats]);
@@ -441,6 +410,7 @@ export default function Dashboard() {
     if (norm.includes('tripadvisor')) return <span className="text-[12px] shrink-0">🟢</span>;
     if (norm.includes('hotels')) return <span className="text-[12px] shrink-0">🟣</span>;
     if (norm.includes('holidaycheck')) return <span className="text-[12px] shrink-0">💗</span>;
+    if (norm.includes('otelpuan')) return <span className="text-[12px] shrink-0">🍊</span>;
     return <span className="text-[12px] shrink-0">🌐</span>;
   }
 
@@ -456,7 +426,7 @@ export default function Dashboard() {
   }, [totalReviews, ratingCounts]);
 
   const syncStatusList = useMemo(() => {
-    const platforms = ['Google', 'Booking.com', 'TripAdvisor', 'Hotels.com', 'HolidayCheck'];
+    const platforms = ['Google', 'Booking.com', 'TripAdvisor', 'Hotels.com', 'HolidayCheck', 'Otelpuan'];
     return platforms.map(platName => {
       let dbKey = platName;
       if (platName === 'Booking.com') dbKey = 'Booking';
@@ -481,6 +451,34 @@ export default function Dashboard() {
     });
   }, [dbSyncStates]);
 
+  const hotelName = activeHotelObject?.name || 'Seçili Otel';
+
+  const dynamicAiOperationsSummary = useMemo(() => {
+    const activeComplaints = taskStats.open + taskStats.inProgress;
+    const isRestoranImpacted = departmentPerformanceData.find(d => d.name.includes('Restoran'))?.percentage || 80;
+    
+    return {
+      greeting: `Günlük Operasyonel Analiz Raporu:`,
+      subText: `${hotelName} için son 30 gün verilerini taradım. Tespit ettiğim en kritik noktalar:`,
+      bullets: [
+        {
+          emoji: isRestoranImpacted < 75 ? '⚠️' : '🟢',
+          title: 'Restoran ve Servis Memnuniyeti:',
+          desc: isRestoranImpacted < 75 
+            ? `Yemek kalitesi ve servis gecikmelerine yönelik misafir bildirimleri memnuniyet endeksini baskılıyor.`
+            : `Yemekler ve servis kalitesine yönelik olumlu geri dönüşler devam ediyor.`
+        },
+        {
+          emoji: '📋',
+          title: 'Aktif Görevler:',
+          desc: activeComplaints > 0 
+            ? `Çözüm bekleyen ${activeComplaints} operasyonel görev bulunuyor. Hızlı tamamlanması SLA başarısı için kritik.`
+            : `Şu anda bekleyen kritik bir operasyonel görev kaydı bulunmuyor.`
+        }
+      ]
+    };
+  }, [hotelName, taskStats, departmentPerformanceData]);
+
   if (hasNoAssignedHotels) {
     return (
       <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
@@ -488,8 +486,8 @@ export default function Dashboard() {
           <ShieldAlert size={22} />
         </div>
         <div className="space-y-1.5 max-w-sm">
-          <h3 className="text-sm font-bold text-white">Otel Ataması Eksik</h3>
-          <p className="text-xs text-zinc-400">
+          <h3 className="text-sm font-bold text-[#151827]">Otel Ataması Eksik</h3>
+          <p className="text-xs text-zinc-500">
             Hesabınıza atanmış herhangi bir otel bulunamadı. Lütfen yöneticinizle iletişime geçin.
           </p>
         </div>
@@ -502,24 +500,23 @@ export default function Dashboard() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
-      className="space-y-8 pb-12"
+      className="space-y-8 pb-12 text-[#151827]"
     >
       {/* V2 PREMIUM HERO BANNER */}
-      <div className="glass-panel p-6 md:p-8 rounded-[24px] flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-purple-500/5 rounded-full blur-[80px] pointer-events-none" />
+      <div className="glass-panel p-6 md:p-8 rounded-[18px] flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden text-left bg-white">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#F0EDFF] rounded-full blur-[100px] pointer-events-none" />
         
         <div className="space-y-3.5 z-10">
           <div className="flex items-center gap-3">
-            <span className="text-zinc-400 font-medium text-sm">Merhaba,</span>
-            <div className="px-3.5 py-1 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-full text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+            <span className="text-zinc-500 font-medium text-sm">Merhaba,</span>
+            <div className="px-3.5 py-1 bg-[#F0EDFF] border border-[#6D5DF6]/20 rounded-full text-xs font-semibold text-[#6D5DF6] flex items-center gap-1.5">
               <Building size={12} />
-              {activeHotelObject?.name || 'Sinnada Hotel'}
+              {hotelName}
             </div>
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white m-0">Good Morning</h1>
-            <p className="text-sm text-zinc-400 max-w-md">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#151827] m-0">Good Morning</h1>
+            <p className="text-sm text-zinc-500 max-w-md">
               AI Operations Director has compiled the daily analysis report. Overall guest score is holding strong.
             </p>
           </div>
@@ -529,113 +526,113 @@ export default function Dashboard() {
           <div className="text-right">
             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">GUEST SATISFACTION</span>
             <div className="flex items-baseline gap-1 justify-end mt-1">
-              <span className="text-3xl font-black text-white">{guestSatisfactionScore}%</span>
+              <span className="text-3xl font-black text-[#151827]">{guestSatisfactionScore}%</span>
             </div>
-            <div className="flex items-center gap-1 mt-1 justify-end text-[10px] text-emerald-400 font-bold">
-              <span>▲ +1.8%</span>
+            <div className="flex items-center gap-1 mt-1 justify-end text-[10px] text-emerald-600 font-bold">
+              <span>▲ +1.2%</span>
               <span className="text-zinc-500 font-normal">this week</span>
             </div>
           </div>
-          <div className="w-16 h-16 rounded-[20px] bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-500/10">
+          <div className="w-16 h-16 rounded-[14px] bg-[#6D5DF6] flex items-center justify-center text-white text-xl font-bold shadow-md shadow-indigo-500/10">
             {avgRating > 0 ? avgRating : '4.6'}
           </div>
         </div>
       </div>
 
-      {/* SECOND ROW: 5 Glowing KPI Cards */}
+      {/* SECOND ROW: 5 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Yeni Yorum */}
         <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="glass-panel p-5 rounded-[22px] hover:border-indigo-500/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group"
+          whileHover={{ scale: 1.015 }}
+          className="glass-panel p-5 rounded-[18px] hover:border-[#6D5DF6]/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group text-left bg-white"
         >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">YENİ YORUM</span>
-            <MessageSquare size={16} className="text-indigo-400" />
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">YENİ YORUM</span>
+            <MessageSquare size={16} className="text-[#6D5DF6]" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white leading-none">{formatNumberTurkish(totalReviews)}</h2>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(totalReviews)}</h2>
             <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Last 30 Days</p>
           </div>
-          <div className="flex justify-between items-center border-t border-white/5 pt-2 text-[9px] text-zinc-500">
+          <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Volume</span>
-            {renderSparkline(getReviewsSparklinePoints, '#6366f1')}
+            {renderSparkline(getReviewsSparklinePoints, '#6d5df6')}
           </div>
         </motion.div>
 
         {/* 2. AI Hazır */}
         <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="glass-panel p-5 rounded-[22px] hover:border-purple-500/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group"
+          whileHover={{ scale: 1.015 }}
+          className="glass-panel p-5 rounded-[18px] hover:border-[#6D5DF6]/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group text-left bg-white"
         >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">AI HAZIR</span>
-            <Sparkles size={16} className="text-purple-400" />
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">AI HAZIR</span>
+            <Sparkles size={16} className="text-[#6D5DF6]" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white leading-none">{aiResponseRate}%</h2>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{aiResponseRate}%</h2>
             <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Response Coverage</p>
           </div>
-          <div className="flex justify-between items-center border-t border-white/5 pt-2 text-[9px] text-zinc-500">
+          <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Replied</span>
-            <span className="text-indigo-400 font-bold">🪄 {formatNumberTurkish(juraRespondedCount)}</span>
+            <span className="text-[#6D5DF6] font-bold">🪄 {formatNumberTurkish(juraRespondedCount)}</span>
           </div>
         </motion.div>
 
         {/* 3. Onay Bekleyen */}
         <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="glass-panel p-5 rounded-[22px] hover:border-amber-500/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group"
+          whileHover={{ scale: 1.015 }}
+          className="glass-panel p-5 rounded-[18px] hover:border-[#6D5DF6]/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group text-left bg-white"
         >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">ONAY BEKLEYEN</span>
-            <Clock size={16} className="text-amber-400 animate-pulse" />
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">ONAY BEKLEYEN</span>
+            <Clock size={16} className="text-amber-500 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white leading-none">{formatNumberTurkish(draftReviews)}</h2>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(draftReviews)}</h2>
             <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Draft Suggestions</p>
           </div>
-          <div className="flex justify-between items-center border-t border-white/5 pt-2 text-[9px] text-zinc-500">
+          <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Action</span>
-            <span className="text-amber-400 font-bold">Review Needed</span>
+            <span className="text-amber-600 font-bold">Review Needed</span>
           </div>
         </motion.div>
 
         {/* 4. Kritik Şikayet */}
         <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="glass-panel p-5 rounded-[22px] hover:border-rose-500/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group"
+          whileHover={{ scale: 1.015 }}
+          className="glass-panel p-5 rounded-[18px] hover:border-[#6D5DF6]/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group text-left bg-white"
         >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">KRİTİK ŞİKAYET</span>
-            <ShieldAlert size={16} className="text-rose-400" />
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">KRİTİK ŞİKAYET</span>
+            <ShieldAlert size={16} className="text-rose-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white leading-none">{formatNumberTurkish(activeTasksCount)}</h2>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">{formatNumberTurkish(activeTasksCount)}</h2>
             <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">Open Tasks</p>
           </div>
-          <div className="flex justify-between items-center border-t border-white/5 pt-2 text-[9px] text-zinc-500">
+          <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Priority</span>
-            <span className="text-rose-400 font-bold">Action Required</span>
+            <span className="text-rose-600 font-bold">Action Required</span>
           </div>
         </motion.div>
 
         {/* 5. VIP Misafir */}
         <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="glass-panel p-5 rounded-[22px] hover:border-emerald-500/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group"
+          whileHover={{ scale: 1.015 }}
+          className="glass-panel p-5 rounded-[18px] hover:border-[#6D5DF6]/40 transition-all duration-300 flex flex-col justify-between h-[135px] relative group text-left bg-white"
         >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">VIP MİSAFİR</span>
-            <Crown size={16} className="text-emerald-400" />
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">VIP MİSAFİR</span>
+            <Crown size={16} className="text-emerald-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white leading-none">3</h2>
+            <h2 className="text-2xl font-black text-[#151827] leading-none">3</h2>
             <p className="text-[10px] text-zinc-500 font-semibold mt-1.5">In-House High Value</p>
           </div>
-          <div className="flex justify-between items-center border-t border-white/5 pt-2 text-[9px] text-zinc-500">
+          <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[9px] text-zinc-500">
             <span>Segment</span>
-            <span className="text-emerald-400 font-bold">High Priority</span>
+            <span className="text-emerald-600 font-bold">High Priority</span>
           </div>
         </motion.div>
       </div>
@@ -643,16 +640,16 @@ export default function Dashboard() {
       {/* THIRD ROW: AI Operations Director (ChatGPT conversational layout) & Trends */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* AI Operations Director (Width: 7 cols) */}
-        <div className="glass-panel p-6 rounded-[24px] lg:col-span-7 flex flex-col justify-between relative overflow-hidden h-[440px]">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="glass-panel p-6 rounded-[18px] lg:col-span-7 flex flex-col justify-between relative overflow-hidden h-[440px] text-left bg-white">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-[#F0EDFF] rounded-full blur-3xl pointer-events-none" />
           
           <div className="space-y-4">
-            <div className="flex justify-between items-center border-b border-white/5 pb-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Sparkles size={14} className="text-indigo-400" />
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-2">
+                <Sparkles size={14} className="text-[#6D5DF6]" />
                 AI Operations Director
               </h3>
-              <span className="text-[9px] text-indigo-300 font-semibold bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="text-[9px] text-[#6D5DF6] font-semibold bg-[#F0EDFF] border border-[#6D5DF6]/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 Autonomous
               </span>
             </div>
@@ -660,32 +657,22 @@ export default function Dashboard() {
             {/* Chat style interface */}
             <div className="space-y-4 pr-1 max-h-[300px] overflow-y-auto scrollbar-thin">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shrink-0 shadow-md">
                   🤖
                 </div>
-                <div className="space-y-2 bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-xs leading-relaxed max-w-[85%] text-zinc-300">
-                  <p className="font-semibold text-white mb-1.5">Günlük Operasyonel Analiz Raporu:</p>
-                  <p className="mb-2">Sinnada Resort için son 30 gün verilerini taradım. Tespit ettiğim en kritik noktalar:</p>
+                <div className="space-y-2 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs leading-relaxed max-w-[85%] text-zinc-600">
+                  <p className="font-semibold text-[#151827] mb-1.5">{dynamicAiOperationsSummary.greeting}</p>
+                  <p className="mb-2">{dynamicAiOperationsSummary.subText}</p>
                   
                   <ul className="space-y-2.5 mt-2">
-                    <li className="flex items-start gap-2">
-                      <span className="text-rose-400 mt-0.5">⚠️</span>
-                      <div>
-                        <strong className="text-white">Restoran Memnuniyeti Düştü:</strong> Yemek kalitesi ve servis hızına dair şikayetler artış gösteriyor. Restoran departmanına yönelik 18 yeni şikayet oluştu.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-400 mt-0.5">🟢</span>
-                      <div>
-                        <strong className="text-white">Kat Hizmetleri Artışı:</strong> Oda temizliği ve düzeni hakkındaki olumlu geri bildirimler memnuniyet trendini yukarı çekiyor.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">🕒</span>
-                      <div>
-                        <strong className="text-white">Resepsiyon Yavaşlığı:</strong> Giriş ve çıkışlarda bekleme sürelerinin uzunluğundan şikayet eden 3 misafir kaydı mevcut.
-                      </div>
-                    </li>
+                    {dynamicAiOperationsSummary.bullets.map((bullet, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="mt-0.5">{bullet.emoji}</span>
+                        <div>
+                          <strong className="text-[#151827]">{bullet.title}</strong> {bullet.desc}
+                        </div>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>
@@ -694,18 +681,18 @@ export default function Dashboard() {
 
           <button 
             onClick={() => navigate('/ai-replies')}
-            className="w-full mt-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/10"
+            className="w-full mt-4 py-2.5 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 shadow-md"
           >
-            AI Answer Center'a Git &rarr;
+            AI Operations'a Git &rarr;
           </button>
         </div>
 
         {/* Platform Score Trends (Width: 5 cols) */}
-        <div className="glass-panel p-6 rounded-[24px] lg:col-span-5 flex flex-col justify-between h-[440px]">
+        <div className="glass-panel p-6 rounded-[18px] lg:col-span-5 flex flex-col justify-between h-[440px] text-left bg-white">
           <div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <TrendingUp size={14} className="text-indigo-400" />
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
+                <TrendingUp size={14} className="text-[#6D5DF6]" />
                 Platform Score Trends
               </h3>
               <span className="text-[9.5px] text-zinc-500 font-bold">Last 7 Days</span>
@@ -716,31 +703,31 @@ export default function Dashboard() {
                 <AreaChart data={satisfactionTrendData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorSatisfaction" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#6D5DF6" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#6D5DF6" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
                   <XAxis dataKey="date" stroke="#71717a" style={{ fontSize: 9, fontWeight: 600 }} tickLine={false} />
                   <YAxis stroke="#71717a" style={{ fontSize: 9, fontWeight: 600 }} axisLine={false} tickLine={false} domain={[60, 100]} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#E8EAF0', color: '#151827', borderRadius: '12px', fontSize: '11px' }}
                   />
-                  <Area type="monotone" dataKey="Skor" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorSatisfaction)" strokeWidth={2.5} />
+                  <Area type="monotone" dataKey="Skor" stroke="#6D5DF6" fillOpacity={1} fill="url(#colorSatisfaction)" strokeWidth={2.5} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="space-y-1.5 pt-4 border-t border-white/5">
-            <div className="grid grid-cols-5 gap-2 text-center text-[10px]">
+          <div className="space-y-1.5 pt-4 border-t border-slate-100">
+            <div className="grid grid-cols-6 gap-1.5 text-center text-[10px]">
               {platformBreakdown.map((item, idx) => (
                 <div key={idx} className="space-y-0.5">
-                  <div className="flex items-center justify-center gap-1 bg-white/[0.02] border border-white/5 py-1 px-1.5 rounded-lg">
+                  <div className="flex items-center justify-center gap-1 bg-slate-50 border border-slate-100 py-1 px-1 rounded-lg">
                     {item.logo}
-                    <span className="font-extrabold text-white">{item.rating}</span>
+                    <span className="font-extrabold text-[#151827]">{item.rating}</span>
                   </div>
-                  <span className="text-[8px] text-emerald-400 font-bold">{item.change}</span>
+                  <span className="text-[8px] text-emerald-600 font-bold">{item.change}</span>
                 </div>
               ))}
             </div>
@@ -750,15 +737,15 @@ export default function Dashboard() {
 
       {/* FOURTH ROW: Tasks & Metrics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Notion-Style Today's Tasks (Width: 6 cols) */}
-        <div className="glass-panel p-6 rounded-[24px] lg:col-span-6 flex flex-col justify-between">
+        {/* Today's Tasks */}
+        <div className="glass-panel p-6 rounded-[18px] lg:col-span-6 flex flex-col justify-between text-left bg-white">
           <div className="space-y-4">
-            <div className="flex justify-between items-center border-b border-white/5 pb-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
                 📋 Today's Tasks
               </h3>
               {criticalTasks.length > 0 && (
-                <span className="px-2.5 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-full text-[9px] font-black text-rose-400 animate-pulse">
+                <span className="px-2.5 py-0.5 bg-rose-50 border border-rose-100 rounded-full text-[9px] font-black text-rose-600 animate-pulse">
                   {criticalTasks.length} CRITICAL
                 </span>
               )}
@@ -767,7 +754,7 @@ export default function Dashboard() {
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
               {isLoadingTasks ? (
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-16 bg-white/[0.02] border border-white/5 rounded-xl animate-pulse" />
+                  <div key={i} className="h-16 bg-slate-50 border border-slate-100 rounded-xl animate-pulse" />
                 ))
               ) : criticalTasks.length === 0 ? (
                 <div className="py-12 text-center text-zinc-500 text-xs font-semibold">
@@ -783,27 +770,27 @@ export default function Dashboard() {
                       whileHover={{ x: 3 }}
                       key={task.id} 
                       onClick={() => navigate('/tasks')}
-                      className="bg-white/[0.02] border border-white/5 hover:bg-white/5 p-3 rounded-2xl transition-all cursor-pointer flex justify-between items-start gap-4"
+                      className="bg-slate-50 border border-slate-100 hover:bg-slate-100/50 p-3 rounded-2xl transition-all cursor-pointer flex justify-between items-start gap-4"
                     >
                       <div className="space-y-1.5 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`px-2 py-0.5 text-[8px] font-black uppercase rounded border ${
                             task.priority === 'critical' 
-                              ? 'bg-red-500/10 text-red-400 border-red-500/20' 
-                              : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                              ? 'bg-rose-50 text-rose-600 border-rose-200' 
+                              : 'bg-orange-50 text-orange-600 border-orange-200'
                           }`}>
                             {task.priority === 'critical' ? 'CRITICAL' : 'HIGH'}
                           </span>
-                          <span className="text-xs font-bold text-white truncate block max-w-[200px]" title={task.title}>
+                          <span className="text-xs font-bold text-[#151827] truncate block max-w-[200px]" title={task.title}>
                             {task.title}
                           </span>
                           {stars && (
-                            <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                            <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
                               {stars}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 font-semibold">
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-semibold">
                           <span>{getTranslatedDepartment(task.department)}</span>
                           <span>&bull;</span>
                           <span>{task.sourcePlatform || 'Google'}</span>
@@ -820,43 +807,42 @@ export default function Dashboard() {
           </div>
           <button 
             onClick={() => navigate('/tasks')}
-            className="w-full mt-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
+            className="w-full mt-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-[#151827] text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
           >
             {t('dashboard.actions.viewAll')} &rarr;
           </button>
         </div>
 
-        {/* Task Overview Chart (Width: 6 cols) */}
-        <div className="glass-panel p-6 rounded-[24px] lg:col-span-6 flex flex-col justify-between">
+        {/* Task Overview Chart */}
+        <div className="glass-panel p-6 rounded-[18px] lg:col-span-6 flex flex-col justify-between text-left bg-white">
           <div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
                 📊 Görev Durumu
               </h3>
-              <span className="text-[9.5px] text-zinc-500 font-bold">Dağılım</span>
             </div>
 
             {/* Metric widgets */}
             <div className="grid grid-cols-5 gap-2 text-center mb-6">
-              <div className="bg-white/[0.02] border border-white/5 p-2 rounded-xl">
-                <span className="text-[9px] text-zinc-400 font-bold block uppercase tracking-wider">Total</span>
-                <span className="text-sm font-black text-white block mt-0.5">{formatNumberTurkish(taskStats.total)}</span>
+              <div className="bg-slate-50 border border-slate-100 p-2 rounded-xl">
+                <span className="text-[9px] text-zinc-500 font-bold block uppercase tracking-wider">Total</span>
+                <span className="text-sm font-black text-[#151827] block mt-0.5">{formatNumberTurkish(taskStats.total)}</span>
               </div>
-              <div className="bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
-                <span className="text-[9px] text-amber-400 font-bold block uppercase tracking-wider">Açık</span>
-                <span className="text-sm font-black text-amber-400 block mt-0.5">{formatNumberTurkish(taskStats.open)}</span>
+              <div className="bg-amber-50 border border-amber-100 p-2 rounded-xl">
+                <span className="text-[9px] text-amber-600 font-bold block uppercase tracking-wider">Açık</span>
+                <span className="text-sm font-black text-amber-600 block mt-0.5">{formatNumberTurkish(taskStats.open)}</span>
               </div>
-              <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
-                <span className="text-[9px] text-blue-400 font-bold block uppercase tracking-wider">İlerle</span>
-                <span className="text-sm font-black text-blue-400 block mt-0.5">{formatNumberTurkish(taskStats.inProgress)}</span>
+              <div className="bg-blue-50 border border-blue-100 p-2 rounded-xl">
+                <span className="text-[9px] text-blue-600 font-bold block uppercase tracking-wider">İlerle</span>
+                <span className="text-sm font-black text-blue-600 block mt-0.5">{formatNumberTurkish(taskStats.inProgress)}</span>
               </div>
-              <div className="bg-purple-500/10 border border-purple-500/20 p-2 rounded-xl">
-                <span className="text-[9px] text-purple-400 font-bold block uppercase tracking-wider">Bekleyen</span>
-                <span className="text-sm font-black text-purple-400 block mt-0.5">{formatNumberTurkish(taskStats.waiting)}</span>
+              <div className="bg-purple-50 border border-purple-100 p-2 rounded-xl">
+                <span className="text-[9px] text-purple-650 font-bold block uppercase tracking-wider">Bekleyen</span>
+                <span className="text-sm font-black text-purple-650 block mt-0.5">{formatNumberTurkish(taskStats.waiting)}</span>
               </div>
-              <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">
-                <span className="text-[9px] text-emerald-400 font-bold block uppercase tracking-wider">Bitti</span>
-                <span className="text-sm font-black text-emerald-400 block mt-0.5">{formatNumberTurkish(taskStats.completed)}</span>
+              <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-xl">
+                <span className="text-[9px] text-emerald-600 font-bold block uppercase tracking-wider">Bitti</span>
+                <span className="text-sm font-black text-emerald-600 block mt-0.5">{formatNumberTurkish(taskStats.completed)}</span>
               </div>
             </div>
 
@@ -881,20 +867,20 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-lg font-black text-white leading-none">{formatNumberTurkish(taskStats.total)}</span>
-                  <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider mt-1">GÖREV</span>
+                  <span className="text-lg font-black text-[#151827] leading-none">{formatNumberTurkish(taskStats.total)}</span>
+                  <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-wider mt-1">GÖREV</span>
                 </div>
               </div>
 
               <div className="flex-1 space-y-1.5 text-[10px]">
                 {pieData.map((entry, index) => (
-                  <div key={index} className="flex justify-between items-center py-0.5 border-b border-white/5">
-                    <span className="text-zinc-400 flex items-center gap-1.5">
+                  <div key={index} className="flex justify-between items-center py-0.5 border-b border-slate-100">
+                    <span className="text-zinc-500 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: entry.color }}></span>
                       {entry.name}
                     </span>
-                    <span className="font-bold text-white">
-                      {formatNumberTurkish(entry.value)} adet <span className="text-zinc-500 font-normal">({formatNumberTurkish(entry.percent)}%)</span>
+                    <span className="font-bold text-[#151827]">
+                      {formatNumberTurkish(entry.value)} adet <span className="text-zinc-400 font-normal">({formatNumberTurkish(entry.percent)}%)</span>
                     </span>
                   </div>
                 ))}
@@ -904,7 +890,7 @@ export default function Dashboard() {
 
           <button 
             onClick={() => navigate('/tasks')}
-            className="w-full mt-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
+            className="w-full mt-6 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-[#151827] text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
           >
             {t('dashboard.taskState.button')} &rarr;
           </button>
@@ -913,14 +899,13 @@ export default function Dashboard() {
 
       {/* FIFTH ROW: Distribution & Synchronizations */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Rating Distribution (Width: 6 cols) */}
-        <div className="glass-panel p-6 rounded-[24px] lg:col-span-6 flex flex-col justify-between">
+        {/* Rating Distribution */}
+        <div className="glass-panel p-6 rounded-[18px] lg:col-span-6 flex flex-col justify-between text-left bg-white">
           <div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
                 📊 Yıldız Dağılımı
               </h3>
-              <span className="text-[9.5px] text-zinc-500 font-bold">Puan Seviyeleri</span>
             </div>
 
             <div className="space-y-5 mt-4">
@@ -935,59 +920,59 @@ export default function Dashboard() {
               <div className="grid grid-cols-5 gap-2 text-center text-[10px] pt-1">
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                  <span className="font-extrabold text-white block text-[9.5px]">5★ ({formatNumberTurkish(ratingPercentages.pct5)}%)</span>
-                  <span className="text-[9px] text-zinc-400 font-semibold">{ratingCounts[5]} yorum</span>
+                  <span className="font-extrabold text-[#151827] block text-[9.5px]">5★ ({formatNumberTurkish(ratingPercentages.pct5)}%)</span>
+                  <span className="text-[9px] text-zinc-500 font-semibold">{ratingCounts[5]} yorum</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-                  <span className="font-extrabold text-white block text-[9.5px]">4★ ({formatNumberTurkish(ratingPercentages.pct4)}%)</span>
-                  <span className="text-[9px] text-zinc-400 font-semibold">{ratingCounts[4]} yorum</span>
+                  <span className="font-extrabold text-[#151827] block text-[9.5px]">4★ ({formatNumberTurkish(ratingPercentages.pct4)}%)</span>
+                  <span className="text-[9px] text-zinc-500 font-semibold">{ratingCounts[4]} yorum</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                  <span className="font-extrabold text-white block text-[9.5px]">3★ ({formatNumberTurkish(ratingPercentages.pct3)}%)</span>
-                  <span className="text-[9px] text-zinc-400 font-semibold">{ratingCounts[3]} yorum</span>
+                  <span className="font-extrabold text-[#151827] block text-[9.5px]">3★ ({formatNumberTurkish(ratingPercentages.pct3)}%)</span>
+                  <span className="text-[9px] text-zinc-500 font-semibold">{ratingCounts[3]} yorum</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
-                  <span className="font-extrabold text-white block text-[9.5px]">2★ ({formatNumberTurkish(ratingPercentages.pct2)}%)</span>
-                  <span className="text-[9px] text-zinc-400 font-semibold">{ratingCounts[2]} yorum</span>
+                  <span className="font-extrabold text-[#151827] block text-[9.5px]">2★ ({formatNumberTurkish(ratingPercentages.pct2)}%)</span>
+                  <span className="text-[9px] text-zinc-500 font-semibold">{ratingCounts[2]} yorum</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
-                  <span className="font-extrabold text-white block text-[9.5px]">1★ ({formatNumberTurkish(ratingPercentages.pct1)}%)</span>
-                  <span className="text-[9px] text-zinc-400 font-semibold">{ratingCounts[1]} yorum</span>
+                  <span className="font-extrabold text-[#151827] block text-[9.5px]">1★ ({formatNumberTurkish(ratingPercentages.pct1)}%)</span>
+                  <span className="text-[9px] text-zinc-500 font-semibold">{ratingCounts[1]} yorum</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Sync Statuses (Width: 6 cols) */}
-        <div className="glass-panel p-6 rounded-[24px] lg:col-span-6 flex flex-col justify-between">
+        {/* Sync Statuses */}
+        <div className="glass-panel p-6 rounded-[18px] lg:col-span-6 flex flex-col justify-between text-left bg-white">
           <div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-xs font-bold text-[#151827] uppercase tracking-wider flex items-center gap-1.5">
                 🔄 Senkronizasyon Durumu
               </h3>
-              <span className="text-[9.5px] text-indigo-400 font-bold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="text-[9.5px] text-[#6D5DF6] font-bold bg-[#F0EDFF] border border-[#6D5DF6]/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Aktif
               </span>
             </div>
 
-            <div className="divide-y divide-white/5 space-y-3.5">
+            <div className="divide-y divide-slate-100 space-y-3">
               {syncStatusList.map((row, idx) => (
-                <div key={idx} className="pt-3.5 first:pt-0 flex justify-between items-center text-[11px]">
-                  <div className="flex items-center gap-2 font-bold text-white">
+                <div key={idx} className="pt-3 first:pt-0 flex justify-between items-center text-[11px]">
+                  <div className="flex items-center gap-2 font-bold text-[#151827]">
                     {row.logo}
                     <span>{row.name}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-zinc-400 font-semibold">{row.time}</span>
+                    <span className="text-zinc-500 font-semibold">{row.time}</span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase border ${
-                      row.status === 'success' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                      row.status === 'failed' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                      'bg-white/5 text-zinc-400 border-white/10'
+                      row.status === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      row.status === 'failed' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                      'bg-slate-50 text-zinc-500 border-slate-150'
                     }`}>
                       {row.status === 'success' ? t('dashboard.sync.success') : row.status === 'failed' ? t('dashboard.sync.failed') : t('dashboard.sync.waiting')}
                     </span>
@@ -1000,7 +985,7 @@ export default function Dashboard() {
           <button 
             onClick={handleSyncAllPlatforms}
             disabled={isSyncingAll}
-            className="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-500/10"
+            className="w-full mt-6 py-2.5 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             {isSyncingAll ? (
               <>
@@ -1019,17 +1004,17 @@ export default function Dashboard() {
 
       {/* Toast Overlay */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-white/10 bg-[#121216]/90 backdrop-blur-xl shadow-2xl flex items-center gap-3 animate-slide-in max-w-sm">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border border-[#E8EAF0] bg-white shadow-xl flex items-center gap-3 animate-slide-in max-w-sm">
+          <div className="w-8 h-8 rounded-lg bg-[#F0EDFF] flex items-center justify-center text-[#6D5DF6]">
             <RefreshCw size={16} className={isSyncingAll ? 'animate-spin' : ''} />
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-white">{t('dashboard.sync.toastTitle')}</h4>
-            <p className="text-[10px] text-zinc-400 mt-0.5 font-semibold">{toastMessage}</p>
+          <div className="text-left">
+            <h4 className="text-xs font-bold text-[#151827]">{t('dashboard.sync.toastTitle')}</h4>
+            <p className="text-[10px] text-zinc-500 mt-0.5 font-semibold">{toastMessage}</p>
           </div>
           <button 
             onClick={() => setToastMessage(null)}
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-bold ml-4"
+            className="text-xs text-[#6D5DF6] hover:text-[#5b4ee4] font-bold ml-4 cursor-pointer"
           >
             {t('dashboard.sync.toastClose')}
           </button>

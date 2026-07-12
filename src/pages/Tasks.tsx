@@ -13,14 +13,12 @@ import {
   Search, 
   Calendar, 
   CheckCircle2, 
-  Hourglass, 
   X, 
   RefreshCw,
-  AlertTriangle,
   SlidersHorizontal,
-  Building,
   User,
-  Activity
+  Activity,
+  AlertCircle
 } from 'lucide-react';
 
 export default function Tasks() {
@@ -47,6 +45,12 @@ export default function Tasks() {
   const [completionCategory, setCompletionCategory] = useState('Teknik Çözüm');
   const [internalComment, setInternalComment] = useState('');
   const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
+
+  // Clear selections on hotelId change
+  useEffect(() => {
+    setSelectedTaskDetails(null);
+    setCompletingTaskId(null);
+  }, [currentHotelId]);
 
   // Fetch tasks
   const {
@@ -92,27 +96,27 @@ export default function Tasks() {
     const hours = Math.floor((totalMins % (24 * 60)) / 60);
     
     if (isOverdue) {
-      return { text: `${days > 0 ? `${days}d ` : ''}${hours}h gecikti`, isOverdue: true, colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20' };
+      return { text: `${days > 0 ? `${days}d ` : ''}${hours}h gecikti`, isOverdue: true, colorClass: 'text-rose-600 bg-rose-50 border border-rose-100' };
     } else {
-      return { text: `${days > 0 ? `${days}d ` : ''}${hours}h kaldı`, isOverdue: false, colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
+      return { text: `${days > 0 ? `${days}d ` : ''}${hours}h kaldı`, isOverdue: false, colorClass: 'text-emerald-600 bg-emerald-50 border border-emerald-100' };
     }
   };
 
   const getDepartmentBadgeClass = (d: string) => {
     const norm = (d || '').toLowerCase();
-    if (norm.includes('relations') || norm.includes('ilişki')) return 'bg-purple-500/10 text-purple-300 border-purple-500/20';
-    if (norm.includes('housekeeping') || norm.includes('kat')) return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
-    if (norm.includes('teknik') || norm.includes('technical')) return 'bg-sky-500/10 text-sky-300 border-sky-500/20';
-    if (norm.includes('restaurant') || norm.includes('yiyecek') || norm.includes('restoran')) return 'bg-orange-500/10 text-orange-300 border-orange-500/20';
-    return 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20';
+    if (norm.includes('relations') || norm.includes('ilişki')) return 'bg-purple-50 text-purple-600 border border-purple-100';
+    if (norm.includes('housekeeping') || norm.includes('kat')) return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+    if (norm.includes('teknik') || norm.includes('technical')) return 'bg-sky-50 text-sky-600 border border-sky-100';
+    if (norm.includes('restaurant') || norm.includes('yiyecek') || norm.includes('restoran')) return 'bg-orange-50 text-orange-600 border border-orange-100';
+    return 'bg-slate-50 text-slate-650 border border-slate-100';
   };
 
   const getPriorityBadgeClass = (p: string) => {
     switch (p) {
-      case 'critical': return 'bg-red-500/10 text-red-400 border-red-500/20';
-      case 'high': return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
-      case 'medium': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
-      default: return 'bg-zinc-500/10 text-zinc-400 border-white/5';
+      case 'critical': return 'bg-rose-50 text-rose-600 border border-rose-100';
+      case 'high': return 'bg-orange-50 text-orange-600 border border-orange-100';
+      case 'medium': return 'bg-yellow-50 text-yellow-600 border border-yellow-100';
+      default: return 'bg-slate-50 text-slate-500 border border-slate-100';
     }
   };
 
@@ -210,25 +214,25 @@ export default function Tasks() {
   }, [filteredList]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[#151827]">
       {/* Notion Task Board Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-black text-white m-0 flex items-center gap-2">
-            <CheckSquare className="text-indigo-400" size={24} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[#E8EAF0] pb-6">
+        <div className="space-y-1 text-left">
+          <h1 className="text-2xl font-black text-[#151827] m-0 flex items-center gap-2">
+            <CheckSquare className="text-[#6D5DF6]" size={24} />
             Guest Relations Tasks
           </h1>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-zinc-500">
             Notion-style task board organizing guest complaints and department resolutions.
           </p>
         </div>
 
         {/* Tab pills */}
-        <div className="flex border border-white/10 gap-1 p-1 rounded-2xl bg-white/5 shrink-0">
+        <div className="flex border border-slate-200 gap-1 p-1 rounded-2xl bg-white shrink-0">
           <button
             onClick={() => setActiveTab('active')}
             className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
-              activeTab === 'active' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-zinc-400'
+              activeTab === 'active' ? 'bg-[#6D5DF6] text-white shadow-sm' : 'text-zinc-500'
             }`}
           >
             Active Tasks
@@ -236,7 +240,7 @@ export default function Tasks() {
           <button
             onClick={() => setActiveTab('completed')}
             className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
-              activeTab === 'completed' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-zinc-400'
+              activeTab === 'completed' ? 'bg-[#6D5DF6] text-white shadow-sm' : 'text-zinc-500'
             }`}
           >
             Completed
@@ -244,7 +248,7 @@ export default function Tasks() {
           <button
             onClick={() => setActiveTab('archived')}
             className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
-              activeTab === 'archived' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-zinc-400'
+              activeTab === 'archived' ? 'bg-[#6D5DF6] text-white shadow-sm' : 'text-zinc-500'
             }`}
           >
             Archived
@@ -253,16 +257,16 @@ export default function Tasks() {
       </div>
 
       {/* Notion Filter Toolbar */}
-      <div className="bg-white/5 border border-white/10 p-5 rounded-[22px] shadow-sm flex flex-col gap-4">
+      <div className="bg-white border border-[#E8EAF0] p-5 rounded-[18px] shadow-sm flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-2 text-white font-bold text-xs">
-            <SlidersHorizontal size={14} className="text-indigo-400" />
+          <div className="flex items-center gap-2 text-[#151827] font-bold text-xs">
+            <SlidersHorizontal size={14} className="text-[#6D5DF6]" />
             Filters
           </div>
           {(search || priority || department || platform) && (
             <button
               onClick={handleResetFilters}
-              className="text-[10px] text-rose-400 hover:text-rose-300 font-extrabold focus:outline-none"
+              className="text-[10px] text-rose-600 hover:text-rose-500 font-extrabold focus:outline-none cursor-pointer"
             >
               Reset Filters
             </button>
@@ -270,56 +274,56 @@ export default function Tasks() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-zinc-500" size={14} />
+          <div className="relative text-left">
+            <Search className="absolute left-3 top-2.5 text-zinc-400" size={14} />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search tasks..."
-              className="w-full pl-9 pr-4 py-2 bg-black/20 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none"
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827] placeholder-zinc-400 focus:outline-none"
             />
           </div>
 
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className="px-3 py-2 bg-black/20 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+            className="px-3 py-2 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827] focus:outline-none"
           >
-            <option value="" className="bg-[#121216]">All Priorities</option>
-            <option value="critical" className="bg-[#121216]">Critical</option>
-            <option value="high" className="bg-[#121216]">High</option>
-            <option value="medium" className="bg-[#121216]">Medium</option>
-            <option value="low" className="bg-[#121216]">Low</option>
+            <option value="" className="bg-white">All Priorities</option>
+            <option value="critical" className="bg-white">Critical</option>
+            <option value="high" className="bg-white">High</option>
+            <option value="medium" className="bg-white">Medium</option>
+            <option value="low" className="bg-white">Low</option>
           </select>
 
           <select
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
-            className="px-3 py-2 bg-black/20 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+            className="px-3 py-2 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827] focus:outline-none"
           >
-            <option value="" className="bg-[#121216]">All Departments</option>
-            <option value="Misafir İlişkileri" className="bg-[#121216]">Misafir İlişkileri</option>
-            <option value="Housekeeping" className="bg-[#121216]">Housekeeping</option>
-            <option value="Teknik Servis" className="bg-[#121216]">Teknik Servis</option>
-            <option value="Yiyecek & İçecek" className="bg-[#121216]">Yiyecek & İçecek</option>
-            <option value="Ön Büro" className="bg-[#121216]">Ön Büro</option>
-            <option value="Spa" className="bg-[#121216]">Spa</option>
-            <option value="Yönetim" className="bg-[#121216]">Yönetim</option>
+            <option value="" className="bg-white">All Departments</option>
+            <option value="Misafir İlişkileri" className="bg-white">Misafir İlişkileri</option>
+            <option value="Housekeeping" className="bg-white">Housekeeping</option>
+            <option value="Teknik Servis" className="bg-white">Teknik Servis</option>
+            <option value="Yiyecek & İçecek" className="bg-white">Yiyecek & İçecek</option>
+            <option value="Ön Büro" className="bg-white">Ön Büro</option>
+            <option value="Spa" className="bg-white">Spa</option>
+            <option value="Yönetim" className="bg-white">Yönetim</option>
           </select>
 
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
-            className="px-3 py-2 bg-black/20 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+            className="px-3 py-2 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827] focus:outline-none"
           >
-            <option value="" className="bg-[#121216]">All Platforms</option>
-            <option value="google" className="bg-[#121216]">Google</option>
-            <option value="booking" className="bg-[#121216]">Booking.com</option>
-            <option value="tripadvisor" className="bg-[#121216]">TripAdvisor</option>
-            <option value="hotelscom" className="bg-[#121216]">Hotels.com</option>
-            <option value="holidaycheck" className="bg-[#121216]">HolidayCheck</option>
-            <option value="otelpuan" className="bg-[#121216]">Otelpuan</option>
+            <option value="" className="bg-white">All Platforms</option>
+            <option value="google" className="bg-white">Google</option>
+            <option value="booking" className="bg-white">Booking.com</option>
+            <option value="tripadvisor" className="bg-white">TripAdvisor</option>
+            <option value="hotelscom" className="bg-white">Hotels.com</option>
+            <option value="holidaycheck" className="bg-white">HolidayCheck</option>
+            <option value="otelpuan" className="bg-white">Otelpuan</option>
           </select>
         </div>
       </div>
@@ -332,13 +336,13 @@ export default function Tasks() {
 
           if (loading) {
             return Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-44 bg-white/[0.02] border border-white/5 rounded-3xl animate-pulse" />
+              <div key={i} className="h-44 bg-white border border-[#E8EAF0] rounded-3xl animate-pulse" />
             ));
           }
 
           if (listToShow.length === 0) {
             return (
-              <div className="col-span-full py-16 text-center text-zinc-500 text-xs">
+              <div className="col-span-full py-16 text-center text-zinc-400 text-xs">
                 No active tasks found matching criteria.
               </div>
             );
@@ -351,32 +355,32 @@ export default function Tasks() {
                 whileHover={{ scale: 1.015 }}
                 key={task.id}
                 onClick={() => setSelectedTaskDetails(task)}
-                className="glass-panel p-5 rounded-[24px] hover:border-indigo-500/30 transition-all flex flex-col justify-between min-h-[190px] relative text-left cursor-pointer"
+                className="glass-panel p-5 rounded-[18px] bg-white border border-[#E8EAF0] shadow-sm hover:border-[#6D5DF6]/30 transition-all flex flex-col justify-between min-h-[190px] relative text-left cursor-pointer"
               >
                 <div className="space-y-3.5">
                   <div className="flex justify-between items-center flex-wrap gap-2">
-                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${getPriorityBadgeClass(task.priority)}`}>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${getPriorityBadgeClass(task.priority)}`}>
                       {task.priority}
                     </span>
                     {task.status !== 'completed' && (
-                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${sla.colorClass}`}>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${sla.colorClass}`}>
                         {sla.text}
                       </span>
                     )}
                   </div>
 
-                  <h3 className="text-sm font-bold text-white leading-snug line-clamp-1">{task.title}</h3>
-                  <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{task.description.split('\n\nÇözüm Notu: ')[0]}</p>
+                  <h3 className="text-sm font-bold text-[#151827] leading-snug line-clamp-1">{task.title}</h3>
+                  <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">{task.description.split('\n\nÇözüm Notu: ')[0]}</p>
                 </div>
 
-                <div className="mt-4 pt-3.5 border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-500">
+                <div className="mt-4 pt-3.5 border-t border-slate-100 flex justify-between items-center text-[10px] text-zinc-555">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <User size={12} className="text-zinc-500 shrink-0" />
-                    <span className="truncate font-semibold text-zinc-300">
+                    <User size={12} className="text-zinc-400 shrink-0" />
+                    <span className="truncate font-semibold text-zinc-650">
                       {task.assignedTo || 'Unassigned'}
                     </span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-lg border text-[9px] font-bold ${getDepartmentBadgeClass(task.department)}`}>
+                  <span className={`px-2 py-0.5 rounded border text-[9px] font-bold ${getDepartmentBadgeClass(task.department)}`}>
                     {task.department}
                   </span>
                 </div>
@@ -394,7 +398,7 @@ export default function Tasks() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               onClick={() => setSelectedTaskDetails(null)}
             />
             <motion.div 
@@ -402,24 +406,24 @@ export default function Tasks() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-              className="relative w-full max-w-md h-full bg-[#0E0E12] border-l border-white/10 shadow-2xl p-6 flex flex-col z-10 text-left text-zinc-200"
+              className="relative w-full max-w-md h-full bg-white border-l border-[#E8EAF0] shadow-2xl p-6 flex flex-col z-10 text-left text-[#151827]"
             >
               <button 
                 onClick={() => setSelectedTaskDetails(null)}
-                className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white"
+                className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-slate-50 text-zinc-400 hover:text-black"
               >
                 <X size={15} />
               </button>
 
               <div className="flex-1 overflow-y-auto space-y-6 pr-1 scrollbar-thin">
                 <div className="space-y-1.5 pt-4">
-                  <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black border ${getPriorityBadgeClass(selectedTaskDetails.priority)}`}>
                     {selectedTaskDetails.priority.toUpperCase()} PRIORITY
                   </span>
-                  <h2 className="text-lg font-black text-white leading-snug">{selectedTaskDetails.title}</h2>
+                  <h2 className="text-lg font-black text-[#151827] leading-snug">{selectedTaskDetails.title}</h2>
                 </div>
 
-                <div className="space-y-3.5 bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-xs">
+                <div className="space-y-3.5 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">Department:</span>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getDepartmentBadgeClass(selectedTaskDetails.department)}`}>
@@ -428,34 +432,34 @@ export default function Tasks() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">Owner:</span>
-                    <span className="text-white font-bold">{selectedTaskDetails.assignedTo || 'Unassigned'}</span>
+                    <span className="text-[#151827] font-bold">{selectedTaskDetails.assignedTo || 'Unassigned'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">Due Date:</span>
-                    <span className="text-white font-bold">{formatDate(selectedTaskDetails.dueDate)}</span>
+                    <span className="text-[#151827] font-bold">{formatDate(selectedTaskDetails.dueDate)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">Status:</span>
-                    <span className="text-white font-bold uppercase">{selectedTaskDetails.status}</span>
+                    <span className="text-[#151827] font-bold uppercase">{selectedTaskDetails.status}</span>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide block">Task Description</span>
-                  <p className="text-xs text-zinc-300 leading-relaxed bg-white/[0.01] border border-white/5 p-3 rounded-xl italic">
+                  <p className="text-xs text-zinc-650 leading-relaxed bg-slate-50 border border-slate-100 p-3 rounded-xl italic">
                     "{selectedTaskDetails.description}"
                   </p>
                 </div>
 
                 {/* Operations board */}
                 {selectedTaskDetails.status !== 'completed' && (
-                  <div className="space-y-4 pt-4 border-t border-white/5">
+                  <div className="space-y-4 pt-4 border-t border-[#E8EAF0]">
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide block">Assign Task Owner</span>
                       <select
                         onChange={(e) => handleAssignTask(selectedTaskDetails.id, e.target.value)}
                         value={selectedTaskDetails.assignedTo || ''}
-                        className="w-full px-3 py-2.5 bg-black border border-white/10 rounded-xl text-xs text-white"
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827]"
                       >
                         <option value="">Select Assignee</option>
                         <option value="Ahmet Yılmaz">Ahmet Yılmaz (Misafir İlişkileri)</option>
@@ -467,7 +471,7 @@ export default function Tasks() {
 
                     <button
                       onClick={() => handleUpdateStatus(selectedTaskDetails.id, 'completed')}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10"
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
                     >
                       <CheckCircle2 size={14} />
                       <span>Mark as Completed</span>
@@ -482,16 +486,16 @@ export default function Tasks() {
 
       {/* Completion Notes modal */}
       {completingTaskId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-white/10 bg-zinc-900/95 relative card-glow text-zinc-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md p-6 rounded-[18px] border border-[#E8EAF0] bg-white relative shadow-2xl text-left text-[#151827]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-500" />
+              <h3 className="text-sm font-semibold text-[#151827] flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-650" />
                 Görevi Çözümlendi Olarak Kapat
               </h3>
               <button 
                 onClick={() => setCompletingTaskId(null)}
-                className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white"
+                className="p-1 rounded-lg hover:bg-slate-100 text-zinc-500 hover:text-black cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -499,37 +503,37 @@ export default function Tasks() {
 
             <div className="space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Çözüm Notu</label>
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Çözüm Notu</label>
                 <textarea
                   value={completionNote}
                   onChange={(e) => setCompletionNote(e.target.value)}
                   placeholder="Misafire yapılan dönüş, alınan aksiyon detayları..."
                   rows={4}
-                  className="w-full px-3 py-2.5 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Sorumlu Kişi / Birim</label>
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Sorumlu Kişi / Birim</label>
                 <input
                   type="text"
                   value={responsibleUser}
                   onChange={(e) => setResponsibleUser(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-[#E8EAF0] rounded-xl text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8EAF0]">
                 <button
                   onClick={() => setCompletingTaskId(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 text-zinc-300 hover:bg-white/10 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-50 text-zinc-650 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Vazgeç
                 </button>
                 <button
                   onClick={handleSubmitCompletion}
                   disabled={isSubmittingCompletion}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingCompletion && <RefreshCw size={12} className="animate-spin" />}
                   Çözümü Kaydet

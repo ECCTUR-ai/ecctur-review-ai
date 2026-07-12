@@ -15,41 +15,21 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  PieChart, 
-  Pie, 
-  Cell 
+  Tooltip
 } from 'recharts';
 import { 
-  Calendar, 
-  TrendingUp, 
-  TrendingDown,
   Download, 
   Star, 
   MessageSquare, 
-  CheckCircle, 
   Clock, 
   Percent, 
   AlertTriangle, 
   Sparkles, 
-  Smile, 
-  Frown, 
   ShieldAlert,
   ArrowRight,
-  Sparkle,
-  CheckSquare,
-  Bookmark,
-  Globe,
-  Plane,
-  Building,
-  ArrowUpRight,
-  Languages
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
-
-const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#64748b'];
-
-
 
 export default function Reports() {
   const navigate = useNavigate();
@@ -60,7 +40,7 @@ export default function Reports() {
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
   const { t } = useTranslation();
 
-  const [pageState, setPageState] = usePersistentPageState('guestreview_reports_state_new', {
+  const [pageState, setPageState] = usePersistentPageState('guestreview_reports_state_v3', {
     dateFilter: '30d' as 'today' | '7d' | '30d' | '3m' | '6m' | '1y' | 'all'
   });
 
@@ -102,12 +82,12 @@ export default function Reports() {
   if (hasNoAssignedHotels) {
     return (
       <div className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
           <ShieldAlert size={22} />
         </div>
         <div className="space-y-1.5 max-w-sm">
-          <h3 className="text-sm font-bold text-slate-200">Otel Ataması Eksik</h3>
-          <p className="text-xs text-slate-400">
+          <h3 className="text-sm font-bold text-[#151827]">Otel Ataması Eksik</h3>
+          <p className="text-xs text-zinc-500">
             Hesabınıza atanmış herhangi bir otel bulunamadı. Lütfen yöneticinizle iletişime geçin.
           </p>
         </div>
@@ -192,26 +172,6 @@ export default function Reports() {
     };
   }, [filteredReviews]);
 
-  // Sentiment breakdown data
-  const sentimentData = useMemo(() => {
-    let positive = 0;
-    let neutral = 0;
-    let negative = 0;
-
-    filteredReviews.forEach(r => {
-      const ratingVal = r.rating || 3;
-      if (ratingVal >= 4) positive++;
-      else if (ratingVal <= 2) negative++;
-      else neutral++;
-    });
-
-    return [
-      { name: 'Olumlu', value: positive, color: '#10b981' },
-      { name: 'Nötr', value: neutral, color: '#f59e0b' },
-      { name: 'Olumsuz', value: negative, color: '#ef4444' }
-    ];
-  }, [filteredReviews]);
-
   // Category statistics helper
   const topicsStats = useMemo(() => {
     return Object.keys(CATEGORY_KEYWORDS).map(key => {
@@ -281,21 +241,24 @@ export default function Reports() {
     });
   }, [reviews, dateFilter]);
 
-  // Platform Performance table calculation
+  // Platform Performance table calculation including Otelpuan
   const platformStatsList = useMemo(() => {
     const platforms = [
       { name: 'Google', title: 'Google Reviews' },
       { name: 'Booking.com', title: 'Booking.com' },
       { name: 'TripAdvisor', title: 'TripAdvisor' },
       { name: 'Hotels.com', title: 'Hotels.com' },
-      { name: 'HolidayCheck', title: 'HolidayCheck' }
+      { name: 'HolidayCheck', title: 'HolidayCheck' },
+      { name: 'Otelpuan', title: 'Otelpuan' }
     ];
 
     return platforms.map(plat => {
       const list = filteredReviews.filter((r: any) => {
-        const norm = normalizeReviewPlatform(r.source || '').toLowerCase();
-        const normPlat = plat.name === 'Booking.com' ? 'booking' : plat.name.toLowerCase();
-        return norm === normPlat;
+        const norm = normalizeReviewPlatform(r.source || r.platform || '').toLowerCase();
+        let targetKey = plat.name.toLowerCase();
+        if (targetKey === 'booking.com') targetKey = 'booking';
+        if (targetKey === 'hotels.com') targetKey = 'hotelscom';
+        return norm === targetKey;
       });
 
       const count = list.length;
@@ -420,13 +383,13 @@ export default function Reports() {
 
     return sorted.map((dept, idx) => {
       let priority: 'Yüksek' | 'Orta' | 'Düşük' = 'Orta';
-      let badgeStyle = 'text-amber-700 bg-amber-50 border-amber-200/50';
+      let badgeStyle = 'text-amber-600 bg-amber-50 border-amber-100';
       if (idx === 0) {
         priority = 'Yüksek';
-        badgeStyle = 'text-rose-700 bg-rose-50 border-rose-200/50';
+        badgeStyle = 'text-rose-600 bg-rose-50 border-rose-100';
       } else if (idx === 2) {
         priority = 'Düşük';
-        badgeStyle = 'text-blue-700 bg-blue-50 border-blue-200/50';
+        badgeStyle = 'text-blue-600 bg-blue-50 border-blue-100';
       }
 
       let impact = 'Genel memnuniyet skorunda toparlanma.';
@@ -491,28 +454,51 @@ export default function Reports() {
     }, 1800);
   };
 
+  const satisfactionTrendData = useMemo(() => {
+    const dates = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split('T')[0];
+    });
+
+    return dates.map(date => {
+      const matching = filteredReviews.filter(r => {
+        const rDate = r.review_date || r.created_at;
+        return rDate && rDate.startsWith(date);
+      });
+      const avg = matching.length > 0 
+        ? Math.round((matching.reduce((sum, r) => sum + r.rating, 0) / matching.length) * 20)
+        : 88;
+
+      return {
+        date: new Date(date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
+        Skor: Math.max(60, Math.min(100, avg))
+      };
+    });
+  }, [filteredReviews]);
+
   return (
-    <div className="space-y-6 text-slate-800 animate-fade-in">
+    <div className="space-y-6 text-[#151827] text-left">
       {/* Toast popup */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 border border-emerald-500/20 text-emerald-400 text-xs font-bold shadow-xl flex items-center gap-2 animate-bounce">
-          <CheckCircle size={14} />
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-white border border-[#E8EAF0] text-[#151827] text-xs font-bold shadow-xl flex items-center gap-2 animate-bounce">
+          <Sparkles size={14} className="text-[#6D5DF6]" />
           {toast}
         </div>
       )}
 
-      {/* 1. Header Area */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+      {/* Header Area */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#E8EAF0] pb-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-black text-slate-900 m-0">Yönetici Rapor Merkezi</h1>
-          <p className="text-xs text-slate-500 font-medium">
+          <h1 className="text-2xl font-black text-[#151827] m-0">Yönetici Rapor Merkezi</h1>
+          <p className="text-xs text-zinc-500 font-medium">
             Platform performansı, misafir memnuniyeti ve AI aksiyon önerileri
           </p>
         </div>
 
         {/* Time filters & PDF/Excel exports */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/50 shadow-inner">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
             {[
               { id: 'today', label: 'Bugün' },
               { id: '7d', label: '7 Gün' },
@@ -527,7 +513,7 @@ export default function Reports() {
                 onClick={() => setDateFilter(f.id as any)}
                 className={`px-3 py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer ${
                   dateFilter === f.id
-                    ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/30'
+                    ? 'bg-[#6D5DF6] text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -546,7 +532,7 @@ export default function Reports() {
             </button>
             <button
               onClick={() => exportReport('pdf')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer shadow-md shadow-indigo-500/10"
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white font-bold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer shadow-md"
             >
               <Download size={13} />
               <span>PDF</span>
@@ -557,38 +543,38 @@ export default function Reports() {
 
       {loading ? (
         <div className="space-y-6">
-          <div className="h-28 bg-slate-100/50 rounded-2xl animate-pulse" />
+          <div className="h-28 bg-white border border-[#E8EAF0] rounded-2xl animate-pulse" />
           <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-20 bg-slate-100/50 rounded-2xl animate-pulse" />
+              <div key={i} className="h-20 bg-white border border-[#E8EAF0] rounded-2xl animate-pulse" />
             ))}
           </div>
         </div>
       ) : filteredReviews.length === 0 ? (
-        <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-sm space-y-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center shadow-sm space-y-4">
           <ShieldAlert className="mx-auto text-slate-300 animate-pulse" size={44} />
-          <h3 className="text-sm font-bold text-slate-800">Bu dönem için veri yok</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          <h3 className="text-sm font-bold text-[#151827]">Bu dönem için veri yok</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto">
             Seçilen zaman diliminde herhangi bir yorum bulunmamaktadır. Lütfen zaman filtresini değiştirin.
           </p>
         </div>
       ) : (
         <>
-          {/* 2. KPI Cards */}
+          {/* KPI Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
             {[
-              { title: 'Toplam Yorum', val: stats.total, colorBg: 'bg-blue-50 text-blue-600', icon: <MessageSquare size={14} /> },
+              { title: 'Toplam Yorum', val: stats.total, colorBg: 'bg-blue-50 text-blue-650', icon: <MessageSquare size={14} /> },
               { title: 'Ortalama Puan', val: `${stats.avgRating} / 5`, colorBg: 'bg-amber-50 text-amber-600', icon: <Star size={14} className="fill-amber-500 text-amber-500" /> },
               { title: 'Cevap Bekleyen', val: stats.pending, colorBg: 'bg-rose-50 text-rose-600', icon: <Clock size={14} /> },
               { title: 'Kritik Yorum', val: stats.critical, colorBg: 'bg-red-50 text-red-650', icon: <AlertTriangle size={14} /> },
               { title: 'AI Cevap Hazır', val: stats.aiDraftsReady, colorBg: 'bg-purple-50 text-purple-600', icon: <Sparkles size={14} /> },
-              { title: 'Ortalama Yanıt', val: stats.avgTime, colorBg: 'bg-teal-50 text-teal-600', icon: <Percent size={14} /> }
+              { title: 'Ortalama Yanıt', val: stats.avgTime, colorBg: 'bg-teal-50 text-teal-650', icon: <Percent size={14} /> }
             ].map(kpi => (
-              <div key={kpi.title} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <div key={kpi.title} className="bg-white border border-[#E8EAF0] p-5 rounded-2xl shadow-sm flex flex-col justify-between">
                 <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{kpi.title}</span>
                 <div className="flex items-center justify-between mt-3.5">
-                  <span className="text-lg font-black text-slate-900 leading-none">{kpi.val}</span>
-                  <div className={`p-2 rounded-xl ${kpi.colorBg} shrink-0 border border-slate-100/50`}>
+                  <span className="text-lg font-black text-[#151827] leading-none">{kpi.val}</span>
+                  <div className={`p-2 rounded-xl ${kpi.colorBg} shrink-0`}>
                     {kpi.icon}
                   </div>
                 </div>
@@ -596,54 +582,54 @@ export default function Reports() {
             ))}
           </div>
 
-          {/* 3. AI Yönetici Özeti (Card A) */}
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm">
+          {/* AI Yönetici Özeti (Card A) */}
+          <div className="bg-white border border-[#E8EAF0] p-6 rounded-3xl shadow-sm">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3.5 mb-4">
-              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-650"><Sparkles size={14} /></span>
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">AI Yönetici Özeti</h3>
+              <span className="p-1.5 rounded-lg bg-[#F0EDFF] text-[#6D5DF6]"><Sparkles size={14} /></span>
+              <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">AI Yönetici Özeti</h3>
             </div>
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {executiveSummaryBullets.map((bullet, idx) => (
-                <li key={idx} className="text-xs text-slate-700 font-bold leading-relaxed flex items-start gap-2 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/30">
-                  <span className="text-indigo-600 shrink-0">•</span>
+                <li key={idx} className="text-xs text-zinc-650 font-bold leading-relaxed flex items-start gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100/30">
+                  <span className="text-[#6D5DF6] shrink-0">•</span>
                   <span>{bullet}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* 4. Priorities & Strengths Sections (Cards B & C) */}
+          {/* Priorities & Strengths Sections (Cards B & C) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Card B: Öncelikli Aksiyonlar */}
-            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm space-y-4">
+            <div className="bg-white border border-[#E8EAF0] p-6 rounded-3xl shadow-sm space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3.5">
                 <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600"><AlertTriangle size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Öncelikli Aksiyonlar</h3>
+                <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">Öncelikli Aksiyonlar</h3>
               </div>
               <div className="space-y-3.5">
                 {priorityActions.map(action => (
-                  <div key={action.key} className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                  <div key={action.key} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase border ${action.badgeStyle}`}>
+                        <span className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase border ${action.badgeStyle}`}>
                           {action.priority} Öncelik
                         </span>
-                        <h4 className="text-xs font-extrabold text-slate-900">{action.label}</h4>
+                        <h4 className="text-xs font-extrabold text-[#151827]">{action.label}</h4>
                       </div>
-                      <p className="text-[10px] text-slate-500 font-medium">
+                      <p className="text-[10px] text-zinc-500 font-medium">
                         Şikayet Sayısı: <strong className="text-rose-600">{action.complaints} olumsuz</strong> • {action.impact}
                       </p>
                     </div>
                     <button
-                      onClick={() => navigate(`/reviews?sentiment=negative&category=${action.key}`)}
-                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-[10px] uppercase rounded-xl transition-all cursor-pointer shadow-sm text-center"
+                      onClick={() => navigate(`/reviews?status=pending&category=${action.key}`)}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-[#151827] font-bold text-[10px] uppercase rounded-xl transition-all cursor-pointer shadow-sm text-center"
                     >
                       İlgili Yorumları Gör
                     </button>
                   </div>
                 ))}
                 {priorityActions.length === 0 && (
-                  <div className="text-center py-6 text-slate-400 text-xs font-bold">
+                  <div className="text-center py-6 text-zinc-400 text-xs font-bold">
                     Seçilen dönemde giderilmesi gereken kritik şikayet/aksiyon bulunmuyor.
                   </div>
                 )}
@@ -651,30 +637,30 @@ export default function Reports() {
             </div>
 
             {/* Card C: Güçlü Yönler */}
-            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm space-y-4">
+            <div className="bg-white border border-[#E8EAF0] p-6 rounded-3xl shadow-sm space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3.5">
                 <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-650"><Star size={14} className="fill-emerald-500 text-emerald-500" /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Güçlü Yönler</h3>
+                <h3 className="text-xs font-black text-[#151827] uppercase tracking-wider">Güçlü Yönler</h3>
               </div>
               <div className="space-y-3.5">
                 {strongPoints.map(point => (
-                  <div key={point.key} className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                  <div key={point.key} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div className="space-y-1.5">
-                      <h4 className="text-xs font-extrabold text-slate-900">{point.label}</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        Puan Ortalaması: <strong className="text-emerald-600">{point.avg} ★</strong> • Takdir Sayısı: <strong className="text-slate-800">{point.praises} olumlu</strong>
+                      <h4 className="text-xs font-extrabold text-[#151827]">{point.label}</h4>
+                      <p className="text-[10px] text-zinc-500 font-medium">
+                        Puan Ortalaması: <strong className="text-emerald-600">{point.avg} ★</strong> • Takdir Sayısı: <strong className="text-[#151827]">{point.praises} olumlu</strong>
                       </p>
                     </div>
                     <button
-                      onClick={() => navigate(`/reviews?sentiment=positive&category=${point.key}`)}
-                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-[10px] uppercase rounded-xl transition-all cursor-pointer shadow-sm text-center"
+                      onClick={() => navigate(`/reviews?status=approved&category=${point.key}`)}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-[#151827] font-bold text-[10px] uppercase rounded-xl transition-all cursor-pointer shadow-sm text-center"
                     >
                       Yorumları Gör
                     </button>
                   </div>
                 ))}
                 {strongPoints.length === 0 && (
-                  <div className="text-center py-6 text-slate-400 text-xs font-bold">
+                  <div className="text-center py-6 text-zinc-400 text-xs font-bold">
                     Seçilen dönemde yeterli olumlu geri bildirim toplayan departman bulunmuyor.
                   </div>
                 )}
@@ -682,10 +668,10 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* 5. Platform Performans Tablosu */}
+          {/* Platform Performans Tablosu */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Platform Performans Tablosu</h3>
-            <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+            <div className="bg-white border border-[#E8EAF0] rounded-3xl p-5 shadow-sm">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100 text-[11px]">
                   <thead className="bg-slate-50 font-bold text-slate-500">
@@ -700,22 +686,22 @@ export default function Reports() {
                       <th className="px-4 py-3 text-center">Trend</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                  <tbody className="divide-y divide-slate-100 text-zinc-700 bg-white">
                     {platformStatsList.map(plat => (
                       <tr key={plat.name} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 font-bold text-slate-800">{plat.title}</td>
+                        <td className="px-4 py-3 text-left font-bold text-[#151827]">{plat.title}</td>
                         <td className="px-4 py-3 text-center font-semibold">{plat.count}</td>
-                        <td className="px-4 py-3 text-center font-extrabold text-slate-900">{plat.avg > 0 ? `${plat.avg} ★` : '-'}</td>
+                        <td className="px-4 py-3 text-center font-extrabold text-[#151827]">{plat.avg > 0 ? `${plat.avg} ★` : '-'}</td>
                         <td className="px-4 py-3 text-center font-bold text-emerald-600">{plat.count > 0 ? `%${plat.posPct}` : '-'}</td>
                         <td className="px-4 py-3 text-center font-bold text-rose-600">{plat.count > 0 ? `%${plat.negPct}` : '-'}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-1.5 py-0.5 rounded font-extrabold text-[9px] ${
-                            plat.unanswered > 0 ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-slate-50 text-slate-400'
+                            plat.unanswered > 0 ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-slate-100 text-zinc-400'
                           }`}>
                             {plat.unanswered}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center text-slate-500 font-semibold">{plat.latestDate}</td>
+                        <td className="px-4 py-3 text-center text-zinc-555 font-semibold">{plat.latestDate}</td>
                         <td className="px-4 py-3 text-center">
                           {plat.count === 0 ? '-' :
                            plat.trend === 'up' ? <span className="inline-flex items-center gap-0.5 text-emerald-600 font-extrabold uppercase text-[9px]"><TrendingUp size={11} /> Artıyor</span> :
@@ -730,14 +716,14 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* 6. AI Yönetici Tavsiyesi (Card D) */}
-          <div className="bg-slate-50 border border-slate-100 p-5 rounded-3xl shadow-sm flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-650 shrink-0 border border-slate-100">
+          {/* AI Yönetici Tavsiyesi (Card D) */}
+          <div className="bg-[#F0EDFF] border border-[#6D5DF6]/20 p-5 rounded-3xl shadow-sm flex items-start gap-3.5 text-left">
+            <div className="p-2.5 rounded-xl bg-white text-[#6D5DF6] shrink-0 border border-[#6D5DF6]/25">
               <Sparkles size={16} />
             </div>
             <div className="space-y-1">
-              <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block">AI Yönetici Tavsiyesi</span>
-              <p className="text-xs text-slate-700 leading-relaxed font-bold">
+              <span className="text-[10px] text-zinc-500 font-black uppercase tracking-wider block">AI Yönetici Tavsiyesi</span>
+              <p className="text-xs text-[#151827] leading-relaxed font-bold">
                 {aiExecutiveAdviceText}
               </p>
             </div>

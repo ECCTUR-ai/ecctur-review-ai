@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { reviewService } from '@/services/reviewService';
-import { whatsappService } from '@/services/whatsappService';
 import { Review, Hotel } from '@/types';
 import { mapReview } from '@/repositories/reviewRepository';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
@@ -14,15 +13,8 @@ import {
   MessageSquare, 
   Clock, 
   AlertTriangle, 
-  Globe, 
-  Send,
-  RefreshCw,
-  Search,
-  Filter,
+  RefreshCw, 
   Check,
-  Languages,
-  TrendingDown,
-  TrendingUp,
   Brain,
   ListTodo,
   CheckSquare
@@ -39,12 +31,10 @@ interface KPIStats {
 
 export default function AiReplies() {
   const { t } = useTranslation();
-  const { roleKey, hotelIds, organizationId } = useAuth();
+  const { roleKey, hotelIds } = useAuth();
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: Hotel[] }>();
 
-  const isOwnerOrAdmin = roleKey === 'super_admin' || roleKey === 'admin' || roleKey === 'owner';
-
-  const [pageState, setPageState, resetPageState] = usePersistentPageState('guestreview_ai_replies_state', {
+  const [pageState, setPageState] = usePersistentPageState('guestreview_ai_replies_state_v3', {
     activeTab: 'active' as 'active' | 'archived',
     search: '',
     selectedHotelId: 'all',
@@ -52,9 +42,6 @@ export default function AiReplies() {
     selectedRating: 'all' as number | 'all',
     selectedStatus: 'all',
     selectedDateRange: '30d',
-    customStartDate: '',
-    customEndDate: '',
-    selectedPublisherId: 'all',
     activePanelReview: null as Review | null,
     offset: 0,
     sortBy: 'newest' as 'newest' | 'oldest'
@@ -62,34 +49,17 @@ export default function AiReplies() {
 
   const {
     activeTab,
-    search,
     selectedHotelId,
     selectedPlatform,
     selectedRating,
-    selectedStatus,
-    selectedDateRange,
-    customStartDate,
-    customEndDate,
-    selectedPublisherId,
     activePanelReview,
-    offset,
     sortBy = 'newest'
   } = pageState;
 
   const setActiveTab = (val: 'active' | 'archived') => setPageState({ activeTab: val, offset: 0 });
-  const setSearch = (val: string) => setPageState({ search: val, offset: 0 });
   const setSelectedHotelId = (val: string) => setPageState({ selectedHotelId: val, offset: 0 });
-  const setSelectedPlatform = (val: string) => setPageState({ selectedPlatform: val, offset: 0 });
-  const setSelectedRating = (val: number | 'all') => setPageState({ selectedRating: val, offset: 0 });
-  const setSelectedStatus = (val: string) => setPageState({ selectedStatus: val, offset: 0 });
-  const setSelectedDateRange = (val: string) => setPageState({ selectedDateRange: val, offset: 0 });
   const setSortBy = (val: 'newest' | 'oldest') => setPageState({ sortBy: val, offset: 0 });
   const setActivePanelReview = (val: Review | null) => setPageState({ activePanelReview: val });
-  const setOffset = (val: number | ((prev: number) => number)) => {
-    setPageState(prev => ({
-      offset: typeof val === 'function' ? val(prev.offset) : val
-    }));
-  };
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +83,11 @@ export default function AiReplies() {
 
   const LIMIT = 25;
   const activeHotelId = selectedHotelId === 'all' ? currentHotelId : selectedHotelId;
+
+  // Clear selected panel review when hotel changes
+  useEffect(() => {
+    setActivePanelReview(null);
+  }, [selectedHotelId]);
 
   useEffect(() => {
     if (currentHotelId && selectedHotelId === 'all') {
@@ -229,9 +204,9 @@ export default function AiReplies() {
       if (activePanelReview?.id === review.id) {
         setActivePanelReview({ ...activePanelReview, response: text, status: 'draft' });
       }
-      alert('Draft saved successfully.');
+      alert('Taslak kaydedildi.');
     } catch (e: any) {
-      alert(e.message || 'Error saving draft');
+      alert(e.message || 'Hata oluştu');
     } finally {
       setSavingId(null);
     }
@@ -249,7 +224,7 @@ export default function AiReplies() {
         setActivePanelReview({ ...activePanelReview, response: aiReply, status: 'draft' });
       }
     } catch (e: any) {
-      alert(e.message || 'Error generating response');
+      alert(e.message || 'Cevap üretilemedi');
     } finally {
       setSavingId(null);
     }
@@ -266,14 +241,14 @@ export default function AiReplies() {
         ai_reply: text
       }).eq('id', review.id);
 
-      alert('Response published successfully.');
+      alert('Cevap yayınlandı.');
       setReviews(prev => prev.filter(r => r.id !== review.id));
       if (activePanelReview?.id === review.id) {
         setActivePanelReview(null);
       }
       fetchKPIStats();
     } catch (e: any) {
-      alert(e.message || 'Publishing error');
+      alert(e.message || 'Yayınlama hatası');
     } finally {
       setSavingId(null);
     }
@@ -293,10 +268,12 @@ export default function AiReplies() {
     }
   };
 
-  // Conversational explainer text for department drops
+  const activeHotel = hotels.find(h => h.id === activeHotelId);
+  const hotelName = activeHotel?.name || 'Seçili Otel';
+
   const conversationalExplainer = useMemo(() => {
     return {
-      greeting: "Merhaba, ben AI Operations Director. Sinnada Resort veritabanını tarayarak departman bazlı puan değişimlerini çıkardım:",
+      greeting: `Merhaba, ben AI Operations Director. ${hotelName} veritabanını tarayarak departman bazlı analizleri çıkardım:`,
       issues: [
         { dept: "Yiyecek & İçecek / Restoran", change: "-13%", desc: "Yemeklerin lezzeti ve kahvaltı servisindeki yavaşlık puan düşüşünün ana sebebi.", status: "critical" },
         { dept: "Ön Büro / Resepsiyon", change: "-4%", desc: "Giriş ve çıkış saatlerinde bekleme süresine yönelik şikayetler mevcut.", status: "warning" },
@@ -304,28 +281,28 @@ export default function AiReplies() {
       ],
       conclusion: "Bugün restoran departmanına yönelik düzeltici aksiyonlar almamız puan trendini toparlamak için kritik önem taşımaktadır."
     };
-  }, []);
+  }, [hotelName]);
 
   return (
-    <div className="space-y-6">
-      {/* Redesigned AI Reply Center Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-black text-white m-0 flex items-center gap-2">
-            <Brain className="text-indigo-400" size={24} />
+    <div className="space-y-6 text-[#151827]">
+      {/* AI Reply Center Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E8EAF0] pb-6">
+        <div className="space-y-1 text-left">
+          <h1 className="text-2xl font-black text-[#151827] m-0 flex items-center gap-2">
+            <Brain className="text-[#6D5DF6]" size={24} />
             AI Operations Director
           </h1>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-zinc-500">
             ChatGPT-style conversational dashboard managing review drafts and department drop analytics.
           </p>
         </div>
 
         {/* Tab pills */}
-        <div className="flex border border-white/10 gap-1 p-1 rounded-2xl bg-white/5">
+        <div className="flex border border-slate-200 gap-1 p-1 rounded-2xl bg-white">
           <button
             onClick={() => setActiveTab('active')}
             className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
-              activeTab === 'active' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-zinc-400'
+              activeTab === 'active' ? 'bg-[#6D5DF6] text-white shadow-sm' : 'text-zinc-555'
             }`}
           >
             Active Drafts
@@ -333,7 +310,7 @@ export default function AiReplies() {
           <button
             onClick={() => setActiveTab('archived')}
             className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
-              activeTab === 'archived' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-zinc-400'
+              activeTab === 'archived' ? 'bg-[#6D5DF6] text-white shadow-sm' : 'text-zinc-555'
             }`}
           >
             Published Archive
@@ -342,33 +319,33 @@ export default function AiReplies() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-panel p-4 rounded-2xl flex items-center gap-3">
-          <Clock className="text-amber-400" size={20} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
+        <div className="glass-panel p-4 rounded-[18px] bg-white border border-[#E8EAF0] flex items-center gap-3">
+          <Clock className="text-amber-500" size={20} />
           <div>
             <span className="text-[10px] text-zinc-500 font-bold block">BEKLEYEN CEVAP</span>
-            <span className="text-base font-extrabold text-white">{kpis.pendingResponse}</span>
+            <span className="text-base font-extrabold text-[#151827]">{kpis.pendingResponse}</span>
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-2xl flex items-center gap-3">
-          <MessageSquare className="text-indigo-400" size={20} />
+        <div className="glass-panel p-4 rounded-[18px] bg-white border border-[#E8EAF0] flex items-center gap-3">
+          <MessageSquare className="text-[#6D5DF6]" size={20} />
           <div>
             <span className="text-[10px] text-zinc-500 font-bold block">BUGÜN GELEN</span>
-            <span className="text-base font-extrabold text-white">{kpis.todayCount}</span>
+            <span className="text-base font-extrabold text-[#151827]">{kpis.todayCount}</span>
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-2xl flex items-center gap-3">
-          <Sparkles className="text-purple-400" size={20} />
+        <div className="glass-panel p-4 rounded-[18px] bg-white border border-[#E8EAF0] flex items-center gap-3">
+          <Sparkles className="text-purple-600" size={20} />
           <div>
             <span className="text-[10px] text-zinc-500 font-bold block">YAYINLANAN</span>
-            <span className="text-base font-extrabold text-white">{kpis.publishedResponse}</span>
+            <span className="text-base font-extrabold text-[#151827]">{kpis.publishedResponse}</span>
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-2xl flex items-center gap-3">
-          <AlertTriangle className="text-rose-400" size={20} />
+        <div className="glass-panel p-4 rounded-[18px] bg-white border border-[#E8EAF0] flex items-center gap-3">
+          <AlertTriangle className="text-rose-500" size={20} />
           <div>
             <span className="text-[10px] text-zinc-500 font-bold block">KRİTİK YORUM</span>
-            <span className="text-base font-extrabold text-white">{kpis.criticalCount}</span>
+            <span className="text-base font-extrabold text-[#151827]">{kpis.criticalCount}</span>
           </div>
         </div>
       </div>
@@ -376,10 +353,10 @@ export default function AiReplies() {
       {/* V2 CHATGPT 3-PANEL LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-16rem)] min-h-[580px] items-stretch">
         
-        {/* LEFT COLUMN: Critical Problems List (Width 25%) */}
-        <div className="lg:col-span-3 flex flex-col bg-[#121216]/40 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
-          <div className="p-4 border-b border-white/10 shrink-0 text-left">
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Kritik Problemler</span>
+        {/* LEFT COLUMN: Critical Problems List */}
+        <div className="lg:col-span-3 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
+          <div className="p-4 border-b border-[#E8EAF0] shrink-0 text-left">
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">Kritik Problemler</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5 scrollbar-thin">
@@ -395,14 +372,14 @@ export default function AiReplies() {
                     key={review.id}
                     onClick={() => setActivePanelReview(review)}
                     className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                      isSelected ? 'bg-rose-500/10 border-rose-500/35' : 'bg-white/[0.02] border-white/5 hover:bg-white/5'
+                      isSelected ? 'bg-[#F0EDFF] border-[#6D5DF6]/45' : 'bg-slate-50 border-slate-100 hover:bg-slate-100/50'
                     }`}
                   >
-                    <div className="flex justify-between items-center text-[10px] text-zinc-400 font-bold">
-                      <span className="text-rose-400">⚠️ CRITICAL</span>
+                    <div className="flex justify-between items-center text-[10px] text-zinc-500 font-bold">
+                      <span className="text-rose-600">⚠️ CRITICAL</span>
                       <span>{review.source}</span>
                     </div>
-                    <h4 className="text-xs font-bold text-white mt-1.5">{review.guestName || 'Guest'}</h4>
+                    <h4 className="text-xs font-bold text-[#151827] mt-1.5">{review.guestName || 'Guest'}</h4>
                     <p className="text-[10px] text-zinc-500 line-clamp-2 mt-1 leading-relaxed">{review.comment}</p>
                   </div>
                 );
@@ -411,12 +388,12 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* CENTER COLUMN: ChatGPT Suggestions & Chat (Width 50%) */}
-        <div className="lg:col-span-6 flex flex-col bg-[#121216]/40 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
-          <div className="p-4 border-b border-white/10 shrink-0 flex items-center justify-between">
-            <span className="text-xs font-bold text-white uppercase tracking-wider">AI Operations Assistant</span>
+        {/* CENTER COLUMN: ChatGPT Assistant Chat Area */}
+        <div className="lg:col-span-6 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
+          <div className="p-4 border-b border-[#E8EAF0] shrink-0 flex items-center justify-between">
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">AI Operations Assistant</span>
             {activePanelReview && (
-              <span className="text-[10px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[10px] text-[#6D5DF6] bg-[#F0EDFF] border border-[#6D5DF6]/20 px-2 py-0.5 rounded-full font-bold">
                 {activePanelReview.guestName || 'Misafir'}
               </span>
             )}
@@ -425,55 +402,55 @@ export default function AiReplies() {
           <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
             {/* Conversational AI Explainer Block */}
             <div className="flex items-start gap-3 text-left">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-500/10">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shrink-0 shadow-md">
                 🤖
               </div>
-              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-xs leading-relaxed text-zinc-300 max-w-[85%] space-y-3">
-                <p className="font-semibold text-white">{conversationalExplainer.greeting}</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs leading-relaxed text-zinc-650 max-w-[85%] space-y-3">
+                <p className="font-bold text-[#151827]">{conversationalExplainer.greeting}</p>
                 <div className="space-y-2">
                   {conversationalExplainer.issues.map((iss, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5">
+                    <div key={idx} className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-[#E8EAF0]">
                       <div>
-                        <strong className="text-white block">{iss.dept}</strong>
+                        <strong className="text-[#151827] block">{iss.dept}</strong>
                         <span className="text-[10px] text-zinc-500">{iss.desc}</span>
                       </div>
                       <span className={`text-[10px] font-black uppercase ${
-                        iss.status === 'critical' ? 'text-rose-400' :
-                        iss.status === 'warning' ? 'text-amber-400' : 'text-emerald-400'
+                        iss.status === 'critical' ? 'text-rose-600' :
+                        iss.status === 'warning' ? 'text-amber-600' : 'text-emerald-600'
                       }`}>
                         {iss.change}
                       </span>
                     </div>
                   ))}
                 </div>
-                <p className="font-medium text-zinc-400">{conversationalExplainer.conclusion}</p>
+                <p className="font-semibold text-zinc-500">{conversationalExplainer.conclusion}</p>
               </div>
             </div>
 
             {/* Selected Review Details Panel */}
             {activePanelReview && (
-              <div className="flex items-start gap-3 text-left pt-4 border-t border-white/5">
-                <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0">
+              <div className="flex items-start gap-3 text-left pt-4 border-t border-[#E8EAF0]">
+                <div className="w-8 h-8 rounded-xl bg-slate-50 border border-[#E8EAF0] flex items-center justify-center text-[#151827] shrink-0">
                   👤
                 </div>
-                <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-4">
+                <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="text-xs font-bold text-white">{activePanelReview.guestName || 'Misafir'}</h4>
-                      <span className="text-[10px] text-zinc-500">{activePanelReview.source} &bull; {activePanelReview.review_date ? new Date(activePanelReview.review_date).toLocaleDateString('tr-TR') : 'Date unknown'}</span>
+                      <h4 className="text-xs font-bold text-[#151827]">{activePanelReview.guestName || 'Misafir'}</h4>
+                      <span className="text-[10px] text-zinc-555">{activePanelReview.source} &bull; {activePanelReview.review_date ? new Date(activePanelReview.review_date).toLocaleDateString('tr-TR') : 'Date unknown'}</span>
                     </div>
-                    <span className="text-xs font-bold text-amber-400">★ {activePanelReview.rating}</span>
+                    <span className="text-xs font-bold text-amber-600">★ {activePanelReview.rating}</span>
                   </div>
-                  <p className="text-xs text-zinc-400 italic">"{activePanelReview.comment}"</p>
+                  <p className="text-xs text-zinc-500 italic">"{activePanelReview.comment}"</p>
 
                   {/* Reply Editor */}
                   <div className="space-y-2">
-                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide block">Edit AI Response Draft</span>
+                    <span className="text-[9px] font-bold text-[#6D5DF6] uppercase tracking-wide block">Edit AI Response Draft</span>
                     <textarea
                       value={editTexts[activePanelReview.id] || ''}
                       onChange={(e) => handleTextChange(activePanelReview.id, e.target.value)}
                       rows={5}
-                      className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none"
+                      className="w-full bg-white border border-[#E8EAF0] rounded-xl p-3 text-xs text-[#151827] focus:outline-none"
                     />
                   </div>
 
@@ -482,21 +459,21 @@ export default function AiReplies() {
                     <button
                       onClick={() => handleSaveDraft(activePanelReview)}
                       disabled={savingId === activePanelReview.id}
-                      className="flex-1 py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-[10px] rounded-xl transition-all cursor-pointer"
+                      className="flex-1 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-[#151827] font-bold text-[10px] rounded-xl transition-all cursor-pointer"
                     >
                       Save Draft
                     </button>
                     <button
                       onClick={() => handleRegenerateAI(activePanelReview)}
                       disabled={savingId === activePanelReview.id}
-                      className="flex-1 py-2 bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-purple-400 font-bold text-[10px] rounded-xl transition-all cursor-pointer"
+                      className="flex-1 py-2 bg-[#F0EDFF] border border-[#6D5DF6]/20 hover:bg-purple-100 text-[#6D5DF6] font-bold text-[10px] rounded-xl transition-all cursor-pointer"
                     >
                       Regenerate
                     </button>
                     <button
                       onClick={() => handlePublish(activePanelReview)}
                       disabled={savingId === activePanelReview.id}
-                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] rounded-xl transition-all cursor-pointer"
+                      className="flex-1 py-2 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white font-bold text-[10px] rounded-xl transition-all cursor-pointer"
                     >
                       Publish Reply
                     </button>
@@ -507,10 +484,10 @@ export default function AiReplies() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Trends & Department Drop benchmarks (Width 25%) */}
-        <div className="lg:col-span-3 flex flex-col bg-[#121216]/40 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
-          <div className="p-4 border-b border-white/10 shrink-0 text-left">
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Trendler & Analiz</span>
+        {/* RIGHT COLUMN: Benchmarks & Task Checklists */}
+        <div className="lg:col-span-3 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
+          <div className="p-4 border-b border-[#E8EAF0] shrink-0 text-left">
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">Trendler & Analiz</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin text-left">
@@ -526,13 +503,13 @@ export default function AiReplies() {
                   { name: 'Teknik Servis', pct: 75, trend: 'neutral', color: 'bg-purple-500', change: '-%1' }
                 ].map((item, idx) => (
                   <div key={idx} className="space-y-1">
-                    <div className="flex justify-between items-center text-[10px] font-semibold text-zinc-400">
+                    <div className="flex justify-between items-center text-[10px] font-semibold text-zinc-500">
                       <span>{item.name}</span>
-                      <span className={item.trend === 'up' ? 'text-emerald-400' : item.trend === 'down' ? 'text-rose-400' : 'text-zinc-500'}>
+                      <span className={item.trend === 'up' ? 'text-emerald-600' : item.trend === 'down' ? 'text-rose-600' : 'text-zinc-500'}>
                         {item.change}
                       </span>
                     </div>
-                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
                       <div style={{ width: `${item.pct}%` }} className={`h-full rounded-full ${item.color}`} />
                     </div>
                   </div>
@@ -541,7 +518,7 @@ export default function AiReplies() {
             </div>
 
             {/* Quick TODO checklist */}
-            <div className="space-y-3 pt-4 border-t border-white/5">
+            <div className="space-y-3 pt-4 border-t border-[#E8EAF0]">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
                 <ListTodo size={11} />
                 Bugün Yapılması Gerekenler
@@ -553,14 +530,14 @@ export default function AiReplies() {
                   { text: 'Resepsiyon bekleme süresi görevini ata.', checked: false },
                   { text: 'Temizlik ekibine teşekkür notu ilet.', checked: true }
                 ].map((todo, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-[10px] leading-relaxed text-zinc-400 bg-white/[0.01] border border-white/5 p-2 rounded-xl">
+                  <div key={idx} className="flex items-start gap-2 text-[10px] leading-relaxed text-zinc-500 bg-slate-50 border border-slate-100 p-2 rounded-xl">
                     <input 
                       type="checkbox" 
                       checked={todo.checked} 
                       readOnly 
-                      className="w-3.5 h-3.5 rounded text-indigo-600 border-white/10 bg-black cursor-pointer mt-0.5" 
+                      className="w-3.5 h-3.5 rounded text-indigo-650 border-[#E8EAF0] bg-white cursor-pointer mt-0.5" 
                     />
-                    <span className={todo.checked ? 'line-through text-zinc-650' : ''}>{todo.text}</span>
+                    <span className={todo.checked ? 'line-through text-zinc-400' : ''}>{todo.text}</span>
                   </div>
                 ))}
               </div>
