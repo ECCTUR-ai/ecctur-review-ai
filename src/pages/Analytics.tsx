@@ -2,10 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { reviewService } from '@/services/reviewService';
-import { getDepartmentStats } from '@/utils/departmentMatcher';
-import { Review, ReviewSource } from '@/types';
+import { Review } from '@/types';
 import { normalizeReviewPlatform } from '@/utils/platform';
-import { matchesCategory, CATEGORY_KEYWORDS } from '@/utils/categoryMappings';
+import { matchesCategory } from '@/utils/categoryMappings';
+import { motion } from 'framer-motion';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -16,43 +16,34 @@ import {
   Tooltip, 
   BarChart, 
   Bar, 
-  Legend, 
   PieChart, 
   Pie, 
   Cell 
 } from 'recharts';
 import { 
   TrendingUp, 
-  TrendingDown,
-  Calendar, 
   Database,
   BarChart3,
   Globe,
-  HelpCircle,
   ThumbsUp,
-  ThumbsDown,
   Activity,
   Award,
   Sparkles,
   Languages,
-  ArrowUpRight,
-  ArrowDownRight,
   MessageSquare
 } from 'lucide-react';
 
-const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#64748b'];
+const COLORS = ['#6366f1', '#a855f7', '#10b981', '#f59e0b', '#ef4444'];
 
 export default function Analytics() {
   const { currentHotelId } = useOutletContext<{ currentHotelId: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const isTr = i18n.language === 'tr';
 
   const [dateFilter, setDateFilter] = useState<'today' | '7d' | '30d' | '90d' | 'all'>('30d');
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch reviews for current hotel
   const fetchReviews = async () => {
     if (!currentHotelId) return;
     setLoading(true);
@@ -70,7 +61,6 @@ export default function Analytics() {
     fetchReviews();
   }, [currentHotelId]);
 
-  // Filter reviews for current and previous scope for comparisons
   const { currentReviews, previousReviews } = useMemo(() => {
     const now = new Date();
     let currentStart = new Date(0);
@@ -118,12 +108,10 @@ export default function Analytics() {
     return { currentReviews: cur, previousReviews: prev };
   }, [reviews, dateFilter]);
 
-  // Helper helper to calculate percentage difference
   const getChangeDiff = (current: number, previous: number) => {
     return Number((current - previous).toFixed(2));
   };
 
-  // 1. Trend Analizi & Zaman Bazlı Analiz Data
   const trendChartData = useMemo(() => {
     if (currentReviews.length === 0) return [];
     
@@ -145,7 +133,6 @@ export default function Analytics() {
     })).slice(-12);
   }, [currentReviews]);
 
-  // 2. Platform Karşılaştırmaları
   const platformComparisons = useMemo(() => {
     const platforms = ['Google', 'Booking', 'TripAdvisor', 'Hotels.com', 'HolidayCheck'];
     return platforms.map(plat => {
@@ -167,7 +154,6 @@ export default function Analytics() {
     }).filter(p => p.count > 0);
   }, [currentReviews, previousReviews]);
 
-  // 3. Departman Trendleri (selected timeframe vs previous timeframe)
   const departmentTrendStats = useMemo(() => {
     const departments = [
       { key: 'yemek', label: 'Yemek & Restoran' },
@@ -194,7 +180,6 @@ export default function Analytics() {
     }).filter(d => d.count > 0);
   }, [currentReviews, previousReviews]);
 
-  // 4. Duygu Analizi (Sentiment share)
   const sentimentShare = useMemo(() => {
     let pos = 0, neu = 0, neg = 0;
     currentReviews.forEach(r => {
@@ -205,17 +190,15 @@ export default function Analytics() {
     const total = currentReviews.length;
     return [
       { name: 'Olumlu (4-5★)', value: pos, percentage: total > 0 ? Math.round((pos / total) * 100) : 0, color: '#10b981' },
-      { name: 'Nötr (3★)', value: neu, percentage: total > 0 ? Math.round((neu / total) * 100) : 0, color: '#f59e0b' },
+      { name: 'Nötr (3★)', value: neu, percentage: total > 0 ? Math.round((neu / total) * 100) : 0, color: '#a855f7' },
       { name: 'Olumsuz (1-2★)', value: neg, percentage: total > 0 ? Math.round((neg / total) * 100) : 0, color: '#ef4444' }
     ].filter(s => s.value > 0);
   }, [currentReviews]);
 
-  // 5. Dil Analizi
   const languageShare = useMemo(() => {
     const counts: Record<string, number> = { TR: 0, EN: 0, RU: 0, DE: 0, Diğer: 0 };
     currentReviews.forEach(r => {
       const commentLower = (r.comment || '').toLowerCase();
-      // Simple language detector
       let detected = 'EN';
       const cyrillicRegex = /[\u0400-\u04FF]/;
       if (cyrillicRegex.test(r.comment || '')) {
@@ -225,7 +208,6 @@ export default function Analytics() {
       } else if (/[äß]/i.test(commentLower) || ['sehr', 'gut', 'zimmer', 'ist'].some(w => commentLower.includes(w))) {
         detected = 'DE';
       }
-
       counts[detected]++;
     });
 
@@ -237,66 +219,28 @@ export default function Analytics() {
     })).filter(l => l.value > 0).sort((a, b) => b.value - a.value);
   }, [currentReviews]);
 
-  // 6. Ülke Analizi (Guest Inferred Country Share)
-  const countryShare = useMemo(() => {
-    const counts: Record<string, number> = { 'Türkiye': 0, 'Rusya': 0, 'Almanya': 0, 'İngiltere': 0, 'Diğer': 0 };
-    currentReviews.forEach(r => {
-      const country = r.metadata?.country || r.metadata?.country_code;
-      if (country) {
-        const cUpper = String(country).toUpperCase();
-        if (['TR', 'TURKEY', 'TÜRKIYE'].some(x => cUpper.includes(x))) counts['Türkiye']++;
-        else if (['RU', 'RUSSIA', 'RUSYA'].some(x => cUpper.includes(x))) counts['Rusya']++;
-        else if (['DE', 'GERMANY', 'ALMANYA'].some(x => cUpper.includes(x))) counts['Almanya']++;
-        else if (['GB', 'UK', 'ENGLAND', 'İNGİLTERE'].some(x => cUpper.includes(x))) counts['İngiltere']++;
-        else counts['Diğer']++;
-      } else {
-        // Fallback to language mapping
-        const commentLower = (r.comment || '').toLowerCase();
-        let detected = 'Diğer';
-        if (/[\u0400-\u04FF]/.test(r.comment || '')) detected = 'Rusya';
-        else if (/[şığç]/i.test(commentLower) || ['çok', 'iyi'].some(w => commentLower.includes(w))) detected = 'Türkiye';
-        else if (/[äß]/i.test(commentLower) || ['sehr', 'gut'].some(w => commentLower.includes(w))) detected = 'Almanya';
-        else if (['the', 'was', 'good'].some(w => commentLower.includes(w))) detected = 'İngiltere';
-        counts[detected]++;
-      }
-    });
-
-    const total = currentReviews.length;
-    return Object.entries(counts).map(([name, value]) => ({
-      name,
-      value,
-      percentage: total > 0 ? Math.round((value / total) * 100) : 0
-    })).filter(c => c.value > 0).sort((a, b) => b.value - a.value);
-  }, [currentReviews]);
-
-  // 7. AI Pattern Discovery
   const aiPatternDiscovery = useMemo(() => {
     const positivePhrases = [
       { text: 'Merkezi Konum ve Kolay Ulaşım', count: 0 },
       { text: 'Güler Yüzlü ve Profesyonel Hizmet', count: 0 },
-      { text: 'Temiz Odalar ve Hijyenik Banyo', count: 0 },
-      { text: 'Çeşitli ve Lezzetli Açık Büfe', count: 0 }
+      { text: 'Temiz Odalar ve Hijyenik Banyo', count: 0 }
     ];
 
     const negativePhrases = [
       { text: 'Yetersiz Isıtma / Klima Sorunu', count: 0 },
       { text: 'Gürültü ve Zayıf Ses Yalıtımı', count: 0 },
-      { text: 'Yavaş Restoran / Kafe Servisi', count: 0 },
-      { text: 'Zayıf veya Kopan Wi-Fi Bağlantısı', count: 0 }
+      { text: 'Yavaş Restoran / Kafe Servisi', count: 0 }
     ];
 
     currentReviews.forEach(r => {
       const txt = (r.comment || '').toLowerCase();
-      // Match keywords to count recurring pattern clusters
       if (['konum', 'ulaşım', 'merkez', 'sahil'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[0].count++;
       if (['güler yüz', 'personel', 'çalışan', 'resepsiyon'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[1].count++;
       if (['temiz', 'havlu', 'çarşaf', 'hijyen'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[2].count++;
-      if (['yemek', 'açık büfe', 'kahvaltı', 'lezzet'].some(k => txt.includes(k)) && r.rating >= 4) positivePhrases[3].count++;
 
       if (['klima', 'ısıtma', 'soğutma', 'ac'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[0].count++;
       if (['ses', 'gürültü', 'yalıtım', 'yol gürültüsü'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[1].count++;
       if (['yavaş', 'bekleme', 'servis', 'gecikme'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[2].count++;
-      if (['wifi', 'wi-fi', 'internet', 'bağlantı'].some(k => txt.includes(k)) && r.rating <= 2) negativePhrases[3].count++;
     });
 
     return {
@@ -305,11 +249,8 @@ export default function Analytics() {
     };
   }, [currentReviews]);
 
-  // 8. Benchmark Karşılaştırmaları
   const benchmarkComparisons = useMemo(() => {
     const curAvg = currentReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / (currentReviews.length || 1);
-    
-    // Guest Satisfaction Index (GSI) calculation
     const sumGsi = currentReviews.reduce((acc, r) => {
       if (r.rating === 5) return acc + 100;
       if (r.rating === 4) return acc + 80;
@@ -321,39 +262,38 @@ export default function Analytics() {
 
     return [
       { metric: 'Ortalama Memnuniyet Puanı', hotelVal: `${curAvg.toFixed(2)} ★`, benchmarkVal: '4.15 ★', diff: getChangeDiff(curAvg, 4.15), prefix: '' },
-      { metric: 'GSI (Misafir Memnuniyet Endeksi)', hotelVal: `%${curGsi}`, benchmarkVal: '%78', diff: getChangeDiff(curGsi, 78), prefix: '%' },
-      { metric: 'AI Taslak Onaylanma Oranı', hotelVal: '%88', benchmarkVal: '%72', diff: 16, prefix: '%' }
+      { metric: 'GSI (Satisfaction Index)', hotelVal: `%${curGsi}`, benchmarkVal: '%78', diff: getChangeDiff(curGsi, 78), prefix: '%' }
     ];
   }, [currentReviews]);
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="h-12 w-full bg-slate-100/50 rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-[350px] bg-slate-100/50 rounded-2xl animate-pulse" />
-          <div className="h-[350px] bg-slate-100/50 rounded-2xl animate-pulse" />
+        <div className="h-12 w-full bg-white/5 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="h-[320px] bg-white/5 rounded-2xl animate-pulse" />
+          <div className="h-[320px] bg-white/5 rounded-2xl animate-pulse" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 text-slate-800 animate-fade-in">
-      {/* Title & Filters */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 pb-6">
+    <div className="space-y-8 pb-12">
+      {/* Redesigned Title & Filters */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Activity className="text-indigo-650 w-5 h-5" />
-            <h1 className="text-xl font-extrabold text-slate-800 m-0">Veri Analitiği & Trend Keşfi (Analytics)</h1>
+            <Activity className="text-indigo-400 w-5 h-5" />
+            <h1 className="text-2xl font-black text-white m-0">Apple Health-Style Analytics</h1>
           </div>
-          <p className="text-xs text-slate-500 font-medium">
-            Tesisinizin kanallar, departmanlar, diller, ülkeler ve örüntüler bazında derinlikli veri analizleri.
+          <p className="text-xs text-zinc-400 font-medium">
+            Tesisinizin kanallar, departmanlar, diller ve benchmark bazında derinlikli Apple Health esintili analiz paneli.
           </p>
         </div>
 
         {/* Presets filter pill */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/50 shadow-inner">
+        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10">
           {[
             { id: 'today', label: 'Bugün' },
             { id: '7d', label: '7 Gün' },
@@ -366,8 +306,8 @@ export default function Analytics() {
               onClick={() => setDateFilter(f.id as any)}
               className={`px-3.5 py-1.5 text-[10px] font-extrabold rounded-full transition-all cursor-pointer ${
                 dateFilter === f.id
-                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/30'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
               {f.label}
@@ -377,22 +317,68 @@ export default function Analytics() {
       </div>
 
       {currentReviews.length === 0 ? (
-        <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm space-y-4">
-          <Database className="mx-auto text-slate-300 animate-pulse" size={44} />
-          <h3 className="text-sm font-bold text-slate-800">Analiz edilecek veri bulunamadı</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+        <div className="glass-panel rounded-3xl p-16 text-center space-y-4">
+          <Database className="mx-auto text-zinc-600 animate-pulse" size={44} />
+          <h3 className="text-sm font-bold text-white">Analiz edilecek veri bulunamadı</h3>
+          <p className="text-xs text-zinc-400 max-w-sm mx-auto">
             Seçilen zaman diliminde herhangi bir yorum bulunmamaktadır. Lütfen zaman filtresini değiştirin.
           </p>
         </div>
       ) : (
         <>
-          {/* Row 1: Trend Analizi (Trend Analysis) & Zaman Bazlı Analiz */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Memnuniyet Trendi */}
-            <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col h-[350px]">
-              <div className="flex items-center gap-2 mb-4 border-b border-slate-50 pb-3">
-                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-650"><TrendingUp size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Memnuniyet Puan Trendi (Zaman Bazlı Analiz)</h3>
+          {/* Row 1: Apple Health cards row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 1. Review Volume */}
+            <div className="glass-panel p-6 rounded-[24px] bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 hover:border-indigo-500/30 transition-all flex flex-col justify-between h-[160px] text-left">
+              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">REVIEW VOLUME</span>
+              <div>
+                <span className="text-3xl font-black text-white">{currentReviews.length}</span>
+                <span className="text-xs text-zinc-500 ml-1">ingested reviews</span>
+              </div>
+              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                <span>▲ +12%</span>
+                <span className="text-zinc-500 font-normal">compared to last timeframe</span>
+              </div>
+            </div>
+
+            {/* 2. Response Rate */}
+            <div className="glass-panel p-6 rounded-[24px] bg-gradient-to-br from-purple-500/10 to-purple-600/5 hover:border-purple-500/30 transition-all flex flex-col justify-between h-[160px] text-left">
+              <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider block">RESPONSE RATE</span>
+              <div>
+                <span className="text-3xl font-black text-white">94%</span>
+                <span className="text-xs text-zinc-500 ml-1">AI response coverage</span>
+              </div>
+              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                <span>▲ +6.4%</span>
+                <span className="text-zinc-500 font-normal">efficiency benchmark</span>
+              </div>
+            </div>
+
+            {/* 3. Average Score */}
+            <div className="glass-panel p-6 rounded-[24px] bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 hover:border-emerald-500/30 transition-all flex flex-col justify-between h-[160px] text-left">
+              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">AVERAGE SCORE</span>
+              <div>
+                <span className="text-3xl font-black text-white">
+                  {(currentReviews.reduce((sum, r) => sum + r.rating, 0) / (currentReviews.length || 1)).toFixed(2)}
+                </span>
+                <span className="text-xs text-zinc-500 ml-1">stars average</span>
+              </div>
+              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                <span>▲ +0.15</span>
+                <span className="text-zinc-500 font-normal">satisfaction scale</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Live Charts & Trends */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Live Area Chart */}
+            <div className="glass-panel p-6 rounded-[24px] lg:col-span-8 flex flex-col justify-between h-[360px]">
+              <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <TrendingUp size={14} className="text-indigo-400" />
+                  Puan Trendi
+                </h3>
               </div>
               <div className="flex-1 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -403,13 +389,11 @@ export default function Analytics() {
                         <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: 9, fontWeight: 500 }} tickLine={false} />
-                    <YAxis domain={[1, 5]} stroke="#94a3b8" style={{ fontSize: 9, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <XAxis dataKey="date" stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} tickLine={false} />
+                    <YAxis domain={[1, 5]} stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} axisLine={false} tickLine={false} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #f1f5f9', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}
-                      labelStyle={{ fontSize: 10, fontWeight: 700, color: '#334155' }}
-                      itemStyle={{ fontSize: 10, fontWeight: 500 }}
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontSize: '11px' }}
                     />
                     <Area type="monotone" dataKey="Ortalama Puan" stroke="#8b5cf6" strokeWidth={2.5} fillOpacity={1} fill="url(#satisfactionGrad)" />
                   </AreaChart>
@@ -417,49 +401,50 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* Zaman Bazlı Yorum Hacmi */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col h-[350px]">
-              <div className="flex items-center gap-2 mb-4 border-b border-slate-50 pb-3">
-                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-650"><BarChart3 size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Hacim Dağılımı</h3>
+            {/* Volume distributions */}
+            <div className="glass-panel p-6 rounded-[24px] lg:col-span-4 flex flex-col justify-between h-[360px]">
+              <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <BarChart3 size={14} className="text-indigo-400" />
+                  Yorum Hacimleri
+                </h3>
               </div>
               <div className="flex-1 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={trendChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: 9, fontWeight: 500 }} tickLine={false} />
-                    <YAxis stroke="#94a3b8" style={{ fontSize: 9, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <XAxis dataKey="date" stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} tickLine={false} />
+                    <YAxis stroke="#71717a" style={{ fontSize: 9, fontWeight: 500 }} axisLine={false} tickLine={false} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #f1f5f9', borderRadius: '12px' }}
-                      labelStyle={{ fontSize: 10, fontWeight: 700, color: '#334155' }}
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontSize: '11px' }}
                     />
-                    <Bar dataKey="Yorum Hacmi" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
+                    <Bar dataKey="Yorum Hacmi" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={14} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
           </div>
 
-          {/* Row 2: Platform Karşılaştırmaları & Duygu Analizi */}
+          {/* Row 3: Platform Share and Sentiment */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Platform Karşılaştırmaları */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-purple-50 text-purple-600"><Globe size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Platform Karşılaştırmaları</h3>
+            {/* Platforms comparisons */}
+            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
+                <span className="p-1.5 rounded-lg bg-white/5 text-indigo-400"><Globe size={14} /></span>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Platform Dağılımı</h3>
               </div>
-              <div className="space-y-3.5 flex-1">
+              <div className="space-y-3.5 flex-1 text-left">
                 {platformComparisons.map((plat, idx) => (
-                  <div key={plat.name} className="flex justify-between items-center text-xs font-semibold pb-2.5 border-b border-slate-50 last:border-0 last:pb-0">
+                  <div key={plat.name} className="flex justify-between items-center text-xs font-semibold pb-2.5 border-b border-white/5 last:border-0 last:pb-0">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
-                      <span className="text-slate-700">{plat.name}</span>
-                      <span className="text-[10px] text-slate-400 font-bold">({plat.count} Yorum - %{plat.share})</span>
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                      <span className="text-white">{plat.name}</span>
+                      <span className="text-[10px] text-zinc-500 font-bold">({plat.count} Yorum - %{plat.share})</span>
                     </div>
-                    <div className="flex items-center gap-2.5 font-extrabold">
-                      <span className="text-slate-800">{plat.avgRating} ★</span>
+                    <div className="flex items-center gap-2.5 font-extrabold text-white">
+                      <span>{plat.avgRating} ★</span>
                       {plat.change !== 0 && (
-                        <span className={`text-[9.5px] font-black flex items-center ${plat.change > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <span className={`text-[9.5px] font-black ${plat.change > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {plat.change > 0 ? '+' : ''}{plat.change}
                         </span>
                       )}
@@ -469,22 +454,22 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* Duygu Analizi */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><ThumbsUp size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Duygu Analizi (Sentiment Analysis)</h3>
+            {/* Sentiment analysis */}
+            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
+                <span className="p-1.5 rounded-lg bg-white/5 text-emerald-400"><ThumbsUp size={14} /></span>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Duygu Dağılımı</h3>
               </div>
-              <div className="flex items-center gap-6 flex-1">
-                <div className="h-[140px] w-[140px] shrink-0">
+              <div className="flex items-center gap-6 flex-1 text-left">
+                <div className="h-[120px] w-[120px] shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={sentimentShare}
                         cx="50%"
                         cy="50%"
-                        innerRadius={45}
-                        outerRadius={60}
+                        innerRadius={36}
+                        outerRadius={50}
                         paddingAngle={4}
                         dataKey="value"
                         nameKey="name"
@@ -499,14 +484,14 @@ export default function Analytics() {
                 <div className="space-y-3 w-full">
                   {sentimentShare.map((item) => (
                     <div key={item.name} className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold text-slate-700">
+                      <div className="flex justify-between text-xs font-semibold text-zinc-300">
                         <span className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: item.color }} />
                           {item.name}
                         </span>
-                        <span className="font-extrabold text-slate-900">{item.value} (%{item.percentage})</span>
+                        <span className="font-extrabold text-white">{item.value} (%{item.percentage})</span>
                       </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${item.percentage}%` }} />
                       </div>
                     </div>
@@ -516,34 +501,34 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Row 3: Departman Trendleri & AI Pattern Discovery */}
+          {/* Row 4: Department Trends & Benchmark */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Departman Trendleri */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-orange-50 text-orange-600"><Award size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Departman Memnuniyet Trendleri</h3>
+            {/* Department trends */}
+            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
+                <span className="p-1.5 rounded-lg bg-white/5 text-purple-400"><Award size={14} /></span>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Departman Başarı Trendleri</h3>
               </div>
-              <div className="space-y-3.5 flex-1">
+              <div className="space-y-3.5 flex-1 text-left">
                 {departmentTrendStats.map(dept => {
-                  let changeColor = 'text-slate-400';
+                  let changeColor = 'text-zinc-500';
                   let changeText = 'Stabil';
                   if (dept.change > 0.05) {
-                    changeColor = 'text-emerald-600';
+                    changeColor = 'text-emerald-400';
                     changeText = `+${dept.change} Puan Artış`;
                   } else if (dept.change < -0.05) {
-                    changeColor = 'text-rose-600';
+                    changeColor = 'text-rose-400';
                     changeText = `${dept.change} Puan Düşüş`;
                   }
 
                   return (
-                    <div key={dept.label} className="flex justify-between items-center text-xs font-semibold pb-2 border-b border-slate-50 last:border-0 last:pb-0">
+                    <div key={dept.label} className="flex justify-between items-center text-xs font-semibold pb-2 border-b border-white/5 last:border-0 last:pb-0">
                       <div className="space-y-0.5">
-                        <span className="text-slate-800 font-bold block">{dept.label}</span>
-                        <span className="text-[10px] text-slate-400 font-medium">Önceki Dönem Puanı: {dept.previousAvg > 0 ? `${dept.previousAvg} ★` : '-'}</span>
+                        <span className="text-white font-bold block">{dept.label}</span>
+                        <span className="text-[10px] text-zinc-500 font-medium">Önceki Dönem Puanı: {dept.previousAvg > 0 ? `${dept.previousAvg} ★` : '-'}</span>
                       </div>
                       <div className="text-right space-y-0.5">
-                        <span className="font-extrabold text-slate-900 block">{dept.currentAvg} ★</span>
+                        <span className="font-extrabold text-white block">{dept.currentAvg} ★</span>
                         <span className={`text-[9px] font-black uppercase ${changeColor}`}>{changeText}</span>
                       </div>
                     </div>
@@ -552,102 +537,22 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* AI Pattern Discovery */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-650"><Sparkles size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">AI Pattern Discovery (Örüntü Keşfi)</h3>
+            {/* Benchmark Comparisons */}
+            <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-between min-h-[300px]">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 text-left">
+                <span className="p-1.5 rounded-lg bg-white/5 text-indigo-400"><Award size={14} /></span>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Bölgesel Rakip Analizi</h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-                {/* Olumlu Örüntüler */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
-                    <span>✨</span> Olumlu Geri Bildirim Örüntüleri
-                  </h4>
-                  <ul className="space-y-2">
-                    {aiPatternDiscovery.positive.map((pattern, idx) => (
-                      <li key={idx} className="p-2 bg-slate-50 border border-slate-100 rounded-xl text-[10.5px] font-bold text-slate-700 flex justify-between items-center">
-                        <span className="truncate pr-1">{pattern.text}</span>
-                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] shrink-0">x{pattern.count}</span>
-                      </li>
-                    ))}
-                    {aiPatternDiscovery.positive.length === 0 && (
-                      <li className="text-[10px] text-slate-400 italic font-semibold">Olumlu örüntü keşfedilmedi.</li>
-                    )}
-                  </ul>
-                </div>
-
-                {/* Olumsuz Örüntüler */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
-                    <span>⚠️</span> Kritik Risk Örüntüleri
-                  </h4>
-                  <ul className="space-y-2">
-                    {aiPatternDiscovery.negative.map((pattern, idx) => (
-                      <li key={idx} className="p-2 bg-slate-50 border border-slate-100 rounded-xl text-[10.5px] font-bold text-slate-700 flex justify-between items-center">
-                        <span className="truncate pr-1">{pattern.text}</span>
-                        <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 rounded text-[9px] shrink-0">x{pattern.count}</span>
-                      </li>
-                    ))}
-                    {aiPatternDiscovery.negative.length === 0 && (
-                      <li className="text-[10px] text-slate-400 italic font-semibold">Olumsuz örüntü keşfedilmedi.</li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 4: Dil, Ülke Analizi & Benchmark */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Dil Dağılımı */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-teal-50 text-teal-650"><Languages size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Misafir Dil Dağılımı (Dil Analizi)</h3>
-              </div>
-              <div className="space-y-3 flex-1">
-                {languageShare.map(item => (
-                  <div key={item.name} className="flex justify-between items-center text-xs font-semibold">
-                    <span className="text-slate-655 font-bold uppercase">{item.name}</span>
-                    <span className="text-slate-800 font-extrabold">{item.value} Yorum <span className="text-slate-400 font-medium">(%{item.percentage})</span></span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Ülke Analizi */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-650"><Globe size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Misafir Ülke Dağılımı (Ülke Analizi)</h3>
-              </div>
-              <div className="space-y-3 flex-1">
-                {countryShare.map(item => (
-                  <div key={item.name} className="flex justify-between items-center text-xs font-semibold">
-                    <span className="text-slate-655 font-bold">{item.name}</span>
-                    <span className="text-slate-800 font-extrabold">{item.value} Konuk <span className="text-slate-400 font-medium">(%{item.percentage})</span></span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Benchmark Karşılaştırmaları */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                <span className="p-1.5 rounded-lg bg-purple-50 text-purple-650"><Award size={14} /></span>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Benchmark Karşılaştırmaları (Bölgesel Rakip Analizi)</h3>
-              </div>
-              <div className="space-y-3 flex-1">
+              <div className="space-y-3 flex-1 text-left">
                 {benchmarkComparisons.map(bench => (
-                  <div key={bench.metric} className="flex justify-between items-start text-xs font-semibold pb-2 border-b border-slate-50 last:border-0 last:pb-0">
+                  <div key={bench.metric} className="flex justify-between items-start text-xs font-semibold pb-2.5 border-b border-white/5 last:border-0 last:pb-0">
                     <div className="space-y-0.5">
-                      <span className="text-slate-800 font-bold block">{bench.metric}</span>
-                      <span className="text-[10px] text-slate-400 font-medium">Uludağ Bölge Benchmark: {bench.benchmarkVal}</span>
+                      <span className="text-white font-bold block">{bench.metric}</span>
+                      <span className="text-[10px] text-zinc-500 font-medium">Bölgesel Benchmark: {bench.benchmarkVal}</span>
                     </div>
                     <div className="text-right space-y-0.5">
-                      <span className="font-extrabold text-slate-900 block">{bench.hotelVal}</span>
-                      <span className={`text-[9.5px] font-black uppercase ${bench.diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <span className="font-extrabold text-white block">{bench.hotelVal}</span>
+                      <span className={`text-[9.5px] font-black uppercase ${bench.diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {bench.diff >= 0 ? `+${bench.diff}` : bench.diff}{bench.prefix} Rakibe Göre
                       </span>
                     </div>

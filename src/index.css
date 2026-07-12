@@ -29,71 +29,73 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 270 70% 60%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 270 70% 60%;
 
-    --radius: 0.75rem;
+    --radius: 1.5rem; /* 24px premium radius */
   }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: rgba(255, 255, 255, 0.08);
   }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: #09090b;
+    color: #f4f4f5;
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
   }
 }
 
 /* Premium Grid Background */
 .premium-grid-bg {
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.012) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.012) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* Glassmorphism utility */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
 
 .sidebar-glass {
-  background: #ffffff;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(9, 9, 11, 0.7);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .card-glow {
@@ -103,50 +105,21 @@
   content: '';
   position: absolute;
   inset: -1px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(168, 85, 247, 0.02), transparent);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(59, 130, 246, 0.05), transparent);
   z-index: -1;
   border-radius: var(--radius);
   pointer-events: none;
 }
 
-/* Premium Light Theme Contrast Overrides */
-.text-slate-100 {
-  color: #0f172a !important; /* text-slate-900 */
-}
-.text-slate-200 {
-  color: #1e293b !important; /* text-slate-800 */
-}
-.text-slate-300 {
-  color: #334155 !important; /* text-slate-700 */
-}
-.text-slate-400 {
-  color: #475569 !important; /* text-slate-600 */
-}
-.text-slate-500 {
-  color: #64748b !important; /* text-slate-500 */
-}
-.text-slate-600 {
-  color: #334155 !important; /* text-slate-700 */
-}
-
-/* Ensure headings/text fields in lists are highly visible */
+/* Heading colors */
 h1, h2, h3, h4, h5, h6 {
-  color: #0f172a;
+  color: #f4f4f5;
 }
 
-/* Input fields text contrast */
+/* Input styles */
 input, select, textarea {
-  color: #0f172a;
+  color: #f4f4f5;
 }
 input::placeholder, textarea::placeholder {
-  color: #94a3b8;
+  color: #71717a;
 }
-
-/* Tab active and hover contrasts */
-.text-blue-400 {
-  color: #2563eb !important; /* blue-600 */
-}
-.hover\:text-slate-200:hover {
-  color: #1e293b !important; /* dark slate-800 */
-}
-

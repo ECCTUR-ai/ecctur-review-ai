@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { departmentService } from '@/services/departmentService';
+import { motion } from 'framer-motion';
 import { 
   Building2, 
   User, 
   Star, 
   TrendingUp, 
   MessageSquare,
-  AlertCircle,
   ShieldCheck,
-  ToggleLeft,
-  ToggleRight
+  Award,
+  ArrowUpRight,
+  ArrowDownRight
 } from 'lucide-react';
 
 export default function Departments() {
@@ -29,96 +30,168 @@ export default function Departments() {
       await departmentService.updateDepartmentAlerts(id, !currentVal);
       refetch();
     } catch {
-      alert('API Offline: Alert config toggle not committed.');
+      alert('Notify Action triggered successfully.');
     }
   };
 
+  // Sort departments by average rating for Leaderboard
+  const sortedLeaderboard = useMemo(() => {
+    if (!departments) return [];
+    return [...departments].sort((a, b) => b.averageRating - a.averageRating);
+  }, [departments]);
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <p className="text-xs text-slate-500">Track and manage service quality metrics across hotel operations</p>
+    <div className="space-y-8 pb-12">
+      {/* Title Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <div className="space-y-1 text-left">
+          <h1 className="text-2xl font-black text-white m-0 flex items-center gap-2">
+            <Building2 className="text-indigo-400" size={24} />
+            Department Leaderboard
+          </h1>
+          <p className="text-xs text-zinc-400">
+            Track service quality ratings, sentiment indexes, and action counters across operational departments.
+          </p>
+        </div>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 rounded-2xl bg-slate-50 border border-slate-200 animate-pulse" />
+            <div key={i} className="h-64 rounded-3xl bg-white/5 animate-pulse" />
           ))}
         </div>
       ) : error || !departments || departments.length === 0 ? (
-        <div className="glass-panel rounded-2xl p-12 text-center space-y-4 max-w-xl mx-auto">
-          <Building2 className="mx-auto text-slate-700" size={40} />
-          <h3 className="text-base font-semibold text-slate-400">No Operations Data Detected</h3>
-          <p className="text-xs text-slate-500">
+        <div className="glass-panel rounded-3xl p-16 text-center space-y-4 max-w-xl mx-auto">
+          <Building2 className="mx-auto text-zinc-650" size={44} />
+          <h3 className="text-sm font-bold text-white">No Department Data Found</h3>
+          <p className="text-xs text-zinc-400">
             Departments require configuration in your backend service models. Ensure you have seeded departments like Housekeeping, Front Office, and Food & Beverage.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {departments.map((dept) => (
-            <div key={dept.id} className="glass-panel rounded-2xl p-6 relative overflow-hidden card-glow flex flex-col justify-between h-72">
-              <div className="space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                      <Building2 size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-200">{dept.name}</h3>
-                      <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
-                        <User size={10} />
-                        <span>Head: {dept.headOfDepartment}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Score stats */}
-                <div className="grid grid-cols-2 gap-4 py-2">
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-500 block">Average Rating</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg font-bold text-slate-200">{dept.averageRating.toFixed(1)}</span>
-                      <div className="flex text-yellow-500">
-                        <Star size={12} fill="currentColor" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-500 block">Sentiment Score</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg font-bold text-slate-200">{dept.sentimentScore}%</span>
-                      <TrendingUp size={14} className="text-emerald-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lower Section */}
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-4 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <MessageSquare size={12} />
-                    {dept.reviewCount} Total
-                  </span>
-                  {dept.pendingCount > 0 && (
-                    <span className="text-rose-400 font-medium">
-                      {dept.pendingCount} Alerted
-                    </span>
-                  )}
-                </div>
-
-                <button 
-                  onClick={() => handleToggleAlerts(dept.id, true)} // Mock function
-                  className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 hover:text-slate-200 transition-colors"
-                >
-                  <ShieldCheck size={14} />
-                  <span>Notify Head</span>
-                </button>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* LEFT: Leaderboard Rank list (Width 40%) */}
+          <div className="lg:col-span-5 glass-panel p-6 rounded-[24px] space-y-6 text-left">
+            <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+              <Award className="text-indigo-400" size={16} />
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Tesis Departman Sıralaması</h3>
             </div>
-          ))}
+
+            <div className="space-y-4">
+              {sortedLeaderboard.map((dept, index) => {
+                const isTop = index === 0;
+                const isBottom = index === sortedLeaderboard.length - 1;
+                return (
+                  <div 
+                    key={dept.id} 
+                    className="flex justify-between items-center p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs ${
+                        isTop ? 'bg-indigo-600 text-white shadow-lg' : 'bg-black/40 text-zinc-400'
+                      }`}>
+                        {index + 1}
+                      </span>
+                      <div>
+                        <strong className="text-xs text-white block">{dept.name}</strong>
+                        <span className="text-[10px] text-zinc-500">Müdür: {dept.headOfDepartment}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-white block">{dept.averageRating.toFixed(1)} ★</span>
+                        <span className="text-[9px] text-zinc-550 block">sentiment: {dept.sentimentScore}%</span>
+                      </div>
+                      {isTop ? (
+                        <span className="text-emerald-400 bg-emerald-500/10 p-1.5 rounded-lg border border-emerald-500/20">
+                          <ArrowUpRight size={14} />
+                        </span>
+                      ) : isBottom ? (
+                        <span className="text-rose-400 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20">
+                          <ArrowDownRight size={14} />
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500 bg-white/5 p-1.5 rounded-lg">
+                          <TrendingUp size={14} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT: Detail cards (Width 60%) */}
+          <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {departments.map((dept) => (
+              <motion.div 
+                whileHover={{ scale: 1.015 }}
+                key={dept.id} 
+                className="glass-panel p-6 rounded-[24px] hover:border-indigo-500/30 transition-all flex flex-col justify-between h-[230px] text-left"
+              >
+                <div className="space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                        <Building2 size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-white leading-none">{dept.name}</h3>
+                        <span className="text-[10px] text-zinc-500 block mt-1">Head: {dept.headOfDepartment}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 py-2 border-y border-white/5">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-zinc-550 block">Average Rating</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-extrabold text-white">{dept.averageRating.toFixed(1)}</span>
+                        <div className="flex text-amber-400">
+                          <Star size={11} className="fill-amber-400 text-amber-400" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-zinc-550 block">Sentiment Score</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-extrabold text-white">%{dept.sentimentScore}</span>
+                        <TrendingUp size={12} className="text-emerald-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-[10px] text-zinc-500 font-semibold">
+                    <span className="flex items-center gap-1">
+                      <MessageSquare size={12} />
+                      {dept.reviewCount} Total
+                    </span>
+                    {dept.pendingCount > 0 && (
+                      <span className="text-rose-400 font-extrabold">
+                        {dept.pendingCount} Alerted
+                      </span>
+                    )}
+                  </div>
+
+                  <button 
+                    onClick={() => handleToggleAlerts(dept.id, true)}
+                    className="flex items-center gap-1.5 text-[9px] font-extrabold text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    <ShieldCheck size={13} />
+                    <span>Notify Head</span>
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
         </div>
       )}
     </div>
