@@ -34,6 +34,8 @@ function LoginRouteWrapper() {
   return <Login />;
 }
 
+import Integrations from '@/pages/Integrations';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -58,13 +60,10 @@ export default function App() {
                 </AuthGuard>
               }
             />
+            {/* Redirect legacy AI Replies route directly to Reviews with AI Drafts tab */}
             <Route
               path="/ai-replies"
-              element={
-                <AuthGuard requiredPermission="view:reviews">
-                  <AiReplies />
-                </AuthGuard>
-              }
+              element={<Navigate to="/reviews?tab=ai-drafts" replace />}
             />
             <Route
               path="/tasks"
@@ -103,6 +102,14 @@ export default function App() {
               element={
                 <AuthGuard requiredPermission="view:whatsapp">
                   <WhatsApp />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/integrations"
+              element={
+                <AuthGuard requiredPermission="view:settings">
+                  <Integrations />
                 </AuthGuard>
               }
             />

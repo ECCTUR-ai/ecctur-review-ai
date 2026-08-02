@@ -25,7 +25,8 @@ import {
   FileText,
   Sparkles,
   Building,
-  Globe
+  Globe,
+  Database
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -36,17 +37,37 @@ interface SidebarItem {
   tKey: string;
 }
 
-const sidebarItems: SidebarItem[] = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'view:dashboard', tKey: 'sidebar.dashboard' },
-  { name: 'Reviews', path: '/reviews', icon: MessageSquare, permission: 'view:reviews', tKey: 'sidebar.reviews' },
-  { name: 'AI Operations', path: '/ai-replies', icon: Sparkles, permission: 'view:reviews', tKey: 'sidebar.ai_replies' },
-  { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'view:tasks', tKey: 'sidebar.tasks' },
-  { name: 'Departments', path: '/departments', icon: Building2, permission: 'view:departments', tKey: 'sidebar.departments' },
-  { name: 'Analytics', path: '/analytics', icon: TrendingUp, permission: 'view:analytics', tKey: 'sidebar.analytics' },
-  { name: 'Reports', path: '/reports', icon: FileText, permission: 'view:analytics', tKey: 'sidebar.reports' },
-  { name: 'WhatsApp', path: '/whatsapp', icon: MessageCircle, permission: 'view:whatsapp', tKey: 'sidebar.whatsapp' },
-  { name: 'Settings', path: '/settings', icon: Settings, permission: 'view:settings', tKey: 'sidebar.settings' },
-  { name: 'Admin', path: '/admin', icon: Settings, permission: 'view:users', tKey: 'sidebar.admin' },
+interface SidebarSection {
+  titleKey: string;
+  defaultTitle: string;
+  items: SidebarItem[];
+}
+
+const sidebarSections: SidebarSection[] = [
+  {
+    titleKey: 'sidebar.mainMenu',
+    defaultTitle: 'ANA MENÜ',
+    items: [
+      { name: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'view:dashboard', tKey: 'sidebar.dashboard' },
+      { name: 'Reviews', path: '/reviews', icon: MessageSquare, permission: 'view:reviews', tKey: 'sidebar.reviews' },
+      { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'view:tasks', tKey: 'sidebar.tasks' },
+      { name: 'Departments', path: '/departments', icon: Building2, permission: 'view:departments', tKey: 'sidebar.departments' },
+      { name: 'Analytics', path: '/analytics', icon: TrendingUp, permission: 'view:analytics', tKey: 'sidebar.analytics' },
+      { name: 'Reports', path: '/reports', icon: FileText, permission: 'view:analytics', tKey: 'sidebar.reports' },
+      { name: 'WhatsApp', path: '/whatsapp', icon: MessageCircle, permission: 'view:whatsapp', tKey: 'sidebar.whatsapp' }
+    ]
+  },
+  {
+    titleKey: 'sidebar.management',
+    defaultTitle: 'YÖNETİM',
+    items: [
+      { name: 'Hotels', path: '/admin', icon: Building, permission: 'view:users', tKey: 'sidebar.hotels' },
+      { name: 'Integrations', path: '/integrations', icon: Database, permission: 'view:settings', tKey: 'sidebar.integrations' },
+      { name: 'AI Settings', path: '/settings', icon: Sparkles, permission: 'view:settings', tKey: 'sidebar.ai_settings' },
+      { name: 'Users', path: '/admin', icon: User, permission: 'view:users', tKey: 'sidebar.users' },
+      { name: 'System Settings', path: '/settings', icon: Settings, permission: 'view:settings', tKey: 'sidebar.system_settings' }
+    ]
+  }
 ];
 
 export default function DashboardLayout() {
@@ -236,13 +257,17 @@ export default function DashboardLayout() {
 
   const getPageTitle = () => {
     if (location.pathname.startsWith('/admin')) {
-      return 'Admin Panel';
+      return t('sidebar.admin', 'Yönetim Paneli');
     }
-    const current = sidebarItems.find(item => item.path === location.pathname);
+    if (location.pathname.startsWith('/integrations')) {
+      return t('sidebar.integrations', 'Entegrasyonlar');
+    }
+    const allItems = sidebarSections.flatMap(s => s.items);
+    const current = allItems.find(item => item.path.split('?')[0] === location.pathname);
     if (current) {
-      return current.name;
+      return t(current.tKey, current.name);
     }
-    return 'Platform';
+    return 'GuestReview.ai';
   };
 
   return (
@@ -290,35 +315,42 @@ export default function DashboardLayout() {
               </button>
             </div>
 
-            {/* Navigation Items */}
-            <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-              {sidebarItems.map((item) => {
-                if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
-                  return null;
-                }
-                if (item.path === '/admin' && roleKey !== 'super_admin' && roleKey !== 'admin') {
-                  return null;
-                }
-                const isActive = item.path === '/'
-                  ? location.pathname === '/'
-                  : location.pathname.startsWith(item.path);
-                const Icon = item.icon;
+            {/* Mobile Navigation Items */}
+            <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
+              {sidebarSections.map((section) => (
+                <div key={section.titleKey} className="space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 py-1 block">
+                    {t(section.titleKey, section.defaultTitle)}
+                  </span>
+                  {section.items.map((item) => {
+                    if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
+                      return null;
+                    }
+                    if (item.path.startsWith('/admin') && roleKey !== 'super_admin' && roleKey !== 'admin') {
+                      return null;
+                    }
+                    const isActive = item.path === '/'
+                      ? location.pathname === '/'
+                      : location.pathname.startsWith(item.path.split('?')[0]);
+                    const Icon = item.icon;
 
-                return (
-                  <Link key={item.path} to={item.path} onClick={() => setMobileSidebarOpen(false)}>
-                    <div
-                      className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 ${
-                        isActive 
-                          ? 'bg-[#F0EDFF] border border-[#F0EDFF] text-[#6D5DF6] font-semibold' 
-                          : 'border border-transparent text-zinc-500 hover:text-[#151827] hover:bg-slate-50'
-                      }`}
-                    >
-                      <Icon size={20} className={isActive ? 'text-[#6D5DF6]' : 'text-zinc-555'} />
-                      <span className="text-sm font-medium">{t(item.tKey)}</span>
-                    </div>
-                  </Link>
-                );
-              })}
+                    return (
+                      <Link key={item.path} to={item.path} onClick={() => setMobileSidebarOpen(false)}>
+                        <div
+                          className={`flex items-center gap-3 px-3.5 h-11 rounded-xl transition-all duration-200 ${
+                            isActive 
+                              ? 'bg-[#F0EDFF] text-[#6D5DF6] font-semibold border-l-4 border-[#6D5DF6] shadow-xs' 
+                              : 'text-slate-600 hover:text-[#151827] hover:bg-slate-50'
+                          }`}
+                        >
+                          <Icon size={18} className={isActive ? 'text-[#6D5DF6]' : 'text-slate-500'} />
+                          <span className="text-xs font-semibold">{t(item.tKey)}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
 
             {/* Profile / Footer Section */}
@@ -390,45 +422,48 @@ export default function DashboardLayout() {
             </AnimatePresence>
           </div>
 
-          {/* Navigation Items */}
-          <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-            {sidebarItems.map((item) => {
-              if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
-                return null;
-              }
-              if (item.path === '/admin' && roleKey !== 'super_admin' && roleKey !== 'admin') {
-                return null;
-              }
-              const isActive = item.path === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(item.path);
-              const Icon = item.icon;
+          {/* Navigation Items (Desktop) */}
+          <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+            {sidebarSections.map((section) => (
+              <div key={section.titleKey} className="space-y-1">
+                {!collapsed && (
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3.5 py-1 block">
+                    {t(section.titleKey, section.defaultTitle)}
+                  </span>
+                )}
+                {section.items.map((item) => {
+                  if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
+                    return null;
+                  }
+                  if (item.path.startsWith('/admin') && roleKey !== 'super_admin' && roleKey !== 'admin') {
+                    return null;
+                  }
+                  const isActive = item.path === '/'
+                    ? location.pathname === '/'
+                    : location.pathname.startsWith(item.path.split('?')[0]);
+                  const Icon = item.icon;
 
-              return (
-                <Link key={item.path} to={item.path}>
-                  <div className="relative group px-1">
-                    <div
-                      className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all duration-200 ${
-                        isActive 
-                          ? 'bg-[#F0EDFF] border border-[#F0EDFF] text-[#6D5DF6] font-semibold' 
-                          : 'border border-transparent text-zinc-500 hover:text-[#151827] hover:bg-slate-50'
-                      }`}
-                    >
-                      <Icon size={18} className={isActive ? 'text-[#6D5DF6]' : 'text-zinc-500 group-hover:text-[#151827]'} />
-                      {!collapsed && (
-                        <span className="text-sm font-medium whitespace-nowrap">{t(item.tKey)}</span>
-                      )}
-                    </div>
-                    {isActive && (
-                      <motion.div 
-                        layoutId="active-indicator"
-                        className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6D5DF6] rounded-r"
-                      />
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+                  return (
+                    <Link key={item.path} to={item.path}>
+                      <div className="relative group px-1">
+                        <div
+                          className={`flex items-center gap-3 px-3.5 h-11 rounded-xl transition-all duration-200 ${
+                            isActive 
+                              ? 'bg-[#F0EDFF] text-[#6D5DF6] font-semibold border-l-4 border-[#6D5DF6] shadow-xs' 
+                              : 'text-slate-600 hover:text-[#151827] hover:bg-slate-50'
+                          }`}
+                        >
+                          <Icon size={18} className={isActive ? 'text-[#6D5DF6]' : 'text-slate-500 group-hover:text-[#151827]'} />
+                          {!collapsed && (
+                            <span className="text-xs font-semibold whitespace-nowrap">{t(item.tKey)}</span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           {/* Hotel Switcher & Profile Section */}

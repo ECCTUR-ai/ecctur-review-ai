@@ -46,7 +46,9 @@ export default function Reports() {
 
   const { dateFilter } = pageState;
   const setDateFilter = (val: 'today' | '7d' | '30d' | '3m' | '6m' | '1y' | 'all') => setPageState({ dateFilter: val });
-
+  const [selectedCategory, setSelectedCategory] = useState<string>('executive_summary');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -496,7 +498,7 @@ export default function Reports() {
           </p>
         </div>
 
-        {/* Time filters & PDF/Excel exports */}
+        {/* Time filters & CSV/PDF/Excel exports */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
             {[
@@ -522,14 +524,15 @@ export default function Reports() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => exportReport('excel')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer shadow-sm"
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs rounded-xl border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Download size={13} />
               <span>Excel</span>
             </button>
+
             <button
               onClick={() => exportReport('pdf')}
               className="flex items-center gap-1.5 px-3 py-2 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white font-bold text-xs rounded-xl transition-all min-h-[36px] cursor-pointer shadow-md"

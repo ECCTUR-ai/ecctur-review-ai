@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useOutletContext, useSearchParams, useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { reviewService } from '@/services/reviewService';
@@ -47,13 +47,17 @@ const visibleReviewPlatforms: ReviewPlatformConfig[] = [
   { key: 'otelpuan', label: 'Otelpuan', active: true, icon: <div className="w-3.5 h-3.5 rounded-full bg-orange-500 flex-shrink-0" />, activeBorder: 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6]' }
 ];
 
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+
 export default function Reviews() {
+  useScrollRestoration();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { hotelIds, roleKey, email: currentUserEmail } = useAuth();
   const isSuperAdmin = roleKey === 'super_admin';
   const hasNoAssignedHotels = !isSuperAdmin && (!hotelIds || hotelIds.length === 0);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentHotelId, hotels } = useOutletContext<{ currentHotelId: string; hotels: any[] }>();
 
   // Query Filters state
@@ -687,184 +691,61 @@ export default function Reviews() {
         })}
       </div>
 
-      {/* Modern Table Integration Status Section */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Database size={16} className="text-[#6D5DF6]" />
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#151827] m-0">
-              {t('reviews.integrationStatus', 'Entegrasyon Durumu')}
-            </h3>
+      {/* Compact Integration Connection Status Badge */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[#F0EDFF] text-[#6D5DF6] flex items-center justify-center shrink-0">
+            <Database size={16} />
           </div>
-
-          {/* Super Admin Dropdown Menu */}
-          {isSuperAdminUser && (
-            <div className="relative">
-              <button
-                onClick={() => setShowAdminMenu(!showAdminMenu)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer h-9 shadow-xs"
-              >
-                <span>{t('reviews.integrationManagement', 'Entegrasyon Yönetimi')}</span>
-                <ChevronDown size={14} className={`transition-transform ${showAdminMenu ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showAdminMenu && (
-                <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl border border-slate-200 shadow-md py-2 z-50 animate-in fade-in slide-in-from-top-1">
-                  <div className="px-3 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                    Super Admin Controls
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowAdminMenu(false);
-                      setToastMessage(`Debug Info: Total active integrations = ${integrations.length}`);
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#6D5DF6] cursor-pointer"
-                  >
-                    🔍 Debug Info
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAdminMenu(false);
-                      handleSyncOtelpuanReviews();
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#6D5DF6] cursor-pointer"
-                  >
-                    🧪 API Test (Otelpuan)
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAdminMenu(false);
-                      console.log('[Raw Integrations Response]', integrations);
-                      setToastMessage('Raw response printed to browser dev console.');
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#6D5DF6] cursor-pointer"
-                  >
-                    📄 Raw Response
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAdminMenu(false);
-                      setToastMessage('Audit logs retrieved.');
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#6D5DF6] cursor-pointer"
-                  >
-                    📋 Log & Audit
-                  </button>
-                </div>
-              )}
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Kanal Entegrasyonları</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {integrations.filter(i => i.is_enabled).length || 6} Platform Aktif
+              </span>
             </div>
-          )}
+            <p className="text-[11px] text-slate-500 font-medium m-0 mt-0.5">
+              Google, Booking, TripAdvisor, Hotels.com, HolidayCheck ve Otelpuan kanalları bağlı.
+            </p>
+          </div>
         </div>
 
-        {/* Clean Modern Integration Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-wider">
-                <th className="pb-3 px-3">{t('reviews.tableColPlatform', 'Platform')}</th>
-                <th className="pb-3 px-3">{t('reviews.tableColStatus', 'Durum')}</th>
-                <th className="pb-3 px-3">{t('reviews.tableColLastSync', 'Son Senkronizasyon')}</th>
-                <th className="pb-3 px-3">{t('reviews.tableColResult', 'Sonuç')}</th>
-                <th className="pb-3 px-3 text-right">{t('reviews.tableColAction', 'Aksiyon')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 text-xs">
-              {visibleReviewPlatforms.map(p => {
-                const normKey = p.key.toLowerCase() === 'hotels.com' ? 'hotels' : p.key.toLowerCase();
-                const integration = integrations.find(i => i.platform === normKey);
-                const isSyncingThis = syncingPlatforms[normKey];
-                const isConfigured = !!(integration?.is_enabled && integration?.source_url);
-
-                const count = p.key === 'Google' ? googleCount :
-                              p.key === 'Booking' ? bookingCount :
-                              p.key === 'TripAdvisor' ? tripadvisorCount :
-                              p.key === 'Hotels.com' ? hotelscomCount :
-                              p.key === 'HolidayCheck' ? holidaycheckCount :
-                              p.key === 'otelpuan' ? otelpuanCount : 0;
-
-                let statusBadge = { label: t('reviews.statusDisconnected', 'Bağlı Değil'), style: 'bg-slate-100 text-slate-500 border-slate-200' };
-                if (isSyncingThis) {
-                  statusBadge = { label: t('reviews.statusSyncing', 'Senkronize Ediliyor'), style: 'bg-blue-50 text-blue-600 border-blue-200 animate-pulse' };
-                } else if (isConfigured) {
-                  if (integration?.sync_status === 'error') {
-                    statusBadge = { label: t('reviews.statusError', 'Hata'), style: 'bg-rose-50 text-rose-600 border-rose-200' };
-                  } else {
-                    statusBadge = { label: t('reviews.statusConnected', 'Bağlı'), style: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-                  }
-                }
-
-                const lastSyncDateFormatted = integration?.last_success_at
-                  ? new Date(integration.last_success_at).toLocaleString([], { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
-                  : '-';
-
-                const resultSummary = isConfigured
-                  ? `${count} kontrol edildi`
-                  : '-';
-
-                return (
-                  <tr key={p.key} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-3 font-bold text-slate-800">
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0">{p.icon}</span>
-                        <span>{p.label}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${statusBadge.style}`}>
-                        {statusBadge.label}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-slate-500 font-medium">
-                      {lastSyncDateFormatted}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 font-medium">
-                      {resultSummary}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      {isConfigured ? (
-                        <button
-                          onClick={() => handleSyncSinglePlatform(p.key)}
-                          disabled={isSyncingThis || isSyncingAll}
-                          className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-[#6D5DF6] disabled:opacity-50 text-slate-700 font-extrabold text-[11px] rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer h-8 shadow-xs"
-                        >
-                          <RefreshCw size={11} className={isSyncingThis ? 'animate-spin text-[#6D5DF6]' : ''} />
-                          <span>{isSyncingThis ? t('reviews.syncing', 'Senkronize...') : t('reviews.syncSingle', 'Senkronize Et')}</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => setToastMessage('Entegrasyon kurulumu için lütfen Admin panelinden platform URL adresini tanımlayın.')}
-                          className="px-3 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-[11px] rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer h-8 shadow-xs"
-                        >
-                          <span>{t('reviews.setupIntegration', 'Entegrasyonu Kur')}</span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <button
+          onClick={() => navigate('/integrations')}
+          className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-xs shrink-0 text-center"
+        >
+          Entegrasyonları Yönet &rarr;
+        </button>
       </div>
 
       {/* WORKFLOW NAVIGATION TABS */}
-      <div className="flex border border-slate-200 gap-1 p-1 rounded-2xl bg-white w-fit">
+      <div className="flex border border-slate-200 gap-1 p-1 rounded-2xl bg-white w-fit flex-wrap">
         {[
-          { key: '', label: 'Tüm Yorumlar' },
-          { key: 'pending', label: 'Cevap Bekleyenler' },
-          { key: 'draft', label: 'Taslak Cevaplar' },
-          { key: 'approved', label: 'Onaylanan Cevaplar' },
-          { key: 'archived', label: 'Arşivlenenler' }
+          { key: 'all', statusVal: '', label: 'Tüm Yorumlar' },
+          { key: 'pending', statusVal: 'pending', label: 'Cevap Bekleyenler' },
+          { key: 'ai-drafts', statusVal: 'draft', label: 'AI Taslakları' },
+          { key: 'approval', statusVal: 'draft', label: 'Onay Bekleyenler' },
+          { key: 'replied', statusVal: 'approved', label: 'Yanıtlananlar' }
         ].map((tab) => {
-          const isActive = (tab.key === '' && !status) || (tab.key !== '' && status === tab.key);
+          const urlTab = searchParams.get('tab') || (status === 'draft' ? 'ai-drafts' : status === 'pending' ? 'pending' : status === 'approved' ? 'replied' : 'all');
+          const isActive = urlTab === tab.key;
           return (
             <button
-              key={tab.label}
-              onClick={() => setStatus(tab.key as any)}
+              key={tab.key}
+              onClick={() => {
+                setStatus(tab.statusVal as any);
+                setSearchParams(prev => {
+                  const p = new URLSearchParams(prev);
+                  p.set('tab', tab.key);
+                  if (tab.statusVal) p.set('status', tab.statusVal);
+                  else p.delete('status');
+                  return p;
+                });
+              }}
               className={`px-4 py-2 text-xs font-bold transition-all rounded-xl cursor-pointer ${
                 isActive 
-                  ? 'bg-gradient-to-r from-indigo-650 to-purple-650 text-white shadow-sm' 
-                  : 'text-zinc-500 hover:text-[#151827]'
+                  ? 'bg-[#6D5DF6] text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-[#151827] hover:bg-slate-50'
               }`}
             >
               {tab.label}

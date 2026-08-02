@@ -6,6 +6,8 @@ const resources = {
   en: {
     translation: {
       sidebar: {
+        mainMenu: 'MAIN MENU',
+        management: 'MANAGEMENT',
         dashboard: 'Dashboard',
         reviews: 'Reviews',
         ai_replies: 'AI Answer Center',
@@ -14,6 +16,11 @@ const resources = {
         analytics: 'Analytics',
         reports: 'Reports',
         whatsapp: 'WhatsApp',
+        hotels: 'Hotels',
+        integrations: 'Integrations',
+        ai_settings: 'AI Settings',
+        users: 'Users',
+        system_settings: 'System Settings',
         settings: 'Settings',
         admin: 'Admin Panel',
         logout: 'Sign Out'
@@ -291,6 +298,8 @@ const resources = {
   tr: {
     translation: {
       sidebar: {
+        mainMenu: 'ANA MENÜ',
+        management: 'YÖNETİM',
         dashboard: 'Kontrol Paneli',
         reviews: 'Yorumlar',
         ai_replies: 'AI Cevaplama Merkezi',
@@ -299,8 +308,13 @@ const resources = {
         analytics: 'Analitik',
         reports: 'Raporlar',
         whatsapp: 'WhatsApp',
+        hotels: 'Oteller',
+        integrations: 'Entegrasyonlar',
+        ai_settings: 'AI Ayarları',
+        users: 'Kullanıcılar',
+        system_settings: 'Sistem Ayarları',
         settings: 'Ayarlar',
-        admin: 'Yönetici Paneli',
+        admin: 'Yönetim Paneli',
         logout: 'Çıkış Yap'
       },
       dashboard: {
@@ -576,16 +590,23 @@ const resources = {
   ru: {
     translation: {
       sidebar: {
+        mainMenu: 'ГЛАВНОЕ МЕНЮ',
+        management: 'УПРАВЛЕНИЕ',
         dashboard: 'Панель управления',
         reviews: 'Отзывы',
-        ai_replies: 'Центр ИИ-ответов',
+        ai_replies: 'Центр ИИ Ответов',
         tasks: 'Задачи',
         departments: 'Отделы',
         analytics: 'Аналитика',
         reports: 'Отчеты',
         whatsapp: 'WhatsApp',
+        hotels: 'Отели',
+        integrations: 'Интеграции',
+        ai_settings: 'Настройки ИИ',
+        users: 'Пользователи',
+        system_settings: 'Системные настройки',
         settings: 'Настройки',
-        admin: 'Панель администратора',
+        admin: 'Панель админа',
         logout: 'Выйти'
       },
       dashboard: {

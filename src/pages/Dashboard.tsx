@@ -1078,23 +1078,22 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <button 
-            onClick={handleSyncAllPlatforms}
-            disabled={isSyncingAll}
-            className="w-full mt-6 py-2.5 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-          >
-            {isSyncingAll ? (
-              <>
-                <RefreshCw size={13} className="animate-spin" />
-                <span>{t('dashboard.sync.syncing')}</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw size={13} />
-                <span>{t('dashboard.sync.button')}</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 mt-6">
+            <button 
+              onClick={handleSyncAllPlatforms}
+              disabled={isSyncingAll}
+              className="flex-1 py-2.5 bg-[#6D5DF6] hover:bg-[#5b4ee4] text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+            >
+              <RefreshCw size={13} className={isSyncingAll ? 'animate-spin' : ''} />
+              <span>{isSyncingAll ? t('dashboard.sync.syncing') : 'Hızlı Senkronize Et'}</span>
+            </button>
+            <button 
+              onClick={() => navigate('/integrations')}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-[#151827] text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
+            >
+              Entegrasyonları Yönet &rarr;
+            </button>
+          </div>
         </div>
       </div>
 
