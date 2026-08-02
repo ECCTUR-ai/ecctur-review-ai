@@ -57,8 +57,12 @@ export default function Admin() {
     setActiveTab(tab);
     if (tab === 'google-locations') {
       navigate('/admin/google-locations');
+    } else if (tab === 'hotels') {
+      navigate('/admin/hotels');
+    } else if (tab === 'users') {
+      navigate('/admin/users');
     } else {
-      navigate('/admin');
+      navigate('/admin/hotels');
     }
   };
 
@@ -68,8 +72,12 @@ export default function Admin() {
       if (activeTab !== 'google-locations') {
         setActiveTab('google-locations');
       }
-    } else if (location.pathname === '/admin') {
-      if (activeTab === 'google-locations') {
+    } else if (location.pathname === '/admin/hotels') {
+      if (activeTab !== 'hotels') {
+        setActiveTab('hotels');
+      }
+    } else if (location.pathname === '/admin/users') {
+      if (activeTab !== 'users') {
         setActiveTab('users');
       }
     }

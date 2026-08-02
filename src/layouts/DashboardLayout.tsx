@@ -29,46 +29,26 @@ import {
   Database
 } from 'lucide-react';
 
-interface SidebarItem {
-  name: string;
-  path: string;
-  icon: React.ComponentType<any>;
-  permission: string;
-  tKey: string;
-}
+import { navigationGroups, NavigationGroup, NavigationItem } from '@/config/navigation';
 
-interface SidebarSection {
-  titleKey: string;
-  defaultTitle: string;
-  items: SidebarItem[];
-}
+function isRouteActive(itemPath: string, currentPath: string): boolean {
+  const cleanItem = itemPath.split('?')[0];
+  const cleanCurrent = currentPath.split('?')[0];
 
-const sidebarSections: SidebarSection[] = [
-  {
-    titleKey: 'sidebar.mainMenu',
-    defaultTitle: 'ANA MENÜ',
-    items: [
-      { name: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'view:dashboard', tKey: 'sidebar.dashboard' },
-      { name: 'Reviews', path: '/reviews', icon: MessageSquare, permission: 'view:reviews', tKey: 'sidebar.reviews' },
-      { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'view:tasks', tKey: 'sidebar.tasks' },
-      { name: 'Departments', path: '/departments', icon: Building2, permission: 'view:departments', tKey: 'sidebar.departments' },
-      { name: 'Analytics', path: '/analytics', icon: TrendingUp, permission: 'view:analytics', tKey: 'sidebar.analytics' },
-      { name: 'Reports', path: '/reports', icon: FileText, permission: 'view:analytics', tKey: 'sidebar.reports' },
-      { name: 'WhatsApp', path: '/whatsapp', icon: MessageCircle, permission: 'view:whatsapp', tKey: 'sidebar.whatsapp' }
-    ]
-  },
-  {
-    titleKey: 'sidebar.management',
-    defaultTitle: 'YÖNETİM',
-    items: [
-      { name: 'Hotels', path: '/admin', icon: Building, permission: 'view:users', tKey: 'sidebar.hotels' },
-      { name: 'Integrations', path: '/integrations', icon: Database, permission: 'view:settings', tKey: 'sidebar.integrations' },
-      { name: 'AI Settings', path: '/settings', icon: Sparkles, permission: 'view:settings', tKey: 'sidebar.ai_settings' },
-      { name: 'Users', path: '/admin', icon: User, permission: 'view:users', tKey: 'sidebar.users' },
-      { name: 'System Settings', path: '/settings', icon: Settings, permission: 'view:settings', tKey: 'sidebar.system_settings' }
-    ]
+  if (cleanItem === '/dashboard') {
+    return cleanCurrent === '/dashboard' || cleanCurrent === '/';
   }
-];
+
+  if (cleanCurrent === cleanItem) {
+    return true;
+  }
+
+  if (cleanCurrent.startsWith(cleanItem + '/')) {
+    return true;
+  }
+
+  return false;
+}
 
 export default function DashboardLayout() {
   const { hasPermission, permissions, role, roleKey, userId, hotelIds: authHotelIds, organizationId: authOrgId, email } = useAuth();
@@ -255,17 +235,65 @@ export default function DashboardLayout() {
     localStorage.setItem('saas_selected_hotel_id', id);
   };
 
+  const filteredNavigationGroups = useCallback(() => {
+    const seenIds = new Set<string>();
+    const seenPaths = new Set<string>();
+
+    return navigationGroups.map(group => {
+      const groupLabel = t(group.labelKey, group.defaultLabel)?.trim();
+
+      const safeItems = group.items.filter(item => {
+        const itemLabel = t(item.labelKey, item.defaultLabel)?.trim();
+
+        // 1. Omit item if missing id, path, or empty label
+        if (!item.id || !item.path || !itemLabel) {
+          if (import.meta.env.DEV) {
+            console.warn('[Navigation Filter] Omitted item with missing id, path or empty label:', item);
+          }
+          return false;
+        }
+
+        // 2. Omit duplicate id or path
+        if (seenIds.has(item.id) || seenPaths.has(item.path)) {
+          if (import.meta.env.DEV) {
+            console.warn(`[Navigation Duplicate] Omitted duplicate item: id=${item.id}, path=${item.path}`);
+          }
+          return false;
+        }
+
+        // 3. Permission check
+        if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
+          return false;
+        }
+
+        // 4. Role check
+        if (item.roles && item.roles.length > 0) {
+          const userRole = (roleKey || role || '').toLowerCase();
+          const hasRole = isTrueSuperAdmin || item.roles.some(r => r.toLowerCase() === userRole);
+          if (!hasRole) return false;
+        }
+
+        seenIds.add(item.id);
+        seenPaths.add(item.path);
+        return true;
+      });
+
+      return {
+        ...group,
+        groupLabel,
+        items: safeItems
+      };
+    }).filter(group => group.items.length > 0);
+  }, [t, hasPermission, roleKey, role, isTrueSuperAdmin])();
+
   const getPageTitle = () => {
-    if (location.pathname.startsWith('/admin')) {
-      return t('sidebar.admin', 'Yönetim Paneli');
-    }
-    if (location.pathname.startsWith('/integrations')) {
-      return t('sidebar.integrations', 'Entegrasyonlar');
-    }
-    const allItems = sidebarSections.flatMap(s => s.items);
-    const current = allItems.find(item => item.path.split('?')[0] === location.pathname);
+    const allVisibleItems = filteredNavigationGroups.flatMap(g => g.items);
+    const current = allVisibleItems.find(item => isRouteActive(item.path, location.pathname));
     if (current) {
-      return t(current.tKey, current.name);
+      return t(current.labelKey, current.defaultLabel);
+    }
+    if (location.pathname.startsWith('/admin')) {
+      return t('navigation.hotels', 'Yönetim Paneli');
     }
     return 'GuestReview.ai';
   };
@@ -317,25 +345,17 @@ export default function DashboardLayout() {
 
             {/* Mobile Navigation Items */}
             <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
-              {sidebarSections.map((section) => (
-                <div key={section.titleKey} className="space-y-1">
+              {filteredNavigationGroups.map((section) => (
+                <div key={section.id} className="space-y-1">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 py-1 block">
-                    {t(section.titleKey, section.defaultTitle)}
+                    {section.groupLabel}
                   </span>
                   {section.items.map((item) => {
-                    if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
-                      return null;
-                    }
-                    if (item.path.startsWith('/admin') && roleKey !== 'super_admin' && roleKey !== 'admin') {
-                      return null;
-                    }
-                    const isActive = item.path === '/'
-                      ? location.pathname === '/'
-                      : location.pathname.startsWith(item.path.split('?')[0]);
+                    const isActive = isRouteActive(item.path, location.pathname);
                     const Icon = item.icon;
 
                     return (
-                      <Link key={item.path} to={item.path} onClick={() => setMobileSidebarOpen(false)}>
+                      <Link key={item.id} to={item.path} onClick={() => setMobileSidebarOpen(false)}>
                         <div
                           className={`flex items-center gap-3 px-3.5 h-11 rounded-xl transition-all duration-200 ${
                             isActive 
@@ -344,7 +364,7 @@ export default function DashboardLayout() {
                           }`}
                         >
                           <Icon size={18} className={isActive ? 'text-[#6D5DF6]' : 'text-slate-500'} />
-                          <span className="text-xs font-semibold">{t(item.tKey)}</span>
+                          <span className="text-xs font-semibold">{t(item.labelKey, item.defaultLabel)}</span>
                         </div>
                       </Link>
                     );
@@ -424,27 +444,19 @@ export default function DashboardLayout() {
 
           {/* Navigation Items (Desktop) */}
           <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
-            {sidebarSections.map((section) => (
-              <div key={section.titleKey} className="space-y-1">
+            {filteredNavigationGroups.map((section) => (
+              <div key={section.id} className="space-y-1">
                 {!collapsed && (
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3.5 py-1 block">
-                    {t(section.titleKey, section.defaultTitle)}
+                    {section.groupLabel}
                   </span>
                 )}
                 {section.items.map((item) => {
-                  if (AUTH_ENABLED && item.permission && !hasPermission(item.permission)) {
-                    return null;
-                  }
-                  if (item.path.startsWith('/admin') && roleKey !== 'super_admin' && roleKey !== 'admin') {
-                    return null;
-                  }
-                  const isActive = item.path === '/'
-                    ? location.pathname === '/'
-                    : location.pathname.startsWith(item.path.split('?')[0]);
+                  const isActive = isRouteActive(item.path, location.pathname);
                   const Icon = item.icon;
 
                   return (
-                    <Link key={item.path} to={item.path}>
+                    <Link key={item.id} to={item.path}>
                       <div className="relative group px-1">
                         <div
                           className={`flex items-center gap-3 px-3.5 h-11 rounded-xl transition-all duration-200 ${
@@ -455,7 +467,7 @@ export default function DashboardLayout() {
                         >
                           <Icon size={18} className={isActive ? 'text-[#6D5DF6]' : 'text-slate-500 group-hover:text-[#151827]'} />
                           {!collapsed && (
-                            <span className="text-xs font-semibold whitespace-nowrap">{t(item.tKey)}</span>
+                            <span className="text-xs font-semibold whitespace-nowrap">{t(item.labelKey, item.defaultLabel)}</span>
                           )}
                         </div>
                       </div>

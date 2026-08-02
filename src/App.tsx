@@ -46,6 +46,10 @@ export default function App() {
           <Route element={<DashboardLayout />}>
             <Route
               path="/"
+              element={<Navigate to="/dashboard" replace />}
+            />
+            <Route
+              path="/dashboard"
               element={
                 <AuthGuard requiredPermission="view:dashboard">
                   <Dashboard />
@@ -115,6 +119,18 @@ export default function App() {
             />
             <Route
               path="/settings"
+              element={<Navigate to="/settings/ai" replace />}
+            />
+            <Route
+              path="/settings/ai"
+              element={
+                <AuthGuard requiredPermission="view:settings">
+                  <Settings />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/settings/system"
               element={
                 <AuthGuard requiredPermission="view:settings">
                   <Settings />
@@ -123,6 +139,18 @@ export default function App() {
             />
             <Route
               path="/admin"
+              element={<Navigate to="/admin/hotels" replace />}
+            />
+            <Route
+              path="/admin/hotels"
+              element={
+                <AuthGuard requiredPermission="view:users">
+                  <Admin />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/admin/users"
               element={
                 <AuthGuard requiredPermission="view:users">
                   <Admin />

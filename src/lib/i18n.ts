@@ -25,6 +25,22 @@ const resources = {
         admin: 'Admin Panel',
         logout: 'Sign Out'
       },
+      navigation: {
+        main: 'MAIN MENU',
+        management: 'MANAGEMENT',
+        dashboard: 'Dashboard',
+        reviews: 'Reviews',
+        tasks: 'Tasks',
+        departments: 'Departments',
+        analytics: 'Analytics',
+        reports: 'Reports',
+        whatsapp: 'WhatsApp',
+        hotels: 'Hotels',
+        integrations: 'Integrations',
+        aiSettings: 'AI Settings',
+        users: 'Users',
+        systemSettings: 'System Settings'
+      },
       dashboard: {
         title: 'Executive Dashboard',
         subtitle: 'Overview of hotel operations, AI insights, and platform sync reports.',
@@ -317,6 +333,22 @@ const resources = {
         admin: 'Yönetim Paneli',
         logout: 'Çıkış Yap'
       },
+      navigation: {
+        main: 'ANA MENÜ',
+        management: 'YÖNETİM',
+        dashboard: 'Kontrol Paneli',
+        reviews: 'Yorumlar',
+        tasks: 'Görevler',
+        departments: 'Departmanlar',
+        analytics: 'Analitik',
+        reports: 'Raporlar',
+        whatsapp: 'WhatsApp',
+        hotels: 'Oteller',
+        integrations: 'Entegrasyonlar',
+        aiSettings: 'AI Ayarları',
+        users: 'Kullanıcılar',
+        systemSettings: 'Sistem Ayarları'
+      },
       dashboard: {
         title: 'Kontrol Paneli',
         subtitle: 'Otelinizin operasyonel durumu, yapay zeka analizleri ve performans raporları.',
@@ -608,6 +640,22 @@ const resources = {
         settings: 'Настройки',
         admin: 'Панель админа',
         logout: 'Выйти'
+      },
+      navigation: {
+        main: 'ГЛАВНОЕ МЕНЮ',
+        management: 'УПРАВЛЕНИЕ',
+        dashboard: 'Панель управления',
+        reviews: 'Отзывы',
+        tasks: 'Задачи',
+        departments: 'Отделы',
+        analytics: 'Аналитика',
+        reports: 'Отчеты',
+        whatsapp: 'WhatsApp',
+        hotels: 'Отели',
+        integrations: 'Интеграции',
+        aiSettings: 'Настройки ИИ',
+        users: 'Пользователи',
+        systemSettings: 'Системные настройки'
       },
       dashboard: {
         title: 'Панель управления',
