@@ -1003,12 +1003,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (updateErr) throw updateErr;
 
       // Audit log entry
-      await supabaseAdmin.from('review_action_logs').insert({
-        hotel_id: hotelId,
-        action_type: 'hotel_soft_delete',
-        user_id: user.id,
-        notes: `Hotel "${hotel.name}" soft deleted by ${user.email}. Reason: ${reason || 'N/A'}`
-      }).catch(err => console.warn('Failed to insert audit log:', err));
+      try {
+        await supabaseAdmin.from('review_action_logs').insert({
+          hotel_id: hotelId,
+          action_type: 'hotel_soft_delete',
+          user_id: user.id,
+          notes: `Hotel "${hotel.name}" soft deleted by ${user.email}. Reason: ${reason || 'N/A'}`
+        });
+      } catch (logErr) {
+        console.warn('Failed to insert audit log:', logErr);
+      }
 
       return res.status(200).json({ success: true, message: 'Hotel deleted successfully' });
     } catch (err: any) {
@@ -1062,12 +1066,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (updateErr) throw updateErr;
 
       // Audit log entry
-      await supabaseAdmin.from('review_action_logs').insert({
-        hotel_id: hotelId,
-        action_type: 'hotel_restore',
-        user_id: user.id,
-        notes: `Hotel "${hotel.name}" restored by ${user.email}`
-      }).catch(err => console.warn('Failed to insert audit log:', err));
+      try {
+        await supabaseAdmin.from('review_action_logs').insert({
+          hotel_id: hotelId,
+          action_type: 'hotel_restore',
+          user_id: user.id,
+          notes: `Hotel "${hotel.name}" restored by ${user.email}`
+        });
+      } catch (logErr) {
+        console.warn('Failed to insert audit log:', logErr);
+      }
 
       return res.status(200).json({ success: true, message: 'Hotel restored successfully' });
     } catch (err: any) {
