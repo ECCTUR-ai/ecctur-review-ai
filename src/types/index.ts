@@ -239,6 +239,12 @@ export interface Hotel {
   holidaycheckUrl?: string;
   hotelscomUrl?: string;
   otelpuanUrl?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deletedByUser?: string;
+  deletionReason?: string;
+  isTest?: boolean;
 }
 
 export interface UserProfile {

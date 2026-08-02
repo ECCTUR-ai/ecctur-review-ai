@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { adminService } from '@/services/adminService';
 import { hotelService } from '@/services/hotelService';
+import { hotelRepository } from '@/repositories/hotelRepository';
 import { UserProfile, Hotel, Role, IntegrationSetting, Organization } from '@/types';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import { 
@@ -548,6 +549,96 @@ export default function Admin() {
   const [hotelHolidaycheckUrl, setHotelHolidaycheckUrl] = useState('');
   const [hotelHotelscomUrl, setHotelHotelscomUrl] = useState('');
   const [hotelOtelpuanUrl, setHotelOtelpuanUrl] = useState('');
+
+  // Form States - Hotel Soft Delete & Restore
+  const [hotelViewFilter, setHotelViewFilter] = useState<'active' | 'deleted'>('active');
+  const [deletedHotels, setDeletedHotels] = useState<Hotel[]>([]);
+  const [isLoadingDeletedHotels, setIsLoadingDeletedHotels] = useState(false);
+  const [deletingHotel, setDeletingHotel] = useState<Hotel | null>(null);
+  const [hotelStats, setHotelStats] = useState<{ hotelName: string; organizationName: string; totalReviews: number; activeIntegrations: number; openTasks: number; assignedUsers: number } | null>(null);
+  const [isLoadingHotelStats, setIsLoadingHotelStats] = useState(false);
+  const [deleteConfirmNameInput, setDeleteConfirmNameInput] = useState('');
+  const [deleteReasonInput, setDeleteReasonInput] = useState('');
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+  const [restoringHotelId, setRestoringHotelId] = useState<string | null>(null);
+  const [showCleanTestModal, setShowCleanTestModal] = useState(false);
+  const [isCleaningTestHotels, setIsCleaningTestHotels] = useState(false);
+
+  const fetchDeletedHotels = async () => {
+    setIsLoadingDeletedHotels(true);
+    try {
+      const list = await hotelRepository.getDeletedHotels();
+      setDeletedHotels(list || []);
+    } catch (err: any) {
+      console.error('Failed to fetch deleted hotels:', err);
+    } finally {
+      setIsLoadingDeletedHotels(false);
+    }
+  };
+
+  const handleOpenDeleteHotelModal = async (hotel: Hotel) => {
+    setDeletingHotel(hotel);
+    setDeleteConfirmNameInput('');
+    setDeleteReasonInput('');
+    setHotelStats(null);
+    setIsLoadingHotelStats(true);
+    try {
+      const stats = await hotelRepository.getHotelStats(hotel.id);
+      setHotelStats(stats);
+    } catch (err: any) {
+      console.error('Failed to fetch hotel stats:', err);
+    } finally {
+      setIsLoadingHotelStats(false);
+    }
+  };
+
+  const handleConfirmDeleteHotel = async () => {
+    if (!deletingHotel) return;
+    setIsSubmittingDelete(true);
+    try {
+      await hotelRepository.deleteHotel(deletingHotel.id, deleteReasonInput);
+      setToast(t('common.deleted', 'Otel başarıyla silindi.'));
+      setDeletingHotel(null);
+      refetchHotels();
+      fetchDeletedHotels();
+      setTimeout(() => setToast(null), 4000);
+    } catch (err: any) {
+      alert(`Hata: ${err.message || 'Silme işlemi başarısız'}`);
+    } finally {
+      setIsSubmittingDelete(false);
+    }
+  };
+
+  const handleRestoreHotel = async (hotelId: string) => {
+    setRestoringHotelId(hotelId);
+    try {
+      await hotelRepository.restoreHotel(hotelId);
+      setToast(t('common.restored', 'Otel başarıyla geri yüklendi.'));
+      refetchHotels();
+      fetchDeletedHotels();
+      setTimeout(() => setToast(null), 4000);
+    } catch (err: any) {
+      alert(`Hata: ${err.message || 'Geri yükleme başarısız'}`);
+    } finally {
+      setRestoringHotelId(null);
+    }
+  };
+
+  const handleConfirmCleanTestHotels = async () => {
+    setIsCleaningTestHotels(true);
+    try {
+      const msg = await hotelRepository.cleanTestHotels();
+      setToast(msg);
+      setShowCleanTestModal(false);
+      refetchHotels();
+      fetchDeletedHotels();
+      setTimeout(() => setToast(null), 4000);
+    } catch (err: any) {
+      alert(`Hata: ${err.message || 'Temizlik başarısız oldu'}`);
+    } finally {
+      setIsCleaningTestHotels(false);
+    }
+  };
 
   // Form States - Organization
   const [isEditingOrg, setIsEditingOrg] = useState(false);
@@ -1805,103 +1896,366 @@ export default function Admin() {
               </div>
             )}
 
-            {/* Hotels List Card */}
+            {/* Hotels List Card with Active / Deleted View Filter */}
             <div className="glass-panel rounded-2xl relative overflow-hidden card-glow">
               <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
-                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
-                  <Building size={16} className="text-blue-400" />
-                  Hotels List ({filteredHotelsList?.length || 0})
-                </h3>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 m-0">
+                    <Building size={16} className="text-blue-400" />
+                    {t('admin.hotels.title', 'Otel Yönetimi')}
+                  </h3>
+
                   {isTrueSuperAdmin && (
+                    <div className="flex items-center gap-1.5 ml-4 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                      <button
+                        onClick={() => setHotelViewFilter('active')}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                          hotelViewFilter === 'active'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                        }`}
+                      >
+                        {t('admin.hotels.activeTab', 'Aktif Oteller')} ({hotels?.length || 0})
+                      </button>
+                      <button
+                        onClick={() => {
+                          setHotelViewFilter('deleted');
+                          fetchDeletedHotels();
+                        }}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                          hotelViewFilter === 'deleted'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span>{t('admin.hotels.deletedTab', 'Silinen Oteller')}</span>
+                        {deletedHotels.length > 0 && (
+                          <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-100 text-rose-700">
+                            {deletedHotels.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {isTrueSuperAdmin && hotelViewFilter === 'active' && (
                     <button
-                      onClick={async () => {
-                        if (!window.confirm('Fahri ve Montana test otelleri ile ilişkili tüm verileri silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) return;
-                        try {
-                          const { data: { session } } = await supabase.auth.getSession();
-                          const token = session?.access_token;
-                          if (!token) throw new Error('Oturum bulunamadı.');
-                          const response = await fetch('/api/admin?action=execute-delete-test-hotels', {
-                            method: 'POST',
-                            headers: {
-                              'Authorization': `Bearer ${token}`
-                            }
-                          });
-                          if (!response.ok) {
-                            const errRes = await response.json();
-                            throw new Error(errRes.error || 'Temizlik başarısız oldu');
-                          }
-                          const result = await response.json();
-                          alert(result.message || 'Başarıyla silindi.');
-                          window.location.reload();
-                        } catch (err: any) {
-                          alert(`Hata: ${err.message}`);
-                        }
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 transition-colors text-white font-medium text-xs rounded-xl"
+                      onClick={() => setShowCleanTestModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 transition-colors text-white font-medium text-xs rounded-xl shadow-xs"
                     >
                       <Trash2 size={14} />
-                      Test Otellerini Temizle
+                      {t('admin.hotels.testCleanupTitle', 'Test Otellerini Temizle')}
                     </button>
                   )}
-                  <button
-                    onClick={handleOpenAddHotel}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl"
-                  >
-                    <Plus size={14} />
-                    Add Hotel
-                  </button>
+                  {hotelViewFilter === 'active' && (
+                    <button
+                      onClick={handleOpenAddHotel}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 transition-colors text-white font-medium text-xs rounded-xl shadow-xs"
+                    >
+                      <Plus size={14} />
+                      {t('admin.hotels.addHotel', 'Add Hotel')}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px] text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 font-medium bg-white/[0.01]">
-                      <th className="p-4 pl-6">Hotel Name</th>
-                      <th className="p-4">Hotel ID</th>
-                      <th className="p-4">Organization</th>
-                      <th className="p-4">Connection status</th>
-                      <th className="p-4 pr-6 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hotels?.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-12 text-center text-slate-500">
-                          No hotels cataloged. Add one to begin.
-                        </td>
+              {/* Active Hotels Table */}
+              {hotelViewFilter === 'active' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-medium bg-white/[0.01]">
+                        <th className="p-4 pl-6">Hotel Name</th>
+                        <th className="p-4">Hotel ID</th>
+                        <th className="p-4">Organization</th>
+                        <th className="p-4">Connection status</th>
+                        <th className="p-4 pr-6 text-right">Actions</th>
                       </tr>
-                    ) : (
-                      hotels?.map((h) => (
-                        <tr key={h.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors text-slate-300">
-                          <td className="p-4 pl-6 font-semibold">{h.name}</td>
-                          <td className="p-4 font-mono text-[10px] text-slate-500">{h.id}</td>
-                          <td className="p-4">
-                            {orgs?.find(o => o.id === h.organizationId)?.name || 'GuestReview.ai'}
-                          </td>
-                          <td className="p-4">
-                            <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                              <CheckCircle size={12} />
-                              Online
-                            </span>
-                          </td>
-                          <td className="p-4 pr-6 text-right">
-                            <button
-                              onClick={() => handleOpenEditHotel(h)}
-                              className="p-1 rounded hover:bg-slate-50 text-slate-400 hover:text-slate-200 transition-colors"
-                              title="Edit Hotel"
-                            >
-                              <Edit3 size={14} />
-                            </button>
+                    </thead>
+                    <tbody>
+                      {hotels?.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-12 text-center text-slate-500">
+                            No hotels cataloged. Add one to begin.
                           </td>
                         </tr>
+                      ) : (
+                        hotels?.map((h) => (
+                          <tr key={h.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors text-slate-300">
+                            <td className="p-4 pl-6 font-semibold flex items-center gap-2">
+                              <span>{h.name}</span>
+                              {h.isTest && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800">TEST</span>
+                              )}
+                            </td>
+                            <td className="p-4 font-mono text-[10px] text-slate-500">{h.id}</td>
+                            <td className="p-4">
+                              {orgs?.find(o => o.id === h.organizationId)?.name || 'GuestReview.ai'}
+                            </td>
+                            <td className="p-4">
+                              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                                <CheckCircle size={12} />
+                                Online
+                              </span>
+                            </td>
+                            <td className="p-4 pr-6 text-right">
+                              <button
+                                onClick={() => handleOpenEditHotel(h)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                                title="Edit Hotel"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              {isTrueSuperAdmin && (
+                                <button
+                                  onClick={() => handleOpenDeleteHotelModal(h)}
+                                  className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors ml-1"
+                                  title={t('admin.hotels.deleteTooltip', 'Oteli Sil')}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Soft Deleted Hotels Table */}
+              {hotelViewFilter === 'deleted' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-medium bg-white/[0.01]">
+                        <th className="p-4 pl-6">Hotel Name</th>
+                        <th className="p-4">Hotel ID</th>
+                        <th className="p-4">{t('admin.hotels.deletedDate', 'Silinme Tarihi')}</th>
+                        <th className="p-4">{t('admin.hotels.deletedBy', 'Silen Kullanıcı')}</th>
+                        <th className="p-4">{t('admin.hotels.reason', 'Neden')}</th>
+                        <th className="p-4 pr-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isLoadingDeletedHotels ? (
+                        <tr>
+                          <td colSpan={6} className="p-12 text-center text-slate-500">
+                            <RefreshCw size={18} className="animate-spin inline-block mr-2" />
+                            Yükleniyor...
+                          </td>
+                        </tr>
+                      ) : deletedHotels.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-12 text-center text-slate-500">
+                            Silinmiş otel bulunmuyor.
+                          </td>
+                        </tr>
+                      ) : (
+                        deletedHotels.map((h) => (
+                          <tr key={h.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors text-slate-300">
+                            <td className="p-4 pl-6 font-semibold text-slate-200">{h.name}</td>
+                            <td className="p-4 font-mono text-[10px] text-slate-500">{h.id}</td>
+                            <td className="p-4 text-slate-400">
+                              {h.deletedAt ? new Date(h.deletedAt).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                            </td>
+                            <td className="p-4 text-slate-300 font-medium">
+                              {h.deletedByUser || 'Super Admin'}
+                            </td>
+                            <td className="p-4 text-slate-400 italic">
+                              {h.deletionReason || '-'}
+                            </td>
+                            <td className="p-4 pr-6 text-right">
+                              <button
+                                onClick={() => handleRestoreHotel(h.id)}
+                                disabled={restoringHotelId === h.id}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              >
+                                <RefreshCw size={12} className={restoringHotelId === h.id ? 'animate-spin' : ''} />
+                                <span>{restoringHotelId === h.id ? t('admin.hotels.restoring', 'Geri Yükleniyor...') : t('admin.hotels.restore', 'Geri Yükle')}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* DELETE CONFIRMATION MODAL */}
+            {deletingHotel && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+                <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-5 text-slate-800">
+                  <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                        <Trash2 size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-slate-900 m-0">
+                          {t('admin.hotels.deleteModalTitle', 'Oteli silmek istediğinize emin misiniz?')}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          ID: <span className="font-mono text-slate-700">{deletingHotel.id}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setDeletingHotel(null)}
+                      className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Summary & Metrics Box */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-slate-400 font-medium block text-[10px] uppercase">Otel Adı</span> <strong className="text-slate-900 font-extrabold">{deletingHotel.name}</strong></div>
+                      <div><span className="text-slate-400 font-medium block text-[10px] uppercase">Organizasyon</span> <span className="text-slate-700 font-bold">{hotelStats?.organizationName || 'ECCTUR Group'}</span></div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-200 text-center">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold block uppercase">Yorumlar</span>
+                        <span className="text-xs font-black text-slate-800">{isLoadingHotelStats ? '...' : (hotelStats?.totalReviews ?? 0)}</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold block uppercase">Entegrasyon</span>
+                        <span className="text-xs font-black text-slate-800">{isLoadingHotelStats ? '...' : (hotelStats?.activeIntegrations ?? 0)}</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold block uppercase">Görevler</span>
+                        <span className="text-xs font-black text-slate-800">{isLoadingHotelStats ? '...' : (hotelStats?.openTasks ?? 0)}</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold block uppercase">Kullanıcılar</span>
+                        <span className="text-xs font-black text-slate-800">{isLoadingHotelStats ? '...' : (hotelStats?.assignedUsers ?? 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Warning Box */}
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 flex items-start gap-2.5">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-900 font-medium leading-relaxed m-0">
+                      {t('admin.hotels.deleteWarningText', 'Bu işlem oteli aktif listeden kaldırır. Otelin yorumları, entegrasyon kayıtları ve geçmiş verileri korunur.')}
+                    </p>
+                  </div>
+
+                  {/* Deletion Reason (Optional) */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 block">Silme Nedeni (İsteğe Bağlı):</label>
+                    <input
+                      type="text"
+                      value={deleteReasonInput}
+                      onChange={(e) => setDeleteReasonInput(e.target.value)}
+                      placeholder="Örn: Otel kapandı veya demo amaçlı açılmıştı."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  {/* Type Name Confirmation Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-800 block">
+                      {t('admin.hotels.confirmInputLabel', 'Onaylamak için otelin adını tam olarak yazın:')} <strong className="text-rose-600 font-black">{deletingHotel.name}</strong>
+                    </label>
+                    <input
+                      type="text"
+                      value={deleteConfirmNameInput}
+                      onChange={(e) => setDeleteConfirmNameInput(e.target.value)}
+                      placeholder={deletingHotel.name}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setDeletingHotel(null)}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      {t('admin.hotels.cancel', 'Vazgeç')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deleteConfirmNameInput !== deletingHotel.name || isSubmittingDelete}
+                      onClick={handleConfirmDeleteHotel}
+                      className="px-5 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isSubmittingDelete ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      <span>{t('admin.hotels.confirmDelete', 'Oteli Sil')}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TEST HOTELS CLEANUP PREVIEW MODAL */}
+            {showCleanTestModal && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+                <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 text-slate-800">
+                  <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
+                        <Trash2 size={18} />
+                      </div>
+                      <h3 className="text-sm font-black text-slate-900 m-0">
+                        {t('admin.hotels.testCleanupTitle', 'Test Otellerini Temizle')}
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => setShowCleanTestModal(false)}
+                      className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium m-0">
+                    {t('admin.hotels.testCleanupWarning', 'Aşağıdaki test otelleri aktif listeden kaldırılacaktır (soft delete):')}
+                  </p>
+
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                    {(hotels || []).filter(h => h.isTest || h.name.toLowerCase().includes('montana') || h.name.toLowerCase().includes('fahri')).length === 0 ? (
+                      <div className="text-slate-500 italic py-2 text-center">Temizlenecek aktif test oteli bulunamadı.</div>
+                    ) : (
+                      (hotels || []).filter(h => h.isTest || h.name.toLowerCase().includes('montana') || h.name.toLowerCase().includes('fahri')).map(h => (
+                        <div key={h.id} className="flex items-center justify-between py-1 border-b border-slate-200/50 last:border-0">
+                          <span className="font-bold text-slate-800">{h.name}</span>
+                          <span className="font-mono text-[10px] text-slate-500">{h.id}</span>
+                        </div>
                       ))
                     )}
-                  </tbody>
-                </table>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowCleanTestModal(false)}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      {t('admin.hotels.cancel', 'Vazgeç')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isCleaningTestHotels || (hotels || []).filter(h => h.isTest || h.name.toLowerCase().includes('montana') || h.name.toLowerCase().includes('fahri')).length === 0}
+                      onClick={handleConfirmCleanTestHotels}
+                      className="px-5 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isCleaningTestHotels ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      <span>Temizliği Onayla</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

@@ -958,39 +958,240 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // -------------------------------------------------------------
-  // Action: execute-delete-test-hotels (Super Admin Only)
+  // Action: delete-hotel (Super Admin Only - Soft Delete)
   // -------------------------------------------------------------
-  if (action === 'execute-delete-test-hotels') {
-    if (!isTrueSuperAdmin) {
+  if (action === 'delete-hotel') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    if (!isTrueSuperAdmin && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to delete hotels' });
+    }
+
+    try {
+      const { hotelId, reason } = req.body;
+      if (!hotelId) {
+        return res.status(400).json({ error: 'Hotel ID is required' });
+      }
+
+      const { data: hotel, error: fetchErr } = await supabaseAdmin
+        .from('hotels')
+        .select('id, name, is_deleted')
+        .eq('id', hotelId)
+        .maybeSingle();
+
+      if (fetchErr || !hotel) {
+        return res.status(404).json({ error: 'Hotel not found' });
+      }
+
+      if (hotel.is_deleted) {
+        return res.status(400).json({ error: 'Hotel is already soft deleted' });
+      }
+
+      const now = new Date().toISOString();
+      const { error: updateErr } = await supabaseAdmin
+        .from('hotels')
+        .update({
+          is_deleted: true,
+          deleted_at: now,
+          deleted_by: user.id,
+          deletion_reason: reason || 'Soft deleted by Super Admin'
+        })
+        .eq('id', hotelId);
+
+      if (updateErr) throw updateErr;
+
+      // Audit log entry
+      await supabaseAdmin.from('review_action_logs').insert({
+        hotel_id: hotelId,
+        action_type: 'hotel_soft_delete',
+        user_id: user.id,
+        notes: `Hotel "${hotel.name}" soft deleted by ${user.email}. Reason: ${reason || 'N/A'}`
+      }).catch(err => console.warn('Failed to insert audit log:', err));
+
+      return res.status(200).json({ success: true, message: 'Hotel deleted successfully' });
+    } catch (err: any) {
+      console.error('[API Admin Delete Hotel Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: restore-hotel (Super Admin Only - Restore Soft Deleted Hotel)
+  // -------------------------------------------------------------
+  if (action === 'restore-hotel') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    if (!isTrueSuperAdmin && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required to restore hotels' });
+    }
+
+    try {
+      const { hotelId } = req.body;
+      if (!hotelId) {
+        return res.status(400).json({ error: 'Hotel ID is required' });
+      }
+
+      const { data: hotel, error: fetchErr } = await supabaseAdmin
+        .from('hotels')
+        .select('id, name, is_deleted')
+        .eq('id', hotelId)
+        .maybeSingle();
+
+      if (fetchErr || !hotel) {
+        return res.status(404).json({ error: 'Hotel not found' });
+      }
+
+      if (!hotel.is_deleted) {
+        return res.status(400).json({ error: 'Hotel is not deleted' });
+      }
+
+      const { error: updateErr } = await supabaseAdmin
+        .from('hotels')
+        .update({
+          is_deleted: false,
+          deleted_at: null,
+          deleted_by: null,
+          deletion_reason: null
+        })
+        .eq('id', hotelId);
+
+      if (updateErr) throw updateErr;
+
+      // Audit log entry
+      await supabaseAdmin.from('review_action_logs').insert({
+        hotel_id: hotelId,
+        action_type: 'hotel_restore',
+        user_id: user.id,
+        notes: `Hotel "${hotel.name}" restored by ${user.email}`
+      }).catch(err => console.warn('Failed to insert audit log:', err));
+
+      return res.status(200).json({ success: true, message: 'Hotel restored successfully' });
+    } catch (err: any) {
+      console.error('[API Admin Restore Hotel Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: get-deleted-hotels (Super Admin Only)
+  // -------------------------------------------------------------
+  if (action === 'get-deleted-hotels') {
+    if (!isTrueSuperAdmin && roleNameLower !== 'super admin') {
       return res.status(403).json({ error: 'Forbidden: Super Admin permissions required' });
     }
 
     try {
-      const targetHotelIds = [
-        '00c00000-0000-0000-0000-000000000002', // Montana 2543
-        '00c00000-0000-0000-0000-000000000003'  // Fahri Heritage Hotel
-      ];
+      const { data: deletedHotels, error } = await supabaseAdmin
+        .from('hotels')
+        .select('*')
+        .eq('is_deleted', true)
+        .order('deleted_at', { ascending: false });
 
-      // Deletions order (child dependency records first)
-      await supabaseAdmin.from('review_action_logs').delete().in('hotel_id', targetHotelIds);
+      if (error) throw error;
 
-      const { data: reviews } = await supabaseAdmin.from('reviews').select('id').in('hotel_id', targetHotelIds);
-      const reviewIds = (reviews || []).map(r => r.id);
-      if (reviewIds.length > 0) {
-        await supabaseAdmin.from('action_resolutions').delete().in('review_id', reviewIds);
+      const enriched = await Promise.all((deletedHotels || []).map(async (h: any) => {
+        let deletedByUser = 'Super Admin';
+        if (h.deleted_by) {
+          const { data: deleter } = await supabaseAdmin.from('profiles').select('email, first_name, last_name').eq('id', h.deleted_by).maybeSingle();
+          if (deleter) {
+            deletedByUser = deleter.email || `${deleter.first_name || ''} ${deleter.last_name || ''}`.trim();
+          }
+        }
+
+        const { count: reviewCount } = await supabaseAdmin.from('reviews').select('id', { count: 'exact', head: true }).eq('hotel_id', h.id);
+        const { count: taskCount } = await supabaseAdmin.from('tasks').select('id', { count: 'exact', head: true }).eq('hotel_id', h.id);
+
+        return {
+          ...h,
+          deletedByUser,
+          reviewCount: reviewCount || 0,
+          taskCount: taskCount || 0
+        };
+      }));
+
+      return res.status(200).json({ success: true, deletedHotels: enriched });
+    } catch (err: any) {
+      console.error('[API Admin Get Deleted Hotels Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: get-hotel-stats (For confirmation modal metrics preview)
+  // -------------------------------------------------------------
+  if (action === 'get-hotel-stats') {
+    const hotelId = (req.query.hotelId as string) || req.body?.hotelId;
+    if (!hotelId) {
+      return res.status(400).json({ error: 'Hotel ID is required' });
+    }
+
+    try {
+      const { count: totalReviews } = await supabaseAdmin.from('reviews').select('id', { count: 'exact', head: true }).eq('hotel_id', hotelId);
+      const { count: activeIntegrations } = await supabaseAdmin.from('hotel_review_integrations').select('id', { count: 'exact', head: true }).eq('hotel_id', hotelId).eq('is_enabled', true);
+      const { count: openTasks } = await supabaseAdmin.from('tasks').select('id', { count: 'exact', head: true }).eq('hotel_id', hotelId).neq('status', 'resolved');
+      const { count: assignedUsers } = await supabaseAdmin.from('user_hotels').select('profile_id', { count: 'exact', head: true }).eq('hotel_id', hotelId);
+
+      const { data: hotelData } = await supabaseAdmin.from('hotels').select('name, organization_id, organizations(name)').eq('id', hotelId).maybeSingle();
+      const orgName = (hotelData as any)?.organizations?.name || 'ECCTUR Group';
+
+      return res.status(200).json({
+        success: true,
+        stats: {
+          hotelName: hotelData?.name || '',
+          organizationName: orgName,
+          totalReviews: totalReviews || 0,
+          activeIntegrations: activeIntegrations || 0,
+          openTasks: openTasks || 0,
+          assignedUsers: assignedUsers || 0
+        }
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Action: clean-test-hotels / execute-delete-test-hotels (Super Admin Only - Soft Delete)
+  // -------------------------------------------------------------
+  if (action === 'execute-delete-test-hotels' || action === 'clean-test-hotels') {
+    if (!isTrueSuperAdmin && roleNameLower !== 'super admin') {
+      return res.status(403).json({ error: 'Forbidden: Super Admin permissions required' });
+    }
+
+    try {
+      const { data: testHotels } = await supabaseAdmin
+        .from('hotels')
+        .select('id, name')
+        .or('is_test.eq.true,name.ilike.%Montana%,name.ilike.%Fahri%')
+        .eq('is_deleted', false);
+
+      const targetHotelIds = (testHotels || []).map((h: any) => h.id);
+
+      if (targetHotelIds.length === 0) {
+        return res.status(200).json({ success: true, message: 'No active test hotels found to clean.' });
       }
 
-      await supabaseAdmin.from('reviews').delete().in('hotel_id', targetHotelIds);
-      await supabaseAdmin.from('tasks').delete().in('hotel_id', targetHotelIds);
-      await supabaseAdmin.from('notifications').delete().in('hotel_id', targetHotelIds);
-      await supabaseAdmin.from('review_sync_states').delete().in('hotel_id', targetHotelIds);
-      await supabaseAdmin.from('user_hotels').delete().in('hotel_id', targetHotelIds);
-      await supabaseAdmin.from('integration_settings').delete().in('hotel_id', targetHotelIds);
-      
-      const { error: hotelErr } = await supabaseAdmin.from('hotels').delete().in('id', targetHotelIds);
+      const now = new Date().toISOString();
+      const { error: hotelErr } = await supabaseAdmin
+        .from('hotels')
+        .update({
+          is_deleted: true,
+          deleted_at: now,
+          deleted_by: user.id,
+          deletion_reason: 'Bulk test hotels cleanup'
+        })
+        .in('id', targetHotelIds);
+
       if (hotelErr) throw hotelErr;
 
-      return res.status(200).json({ success: true, message: 'Fahri and Montana test hotels deleted successfully.' });
+      return res.status(200).json({
+        success: true,
+        message: `Successfully soft-deleted ${targetHotelIds.length} test hotels: ${(testHotels || []).map((h: any) => h.name).join(', ')}.`
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

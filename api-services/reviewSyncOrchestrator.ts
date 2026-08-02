@@ -46,12 +46,16 @@ export function createReviewFingerprint(hotelId: string, platform: string, revie
 export async function ensureHotelIntegrations(hotelId: string) {
   const { data: hotel, error: hotelErr } = await supabaseAdmin
     .from('hotels')
-    .select('id, google_maps_url, google_maps_link, booking_url, tripadvisor_url, hotelscom_url, holidaycheck_url, otelpuan_url')
+    .select('id, name, is_deleted, google_maps_url, google_maps_link, booking_url, tripadvisor_url, hotelscom_url, holidaycheck_url, otelpuan_url')
     .eq('id', hotelId)
     .maybeSingle();
 
   if (hotelErr || !hotel) {
     throw new Error(`Hotel not found for ID: ${hotelId}`);
+  }
+
+  if (hotel.is_deleted) {
+    throw new Error(`Hotel "${hotel.name || hotelId}" is soft deleted and sync is disabled.`);
   }
 
   const platforms = ['google', 'booking', 'tripadvisor', 'hotels', 'holidaycheck', 'otelpuan'];

@@ -3,8 +3,16 @@ import { supabase } from '@/lib/supabase';
 import { Hotel } from '@/types';
 
 export const hotelRepository = {
-  async getHotels(organizationId?: string): Promise<Hotel[]> {
-    let query = supabase.from('hotels').select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, hotelscom_url, otelpuan_url, address, phone, website, city, country, timezone, default_language, google_account_id, google_location_id, google_business_name, google_business_connected').order('name');
+  async getHotels(organizationId?: string, includeDeleted: boolean = false): Promise<Hotel[]> {
+    let query = supabase
+      .from('hotels')
+      .select('id, organization_id, name, created_at, google_maps_url, google_maps_link, tripadvisor_url, booking_url, holidaycheck_url, hotelscom_url, otelpuan_url, address, phone, website, city, country, timezone, default_language, google_account_id, google_location_id, google_business_name, google_business_connected, is_deleted, deleted_at, deleted_by, deletion_reason, is_test')
+      .order('name');
+    
+    if (!includeDeleted) {
+      query = query.or('is_deleted.is.null,is_deleted.eq.false');
+    }
+
     if (organizationId) {
       query = query.eq('organization_id', organizationId);
     }
@@ -22,24 +30,6 @@ export const hotelRepository = {
             connectionStatus: 'connected',
             googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
             googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
-          },
-          {
-            id: '00c00000-0000-0000-0000-000000000002',
-            organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
-            name: 'Montana 2543',
-            createdAt: new Date().toISOString(),
-            connectionStatus: 'connected',
-            googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
-            googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
-          },
-          {
-            id: '00c00000-0000-0000-0000-000000000003',
-            organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
-            name: 'Fahri Heritage Hotel',
-            createdAt: new Date().toISOString(),
-            connectionStatus: 'connected',
-            googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
-            googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
           }
         ];
       }
@@ -52,24 +42,6 @@ export const hotelRepository = {
           id: '00c00000-0000-0000-0000-000000000001',
           organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
           name: 'Demo Hotel',
-          createdAt: new Date().toISOString(),
-          connectionStatus: 'connected',
-          googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
-          googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
-        },
-        {
-          id: '00c00000-0000-0000-0000-000000000002',
-          organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
-          name: 'Montana 2543',
-          createdAt: new Date().toISOString(),
-          connectionStatus: 'connected',
-          googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
-          googleMapsUrl: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1'
-        },
-        {
-          id: '00c00000-0000-0000-0000-000000000003',
-          organizationId: organizationId || '7cc77cc7-7cc7-7cc7-7cc7-7cc77cc77cc7',
-          name: 'Fahri Heritage Hotel',
           createdAt: new Date().toISOString(),
           connectionStatus: 'connected',
           googleMapsLink: 'https://www.google.com/maps/place/Montana+2543/@40.231908,28.988133,17z/data=!4m8!3m7!1s0x14f51543!8m2!3d40.231908!4d28.988133!9m1!1b1',
@@ -101,8 +73,124 @@ export const hotelRepository = {
       bookingUrl: item.booking_url || '',
       holidaycheckUrl: item.holidaycheck_url || '',
       hotelscomUrl: item.hotelscom_url || '',
-      otelpuanUrl: item.otelpuan_url || ''
+      otelpuanUrl: item.otelpuan_url || '',
+      isDeleted: item.is_deleted || false,
+      deletedAt: item.deleted_at || undefined,
+      deletedBy: item.deleted_by || undefined,
+      deletionReason: item.deletion_reason || undefined,
+      isTest: item.is_test || false
     }));
+  },
+
+  async getDeletedHotels(): Promise<Hotel[]> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=get-deleted-hotels', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to fetch deleted hotels');
+    }
+
+    return (result.deletedHotels || []).map((h: any) => ({
+      id: h.id,
+      organizationId: h.organization_id || h.organizationId,
+      name: h.name,
+      createdAt: h.created_at || h.createdAt,
+      connectionStatus: 'disconnected',
+      isDeleted: true,
+      deletedAt: h.deleted_at,
+      deletedBy: h.deleted_by,
+      deletedByUser: h.deletedByUser || 'Super Admin',
+      deletionReason: h.deletion_reason,
+      isTest: h.is_test || false
+    }));
+  },
+
+  async getHotelStats(hotelId: string): Promise<{ hotelName: string; organizationName: string; totalReviews: number; activeIntegrations: number; openTasks: number; assignedUsers: number }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch(`/api/admin?action=get-hotel-stats&hotelId=${hotelId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to fetch hotel stats');
+    }
+
+    return result.stats;
+  },
+
+  async deleteHotel(hotelId: string, reason?: string): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=delete-hotel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ hotelId, reason })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to delete hotel');
+    }
+  },
+
+  async restoreHotel(hotelId: string): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=restore-hotel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ hotelId })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to restore hotel');
+    }
+  },
+
+  async cleanTestHotels(): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Unauthenticated');
+
+    const response = await fetch('/api/admin?action=clean-test-hotels', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to clean test hotels');
+    }
+
+    return result.message || 'Test hotels soft deleted successfully';
   },
 
   async addHotel(hotel: { name: string; organizationId: string; googleMapsLink?: string; tripadvisorUrl?: string; bookingUrl?: string; holidaycheckUrl?: string; hotelscomUrl?: string; otelpuanUrl?: string }): Promise<Hotel> {
