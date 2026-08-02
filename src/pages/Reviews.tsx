@@ -4,7 +4,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { useTranslation } from 'react-i18next';
 import { reviewService } from '@/services/reviewService';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
-import { Review, ReviewSource, ReviewStatus, ReviewPriority } from '@/types';
+import { Review, ReviewSource, ReviewStatus, ReviewPriority, HotelReviewIntegration, SyncResult } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthGuard';
 import { normalizeReviewPlatform } from '@/utils/platform';
@@ -23,7 +23,9 @@ import {
   Check,
   Save,
   MessageSquare,
-  Building
+  Building,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { taskService } from '@/services/taskService';
 import { generateTaskMetadata } from '@/utils/taskMetadata';
@@ -98,7 +100,26 @@ export default function Reviews() {
   useEffect(() => {
     setSelectedReviewId(null);
     setCurrentPage(1);
+  }, [currentHotelId, setSelectedReviewId]);
+
+  const [integrations, setIntegrations] = useState<HotelReviewIntegration[]>([]);
+  const [syncingPlatforms, setSyncingPlatforms] = useState<Record<string, boolean>>({});
+
+  const isSuperAdminUser = isSuperAdmin || currentUserEmail === 'cemil.sezgin@ecctur.com';
+
+  const fetchIntegrations = useCallback(async () => {
+    if (!currentHotelId) return;
+    try {
+      const list = await reviewService.getIntegrations(currentHotelId);
+      setIntegrations(list || []);
+    } catch (err) {
+      console.error('Failed to fetch integrations:', err);
+    }
   }, [currentHotelId]);
+
+  useEffect(() => {
+    fetchIntegrations();
+  }, [fetchIntegrations]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -376,52 +397,62 @@ export default function Reviews() {
     }
   };
 
-  const handleSyncAllPlatforms = async (modeOverride?: string) => {
+  const handleSyncSinglePlatform = async (platformKey: string) => {
+    if (!currentHotelId || syncingPlatforms[platformKey.toLowerCase()]) return;
+    const normKey = platformKey.toLowerCase() === 'hotels.com' ? 'hotels' : platformKey.toLowerCase();
+    setSyncingPlatforms(prev => ({ ...prev, [normKey]: true }));
+    try {
+      const result = await reviewService.syncPlatform(currentHotelId, normKey);
+      if (result && result.success) {
+        setToastMessage(`${platformKey} senkronizasyonu tamamlandı. ${result.imported || 0} yeni yorum eklendi.`);
+        refetch();
+        fetchIntegrations();
+      } else {
+        setToastMessage(`${platformKey} senkronizasyon hatası: ${result?.error || 'Bilinmeyen hata'}`);
+      }
+    } catch (e: any) {
+      console.error(e);
+      setToastMessage(`Hata: ${e.message || 'Senkronize edilemedi'}`);
+    } finally {
+      setSyncingPlatforms(prev => ({ ...prev, [normKey]: false }));
+    }
+  };
+
+  const handleSyncAllPlatforms = async () => {
     if (!currentHotelId || isSyncingAll) return;
     setIsSyncingAll(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Oturum bulunamadı.');
+      const results: SyncResult[] = await reviewService.syncAllPlatforms(currentHotelId);
+      let totalImported = 0;
+      let totalChecked = 0;
+      let successCount = 0;
+      let unconfiguredCount = 0;
 
-      const response = await fetch('/api/reviews?action=trigger-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ hotelId: currentHotelId, mode: modeOverride || 'daily_sync' })
+      (results || []).forEach(r => {
+        if (r.success) {
+          successCount++;
+          totalImported += r.imported || 0;
+          totalChecked += (r.imported || 0) + (r.skipped || 0);
+        } else if (r.error && (r.error.includes('not configured') || r.error.includes('disabled') || r.error.includes('not enabled'))) {
+          unconfiguredCount++;
+        }
       });
-      if (response.ok) {
-        setToastMessage("Senkronizasyon işlemi tamamlandı.");
-        refetch();
-      }
-    } catch (e) {
+
+      const summaryMsg = `${successCount} platform başarıyla senkronize edildi. ${unconfiguredCount} platform yapılandırılmamış. ${totalChecked} yorum kontrol edildi, ${totalImported} yeni yorum eklendi.`;
+      setToastMessage(summaryMsg);
+
+      refetch();
+      fetchIntegrations();
+    } catch (e: any) {
       console.error(e);
+      setToastMessage(`Senkronizasyon hatası: ${e.message || 'Başarısız'}`);
     } finally {
       setIsSyncingAll(false);
     }
   };
 
   const handleSyncOtelpuanReviews = async () => {
-    if (!currentHotelId || !currentHotel?.otelpuan_url || isImportingOtelpuan) return;
-    setIsImportingOtelpuan(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Token error');
-
-      const response = await fetch('/api/reviews?action=import-otelpuan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ hotelId: currentHotelId, otelpuanUrl: currentHotel.otelpuan_url, mode: 'daily_sync' })
-      });
-      if (response.ok) {
-        setToastMessage("Otelpuan yorumları çekildi.");
-        refetch();
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsImportingOtelpuan(false);
-    }
+    handleSyncSinglePlatform('otelpuan');
   };
 
   // Helper values for counts
@@ -517,15 +548,7 @@ export default function Reviews() {
             className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer min-h-[38px]"
           >
             <RefreshCw size={14} className={isSyncingAll ? 'animate-spin' : ''} />
-            <span>{isSyncingAll ? 'Syncing...' : 'Sync All'}</span>
-          </button>
-
-          <button
-            onClick={() => setShowAdvancedImport(!showAdvancedImport)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[#151827] font-bold text-xs rounded-xl transition-all min-h-[38px] cursor-pointer"
-          >
-            <span>Advanced Controls</span>
-            <ChevronDown size={14} className={`transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`} />
+            <span>{isSyncingAll ? t('reviews.syncing', 'Senkronize Ediliyor...') : t('reviews.syncAll', 'Tümünü Senkronize Et')}</span>
           </button>
 
           <button
@@ -539,57 +562,196 @@ export default function Reviews() {
         </div>
       </div>
 
-      {/* Advanced Legacy Sync Controls Collapsible Panel */}
-      {showAdvancedImport && (
-        <div className="bg-white p-4 rounded-[14px] border border-slate-200 flex flex-wrap gap-2.5 items-center animate-slide-in">
-          <div className="w-full text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 text-left">
-            Tekil Entegrasyonlar ve Test Kontrolleri (Gelişmiş)
+      {/* Platform Cards (Dual Filter & Integration Status) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+        {/* All Reviews Card */}
+        <div
+          onClick={() => setSource('')}
+          className={`p-3 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+            !source
+              ? 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6] shadow-sm font-extrabold ring-1 ring-[#6D5DF6]/20'
+              : 'border-[#E8EAF0] bg-white text-zinc-600 hover:text-[#151827] hover:bg-slate-50'
+          }`}
+        >
+          <div>
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-base">🌐</span>
+              <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-[11px] text-zinc-700 font-black">{allCount}</span>
+            </div>
+            <div className="text-xs font-bold truncate">Tüm Yorumlar</div>
+            <div className="text-[10px] text-zinc-400 font-medium mt-1">Tüm Platformlar</div>
           </div>
-          <button
-            onClick={handleSyncOtelpuanReviews}
-            disabled={isImportingOtelpuan}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[#151827] font-bold text-[11px] rounded-xl transition-all cursor-pointer"
-          >
-            <RefreshCw size={12} className={isImportingOtelpuan ? 'animate-spin' : ''} />
-            <span>Otelpuan Tekil Çek</span>
-          </button>
-          <span className="text-[10px] text-zinc-500 italic">(DİĞER platformlar aggregator üzerinden senkronize edilir)</span>
+          <div className="mt-3 text-[10px] font-bold text-indigo-600">
+            {!source ? '✓ Aktif Filtre' : 'Filtrele'}
+          </div>
         </div>
-      )}
 
-      {/* Platform Summary Counters */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {[
-          { key: '', label: 'Tümü', count: allCount, icon: <span className="text-[14px]">🌐</span> },
-          ...visibleReviewPlatforms.map(p => ({
-            key: p.key,
-            label: p.label,
-            count: p.key === 'Google' ? googleCount :
-                   p.key === 'Booking' ? bookingCount :
-                   p.key === 'TripAdvisor' ? tripadvisorCount :
-                   p.key === 'Hotels.com' ? hotelscomCount :
-                   p.key === 'HolidayCheck' ? holidaycheckCount :
-                   p.key === 'otelpuan' ? otelpuanCount : 0,
-            icon: p.icon
-          }))
-        ].map((tab) => {
-          const isActive = tab.key === '' ? !source : source === tab.key;
+        {/* Platform Specific Cards */}
+        {visibleReviewPlatforms.map(p => {
+          const normKey = p.key.toLowerCase() === 'hotels.com' ? 'hotels' : p.key.toLowerCase();
+          const integration = integrations.find(i => i.platform === normKey);
+          const isSyncingThis = syncingPlatforms[normKey] || (integration?.sync_status === 'syncing');
+          const isActive = source === p.key;
+
+          const count = p.key === 'Google' ? googleCount :
+                        p.key === 'Booking' ? bookingCount :
+                        p.key === 'TripAdvisor' ? tripadvisorCount :
+                        p.key === 'Hotels.com' ? hotelscomCount :
+                        p.key === 'HolidayCheck' ? holidaycheckCount :
+                        p.key === 'otelpuan' ? otelpuanCount : 0;
+
+          // Status determinations: Bağlı, Bağlı değil, Senkronize ediliyor, Başarılı, Hata, Devre dışı
+          let statusBadge = { label: t('reviews.statusDisconnected', 'Bağlı Değil'), style: 'bg-zinc-100 text-zinc-500 border-zinc-200' };
+          
+          if (isSyncingThis) {
+            statusBadge = { label: t('reviews.statusSyncing', 'Senkronize Ediliyor'), style: 'bg-blue-50 text-blue-600 border-blue-200 animate-pulse' };
+          } else if (integration) {
+            if (!integration.is_enabled || !integration.source_url) {
+              statusBadge = { label: t('reviews.statusDisabled', 'Devre Dışı'), style: 'bg-zinc-100 text-zinc-400 border-zinc-200' };
+            } else if (integration.sync_status === 'error' || integration.last_error) {
+              statusBadge = { label: t('reviews.statusError', 'Hata'), style: 'bg-red-50 text-red-600 border-red-200' };
+            } else if (integration.sync_status === 'success' || integration.last_success_at) {
+              statusBadge = { label: t('reviews.statusConnected', 'Bağlı'), style: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            } else {
+              statusBadge = { label: t('reviews.statusConnected', 'Bağlı'), style: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            }
+          }
+
+          const lastSyncFormatted = integration?.last_success_at
+            ? new Date(integration.last_success_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : null;
+
           return (
-            <button
-              key={tab.label}
-              onClick={() => setSource(tab.key as any)}
-              className={`px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 ${
+            <div
+              key={p.key}
+              onClick={() => setSource(source === p.key ? '' : (p.key as any))}
+              className={`p-3 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between relative group ${
                 isActive
-                  ? 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6] font-extrabold'
-                  : 'border-[#E8EAF0] bg-white text-zinc-500 hover:text-[#151827] hover:bg-slate-50'
+                  ? 'border-[#6D5DF6] bg-[#F0EDFF] text-[#6D5DF6] shadow-sm font-extrabold ring-1 ring-[#6D5DF6]/20'
+                  : 'border-[#E8EAF0] bg-white text-zinc-600 hover:text-[#151827] hover:bg-slate-50'
               }`}
             >
-              <span className="shrink-0">{tab.icon}</span>
-              <span className="text-xs font-bold whitespace-nowrap">{tab.label}</span>
-              <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-[10px] text-zinc-500 font-extrabold">{tab.count}</span>
-            </button>
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <span className="shrink-0">{p.icon}</span>
+                  <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-[10px] text-zinc-700 font-black">{count}</span>
+                </div>
+                
+                <div className="text-xs font-bold truncate mb-1">{p.label}</div>
+
+                <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+                  <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${statusBadge.style}`}>
+                    {statusBadge.label}
+                  </span>
+                  {lastSyncFormatted && (
+                    <span className="text-[9px] text-zinc-400 font-medium truncate" title={`Son senkronizasyon: ${integration?.last_success_at}`}>
+                      {lastSyncFormatted}
+                    </span>
+                  )}
+                </div>
+
+                {integration?.last_error && !isSyncingThis && (
+                  <div className="text-[9px] text-red-500 font-medium truncate mb-1.5" title={integration.last_error}>
+                    ⚠️ {integration.last_error}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSyncSinglePlatform(p.key);
+                }}
+                disabled={isSyncingThis || isSyncingAll}
+                className="w-full mt-1.5 px-2 py-1 bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 disabled:opacity-50 text-zinc-700 font-extrabold text-[10px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <RefreshCw size={10} className={isSyncingThis ? 'animate-spin text-indigo-600' : ''} />
+                <span>{isSyncingThis ? t('reviews.syncing', 'Senkronize...') : t('reviews.syncSingle', 'Senkronize Et')}</span>
+              </button>
+            </div>
           );
         })}
+      </div>
+
+      {/* Entegrasyon Durumu Section */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Database size={16} className="text-indigo-600" />
+            <h3 className="text-xs font-black uppercase tracking-wider text-[#151827] m-0">
+              {t('reviews.integrationStatus', 'Entegrasyon Durumu')}
+            </h3>
+          </div>
+
+          {isSuperAdminUser && (
+            <button
+              onClick={() => setShowAdvancedImport(!showAdvancedImport)}
+              className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-zinc-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer"
+            >
+              <span>Super Admin Test Kontrolleri</span>
+              <ChevronDown size={12} className={`transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`} />
+            </button>
+          )}
+        </div>
+
+        {/* Normal User & Admin View of Platforms */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {visibleReviewPlatforms.map(p => {
+            const normKey = p.key.toLowerCase() === 'hotels.com' ? 'hotels' : p.key.toLowerCase();
+            const integration = integrations.find(i => i.platform === normKey);
+            const isSyncingThis = syncingPlatforms[normKey];
+            const isConfigured = !!(integration?.source_url);
+
+            return (
+              <div key={p.key} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 flex flex-col justify-between gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {p.icon}
+                    <span className="text-xs font-bold text-[#151827]">{p.label}</span>
+                  </div>
+                  <span className={`w-2 h-2 rounded-full ${isConfigured ? 'bg-emerald-500' : 'bg-zinc-300'}`} />
+                </div>
+
+                <div className="text-[10px] text-zinc-500 font-medium">
+                  {isConfigured ? (
+                    <span className="text-emerald-700 font-bold">✓ {t('reviews.statusConnected', 'Bağlı')}</span>
+                  ) : (
+                    <span className="text-zinc-400">{t('reviews.statusDisconnected', 'Bağlı değil')}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 mt-1">
+                  <button
+                    onClick={() => handleSyncSinglePlatform(p.key)}
+                    disabled={isSyncingThis || isSyncingAll || !isConfigured}
+                    className="flex-1 px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-40 text-[10px] font-bold rounded-lg text-zinc-700 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw size={9} className={isSyncingThis ? 'animate-spin' : ''} />
+                    <span>{t('reviews.syncSingle', 'Senkronize Et')}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Super Admin Legacy Test Panel */}
+        {isSuperAdminUser && showAdvancedImport && (
+          <div className="mt-4 pt-3 border-t border-slate-100 bg-amber-50/50 p-3 rounded-xl border border-amber-200/50 flex flex-wrap gap-2.5 items-center">
+            <div className="w-full text-[10px] font-black text-amber-800 uppercase tracking-wider mb-1">
+              Super Admin Manuel Test Kontrolleri
+            </div>
+            <button
+              onClick={handleSyncOtelpuanReviews}
+              disabled={isImportingOtelpuan}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-bold text-[11px] rounded-xl transition-all cursor-pointer shadow-xs"
+            >
+              <RefreshCw size={12} className={isImportingOtelpuan ? 'animate-spin' : ''} />
+              <span>Otelpuan Tekil Test Çekimi</span>
+            </button>
+            <span className="text-[10px] text-amber-700 italic">Bu bölüm yalnızca Super Admin (cemil.sezgin@ecctur.com) tarafından görülebilir.</span>
+          </div>
+        )}
       </div>
 
       {/* WORKFLOW NAVIGATION TABS */}
@@ -624,14 +786,14 @@ export default function Reviews() {
         {/* LEFT COLUMN: Review List */}
         <div className="lg:col-span-4 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
           <div className="p-4 border-b border-[#E8EAF0] flex items-center justify-between shrink-0">
-            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">Review List</span>
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">{t('reviews.reviewList')}</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-[10px] font-bold text-[#151827] focus:outline-none"
             >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
+              <option value="newest">{t('reviews.sortNewest')}</option>
+              <option value="oldest">{t('reviews.sortOldest')}</option>
             </select>
           </div>
 
@@ -642,7 +804,7 @@ export default function Reviews() {
               ))
             ) : reviews.length === 0 ? (
               <div className="py-24 text-center text-zinc-500 text-xs font-semibold">
-                No reviews found matching selection.
+                {t('reviews.empty')}
               </div>
             ) : (
               paginatedReviews.map((review) => {
@@ -740,11 +902,11 @@ export default function Reviews() {
                     </h2>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
-                    <span>Date: {selectedReviewDetail.review_date ? new Date(selectedReviewDetail.review_date).toLocaleDateString('tr-TR') : 'Unknown'}</span>
+                    <span>{t('reviews.dateLabel')}: {selectedReviewDetail.review_date ? new Date(selectedReviewDetail.review_date).toLocaleDateString('tr-TR') : 'Unknown'}</span>
                     <span>&bull;</span>
-                    <span>Lang: {selectedReviewDetail.metadata?.language || 'TR'}</span>
+                    <span>{t('reviews.langLabel')}: {selectedReviewDetail.metadata?.language || 'TR'}</span>
                     <span>&bull;</span>
-                    <span>Country: {selectedReviewDetail.metadata?.country || 'TR'}</span>
+                    <span>{t('reviews.countryLabel')}: {selectedReviewDetail.metadata?.country || 'TR'}</span>
                   </div>
                 </div>
 
@@ -756,14 +918,14 @@ export default function Reviews() {
 
               {/* Comment text */}
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Comment</span>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{t('reviews.commentLabel')}</span>
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs leading-relaxed text-zinc-700">
-                  {selectedReviewDetail.comment || 'No comment text provided.'}
+                  {selectedReviewDetail.comment || t('reviews.noCommentText')}
                 </div>
                 
                 {translatedText && (
                   <div className="mt-3 bg-[#F0EDFF] border border-[#6D5DF6]/20 rounded-2xl p-4 text-xs leading-relaxed text-[#6D5DF6]">
-                    <span className="font-bold block mb-1">Translation:</span>
+                    <span className="font-bold block mb-1">{t('reviews.translateLabel', 'Translation')}:</span>
                     {translatedText}
                   </div>
                 )}
@@ -772,7 +934,7 @@ export default function Reviews() {
               {/* Positives & Negatives */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Positive Highlights</span>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{t('reviews.positiveHighlights')}</span>
                   <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 text-xs text-emerald-700 space-y-1.5">
                     {selectedReviewDetail.metadata?.positives && selectedReviewDetail.metadata.positives.length > 0 ? (
                       selectedReviewDetail.metadata.positives.map((p: string, idx: number) => (
@@ -782,13 +944,13 @@ export default function Reviews() {
                         </div>
                       ))
                     ) : (
-                      <span className="italic text-zinc-450">No positives found.</span>
+                      <span className="italic text-zinc-450">{t('reviews.noPositives')}</span>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Negative Highlights</span>
+                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">{t('reviews.negativeHighlights')}</span>
                   <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3.5 text-xs text-rose-700 space-y-1.5">
                     {selectedReviewDetail.metadata?.negatives && selectedReviewDetail.metadata.negatives.length > 0 ? (
                       selectedReviewDetail.metadata.negatives.map((n: string, idx: number) => (
@@ -798,7 +960,7 @@ export default function Reviews() {
                         </div>
                       ))
                     ) : (
-                      <span className="italic text-zinc-450">No negatives found.</span>
+                      <span className="italic text-zinc-450">{t('reviews.noNegatives')}</span>
                     )}
                   </div>
                 </div>
@@ -807,20 +969,20 @@ export default function Reviews() {
               {/* AI Draft response block */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-[#6D5DF6] uppercase tracking-wider">AI Draft Response</span>
+                  <span className="text-[10px] font-bold text-[#6D5DF6] uppercase tracking-wider">{t('reviews.aiDraftResponse')}</span>
                   <button
                     onClick={handleGenerateReply}
                     disabled={isGenerating}
                     className="text-[10px] text-[#6D5DF6] hover:text-[#5b4ee4] font-extrabold flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw size={10} className={isGenerating ? 'animate-spin' : ''} />
-                    <span>Regenerate Response</span>
+                    <span>{t('reviews.regenerateResponse')}</span>
                   </button>
                 </div>
                 <textarea
                   value={responseVal}
                   onChange={(e) => setResponseVal(e.target.value)}
-                  placeholder="AI draft reply text..."
+                  placeholder={t('reviews.aiDraftPlaceholder')}
                   rows={6}
                   className="w-full rounded-2xl bg-slate-50 border border-[#E8EAF0] p-3.5 text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6] leading-relaxed font-sans"
                 />
@@ -833,13 +995,13 @@ export default function Reviews() {
                 className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isUpdatingStatus ? <RefreshCw size={14} className="animate-spin" /> : <Check size={16} />}
-                <span>Tek Tuşla Onayla (Approve & Publish)</span>
+                <span>{t('reviews.approveAndPublish')}</span>
               </button>
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-zinc-555 text-xs p-6 text-center space-y-2 bg-slate-50/50">
               <Database size={28} className="text-zinc-400" />
-              <span>Lütfen detayları görüntülemek için sol listeden bir yorum seçin.</span>
+              <span>{t('reviews.selectDetailHint')}</span>
             </div>
           )}
         </div>
@@ -847,7 +1009,7 @@ export default function Reviews() {
         {/* RIGHT COLUMN: AI Assistant */}
         <div className="lg:col-span-3 flex flex-col bg-white border border-[#E8EAF0] rounded-[18px] overflow-hidden">
           <div className="p-4 border-b border-[#E8EAF0] shrink-0 text-left">
-            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">AI Operations Board</span>
+            <span className="text-xs font-bold text-[#151827] uppercase tracking-wider">{t('reviews.aiOperationsBoard')}</span>
           </div>
 
           {selectedReviewDetail ? (
@@ -855,20 +1017,20 @@ export default function Reviews() {
               {/* Confidence and analysis details */}
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">AI Güven Skoru:</span>
+                  <span className="text-zinc-500">{t('reviews.aiConfidence')}:</span>
                   <span className="font-extrabold text-[#6D5DF6]">%{selectedReviewDetail.metadata?.confidence_score || '96'}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">Sentiment:</span>
+                  <span className="text-zinc-500">{t('reviews.sentimentLabel')}:</span>
                   <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${
                     selectedReviewDetail.rating >= 4 ? 'text-emerald-600 bg-emerald-50' :
                     selectedReviewDetail.rating <= 2 ? 'text-rose-600 bg-rose-50' : 'text-amber-600 bg-amber-50'
                   }`}>
-                    {selectedReviewDetail.rating >= 4 ? 'Positive' : selectedReviewDetail.rating <= 2 ? 'Negative' : 'Neutral'}
+                    {selectedReviewDetail.rating >= 4 ? t('reviews.positive') : selectedReviewDetail.rating <= 2 ? t('reviews.negative') : t('reviews.neutral')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">Departman:</span>
+                  <span className="text-zinc-500">{t('reviews.deptLabel')}:</span>
                   <span className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-100 text-[9px] font-bold">
                     {selectedReviewDetail.departments?.[0] || 'Genel'}
                   </span>
@@ -877,7 +1039,7 @@ export default function Reviews() {
 
               {/* Translation controls */}
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Yorum Çevir</span>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">{t('reviews.translateLabel')}</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleTranslate('tr')}
@@ -902,11 +1064,11 @@ export default function Reviews() {
 
               {/* Manager notes */}
               <div className="space-y-3 pt-3 border-t border-slate-100">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Manager Notes</span>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">{t('reviews.managerNotes')}</span>
                 <textarea
                   value={managerNotes}
                   onChange={(e) => setManagerNotes(e.target.value)}
-                  placeholder="Private internal details..."
+                  placeholder={t('reviews.privateInternalDetails')}
                   rows={3}
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-[#151827] focus:outline-none"
                 />
@@ -916,7 +1078,7 @@ export default function Reviews() {
                   className="w-full py-2 bg-indigo-50 border border-indigo-100 text-[#6D5DF6] font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Save size={12} />
-                  <span>Notları Kaydet</span>
+                  <span>{t('reviews.saveNotes')}</span>
                 </button>
               </div>
 
@@ -927,13 +1089,13 @@ export default function Reviews() {
                   className="w-full py-2.5 bg-rose-50 border border-rose-100 text-rose-600 font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <CheckSquare size={13} />
-                  <span>Düzeltici Görev Oluştur</span>
+                  <span>{t('reviews.createTask')}</span>
                 </button>
               </div>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-zinc-400 text-xs">
-              No selected review.
+              {t('reviews.noSelectedReview')}
             </div>
           )}
         </div>
@@ -947,7 +1109,7 @@ export default function Reviews() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-semibold text-[#151827] flex items-center gap-2">
                 <CheckSquare size={16} className="text-rose-600" />
-                Düzeltici Aksiyon Görevi Oluştur
+                {t('reviews.createTaskTitle')}
               </h3>
               <button 
                 onClick={() => setTaskCreationReview(null)}
@@ -964,12 +1126,12 @@ export default function Reviews() {
                   <span className="text-[10px] text-amber-600 font-extrabold">{taskCreationReview.rating} Yıldız</span>
                 </div>
                 <p className="italic leading-relaxed">
-                  "{taskCreationReview.comment || 'Yorum metni bulunmuyor'}"
+                  "{taskCreationReview.comment || t('reviews.noCommentText')}"
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Görev Departmanı</label>
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">{t('reviews.taskDeptLabel')}</label>
                 <select
                   value={taskCreationDept}
                   onChange={(e) => setTaskCreationDept(e.target.value)}
@@ -986,16 +1148,16 @@ export default function Reviews() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Görev Önceliği</label>
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">{t('reviews.taskPriorityLabel')}</label>
                 <select
                   value={taskCreationPriority}
                   onChange={(e) => setTaskCreationPriority(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E8EAF0] text-xs text-[#151827] focus:outline-none focus:border-[#6D5DF6]"
                 >
-                  <option value="critical">Kritik</option>
-                  <option value="high">Yüksek</option>
-                  <option value="medium">Orta</option>
-                  <option value="low">Düşük</option>
+                  <option value="critical">{t('reviews.priorityCritical')}</option>
+                  <option value="high">{t('reviews.priorityHigh')}</option>
+                  <option value="medium">{t('reviews.priorityMedium')}</option>
+                  <option value="low">{t('reviews.priorityLow')}</option>
                 </select>
               </div>
 
@@ -1004,7 +1166,7 @@ export default function Reviews() {
                   onClick={() => setTaskCreationReview(null)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-50 text-zinc-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  Vazgeç
+                  {t('reviews.cancelButton')}
                 </button>
                 <button
                   onClick={handleCreateTask}
@@ -1012,7 +1174,7 @@ export default function Reviews() {
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {isCreatingTask && <RefreshCw size={12} className="animate-spin" />}
-                  Görev Ekle
+                  {t('reviews.addTaskButton')}
                 </button>
               </div>
             </div>
@@ -1027,14 +1189,14 @@ export default function Reviews() {
             <MessageSquare size={16} />
           </div>
           <div className="text-left">
-            <h4 className="text-xs font-bold text-[#151827]">Bildirim</h4>
+            <h4 className="text-xs font-bold text-[#151827]">{t('reviews.notificationTitle')}</h4>
             <p className="text-[10px] text-zinc-500 mt-0.5 font-medium">{toastMessage}</p>
           </div>
           <button 
             onClick={() => setToastMessage(null)}
             className="text-xs text-[#6D5DF6] hover:text-[#5b4ee4] font-bold ml-4 cursor-pointer"
           >
-            Kapat
+            {t('reviews.closeButton')}
           </button>
         </div>
       )}

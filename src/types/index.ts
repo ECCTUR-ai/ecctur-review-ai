@@ -281,3 +281,49 @@ export interface IntegrationSetting {
     [key: string]: any;
   };
 }
+
+export type ReviewIntegrationPlatform = 'google' | 'booking' | 'tripadvisor' | 'hotels' | 'holidaycheck' | 'otelpuan';
+export type ReviewIntegrationProvider = 'apify' | 'custom' | 'official_api';
+export type ReviewIntegrationStatus = 'idle' | 'syncing' | 'success' | 'error' | 'disabled';
+
+export interface HotelReviewIntegration {
+  id: string;
+  hotel_id: string;
+  platform: ReviewIntegrationPlatform;
+  provider: ReviewIntegrationProvider;
+  source_url?: string | null;
+  external_hotel_id?: string | null;
+  is_enabled: boolean;
+  sync_status: ReviewIntegrationStatus;
+  last_sync_at?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+  last_imported_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewSyncLog {
+  id: string;
+  hotel_id: string;
+  platform: string;
+  status: 'success' | 'error' | 'skipped';
+  imported_count: number;
+  updated_count: number;
+  skipped_count: number;
+  error_message?: string | null;
+  started_at: string;
+  completed_at?: string | null;
+  created_at: string;
+}
+
+export interface SyncResult {
+  platform: string;
+  success: boolean;
+  imported: number;
+  updated: number;
+  skipped: number;
+  error?: string;
+  syncedAt: string;
+}
+

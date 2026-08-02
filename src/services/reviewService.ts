@@ -1444,5 +1444,75 @@ export const reviewService = {
       success: data.success,
       review: mapReview(data.review)
     };
+  },
+
+  async getIntegrations(hotelId: string): Promise<any[]> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing authentication token');
+
+    const response = await fetch(`/api/reviews?action=get-integrations&hotelId=${hotelId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch integrations');
+    }
+    const resData = await response.json();
+    return resData.integrations || [];
+  },
+
+  async syncPlatform(hotelId: string, platform: string): Promise<any> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing authentication token');
+
+    const response = await fetch('/api/reviews?action=sync-platform', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ hotelId, platform })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to sync platform ${platform}`);
+    }
+    const resData = await response.json();
+    return resData.result;
+  },
+
+  async syncAllPlatforms(hotelId: string): Promise<any[]> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing authentication token');
+
+    const response = await fetch('/api/reviews?action=sync-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ hotelId })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to sync all platforms');
+    }
+    const resData = await response.json();
+    return resData.results || [];
+  },
+
+  async updateIntegration(hotelId: string, platform: string, isEnabled?: boolean, sourceUrl?: string): Promise<any> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Missing authentication token');
+
+    const response = await fetch('/api/reviews?action=update-integration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ hotelId, platform, isEnabled, sourceUrl })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update integration');
+    }
+    const resData = await response.json();
+    return resData.integration;
   }
 };

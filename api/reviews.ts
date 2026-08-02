@@ -5,6 +5,7 @@ import { bookingProvider } from '../api-services/providers/bookingProvider.js';
 import { fetchAggregatorReviews } from '../src/services/providers/hotelReviewAggregatorProvider.js';
 import { analyzeReviewText } from './utils/operationsAnalysis.js';
 import { otelpuanScraperService } from '../src/services/otelpuanScraperService.js';
+import { ensureHotelIntegrations, syncPlatform, syncAllPlatforms } from '../api-services/reviewSyncOrchestrator.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -1027,6 +1028,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         maxReviews: maxReviews ? Number(maxReviews) : 50
       });
       return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Integration & Synchronization Infrastructure Handlers
+  // -------------------------------------------------------------
+  if (action === 'get-integrations') {
+    const hotelId = req.query.hotelId || req.body?.hotelId;
+    if (!hotelId) return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
+    try {
+      const integrations = await ensureHotelIntegrations(String(hotelId));
+      return res.status(200).json({ success: true, integrations });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  }
+
+  if (action === 'sync-platform') {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+    const { hotelId, platform } = req.body || {};
+    if (!hotelId || !platform) return res.status(400).json({ success: false, error: 'Missing hotelId or platform parameter' });
+    try {
+      const result = await syncPlatform(String(platform), String(hotelId));
+      return res.status(200).json({ success: true, result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  }
+
+  if (action === 'sync-all' || action === 'trigger-sync') {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+    const { hotelId } = req.body || {};
+    if (!hotelId) return res.status(400).json({ success: false, error: 'Missing hotelId parameter' });
+    try {
+      const results = await syncAllPlatforms(String(hotelId));
+      return res.status(200).json({ success: true, results });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  }
+
+  if (action === 'update-integration') {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+    const { hotelId, platform, isEnabled, sourceUrl } = req.body || {};
+    if (!hotelId || !platform) return res.status(400).json({ success: false, error: 'Missing hotelId or platform parameter' });
+    try {
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (typeof isEnabled === 'boolean') updates.is_enabled = isEnabled;
+      if (typeof sourceUrl === 'string') updates.source_url = sourceUrl;
+
+      const { data, error } = await supabaseAdmin
+        .from('hotel_review_integrations')
+        .update(updates)
+        .eq('hotel_id', hotelId)
+        .eq('platform', platform.toLowerCase())
+        .select()
+        .single();
+
+      if (error) return res.status(500).json({ success: false, error: error.message });
+      return res.status(200).json({ success: true, integration: data });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message || String(err) });
     }
