@@ -422,22 +422,39 @@ export default function Reviews() {
     if (!currentHotelId || isSyncingAll) return;
     setIsSyncingAll(true);
     try {
-      const results: SyncResult[] = await reviewService.syncAllPlatforms(currentHotelId);
+      const activeIntegrations = await reviewService.getIntegrations(currentHotelId);
+      const enabledPlatforms = (activeIntegrations || []).filter((i: any) => i.is_enabled && i.source_url);
+
+      if (enabledPlatforms.length === 0) {
+        setToastMessage('Aktif ve yapılandırılmış entegrasyon bulunamadı. Lütfen Admin panelinden platform URL tanımlarını kontrol edin.');
+        return;
+      }
+
       let totalImported = 0;
       let totalChecked = 0;
       let successCount = 0;
-      let unconfiguredCount = 0;
+      let failedCount = 0;
 
-      (results || []).forEach(r => {
-        if (r.success) {
-          successCount++;
-          totalImported += r.imported || 0;
-          totalChecked += (r.imported || 0) + (r.skipped || 0);
-        } else if (r.error && (r.error.includes('not configured') || r.error.includes('disabled') || r.error.includes('not enabled'))) {
-          unconfiguredCount++;
+      for (const integ of enabledPlatforms) {
+        const platKey = integ.platform;
+        setSyncingPlatforms(prev => ({ ...prev, [platKey]: true }));
+        try {
+          const res = await reviewService.syncPlatform(currentHotelId, platKey);
+          if (res && res.success) {
+            successCount++;
+            totalImported += res.imported || 0;
+            totalChecked += (res.imported || 0) + (res.skipped || 0);
+          } else {
+            failedCount++;
+          }
+        } catch (err) {
+          failedCount++;
+        } finally {
+          setSyncingPlatforms(prev => ({ ...prev, [platKey]: false }));
         }
-      });
+      }
 
+      const unconfiguredCount = visibleReviewPlatforms.length - enabledPlatforms.length;
       const summaryMsg = `${successCount} platform başarıyla senkronize edildi. ${unconfiguredCount} platform yapılandırılmamış. ${totalChecked} yorum kontrol edildi, ${totalImported} yeni yorum eklendi.`;
       setToastMessage(summaryMsg);
 

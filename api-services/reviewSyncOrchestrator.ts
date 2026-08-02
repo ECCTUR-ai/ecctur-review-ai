@@ -417,11 +417,10 @@ export async function syncPlatform(platform: string, hotelId: string): Promise<S
  */
 export async function syncAllPlatforms(hotelId: string): Promise<SyncResult[]> {
   const integrations = await ensureHotelIntegrations(hotelId);
-  const results: SyncResult[] = [];
-
-  for (const integration of integrations) {
-    if (!integration.is_enabled) {
-      results.push({
+  
+  const tasks = integrations.map(async (integration) => {
+    if (!integration.is_enabled || !integration.source_url) {
+      return {
         platform: integration.platform,
         success: false,
         imported: 0,
@@ -429,15 +428,13 @@ export async function syncAllPlatforms(hotelId: string): Promise<SyncResult[]> {
         skipped: 0,
         error: 'Integration not enabled / not configured',
         syncedAt: new Date().toISOString()
-      });
-      continue;
+      };
     }
 
     try {
-      const res = await syncPlatform(integration.platform, hotelId);
-      results.push(res);
+      return await syncPlatform(integration.platform, hotelId);
     } catch (err: any) {
-      results.push({
+      return {
         platform: integration.platform,
         success: false,
         imported: 0,
@@ -445,9 +442,21 @@ export async function syncAllPlatforms(hotelId: string): Promise<SyncResult[]> {
         skipped: 0,
         error: err.message || 'Synchronization exception',
         syncedAt: new Date().toISOString()
-      });
+      };
     }
-  }
+  });
 
-  return results;
+  const settled = await Promise.allSettled(tasks);
+  return settled.map((res, idx) => {
+    if (res.status === 'fulfilled') return res.value;
+    return {
+      platform: integrations[idx]?.platform || 'unknown',
+      success: false,
+      imported: 0,
+      updated: 0,
+      skipped: 0,
+      error: 'Task execution failed',
+      syncedAt: new Date().toISOString()
+    };
+  });
 }
